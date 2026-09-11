@@ -53,7 +53,7 @@ function checkCanWork() {
 
     // Check protocol (localhost).
     if (location.protocol === 'https:' ||
-            location.host === 'localhost' || location.host === '127.0.0.1') {
+            location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         return 'ok';
     } else {
         return 'nothttps';

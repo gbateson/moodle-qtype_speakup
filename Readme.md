@@ -62,6 +62,24 @@ are original to this project.
 
 Then run Moodle's upgrade process (Site administration > Notifications).
 
+## Building the JavaScript
+
+`amd/src/avrecording.js` is plain ES6 (import/export). Moodle does not
+transpile this on the fly - it expects a pre-built AMD `define()`-wrapped
+bundle checked into `amd/build/`. If you edit `amd/src/avrecording.js`,
+rebuild it with:
+
+    npm install
+    npm run build
+
+This regenerates `amd/build/avrecording.min.js` (+ sourcemap) via Rollup
+(see `rollup.config.mjs`). This is a lightweight standalone build step, not
+Moodle core's own Grunt/`.min.js` pipeline - it produces an equivalent
+output without requiring a full Moodle git checkout with Grunt set up, but
+if your team later adopts Moodle's own `grunt amd` workflow instead, that
+works too; just make sure `amd/build/avrecording.min.js` stays committed
+either way, since that is what Moodle actually loads at runtime.
+
 ## Authors
 
 - Gordon Bateson

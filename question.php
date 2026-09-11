@@ -55,14 +55,22 @@ class qtype_speakup_question extends question_with_responses {
 
     #[\Override]
     public function make_behaviour(question_attempt $qa, $preferredbehaviour) {
-        // Automatic grading modes can use deferred-feedback-style behaviours;
-        // manual-only mode needs manualgraded. Deciding this per-attempt
-        // (rather than always manualgraded, as recordrtc does) is one of the
-        // main behavioural differences from the OU plugin.
-        if ($this->gradingmethod === SPEAKUP_GRADING_MANUAL) {
-            return question_engine::make_behaviour('manualgraded', $qa, $preferredbehaviour);
-        }
-        return question_engine::make_behaviour($preferredbehaviour, $qa, $preferredbehaviour);
+        // Always use manualgraded, regardless of $preferredbehaviour or our
+        // own gradingmethod setting. This mirrors qtype_recordrtc, which
+        // never hands off to the quiz's configured behaviour either.
+        //
+        // Behaviours like deferredfeedback/adaptive/immediatefeedback
+        // require the question to implement question_automatically_gradable
+        // (specifically a synchronous grade_response() method), which we do
+        // not yet do - see grade_by_pattern() below, which is not currently
+        // wired into that interface. Even once SPEAKUP_GRADING_EXACT is
+        // wired up properly, SPEAKUP_GRADING_AI cannot ever be synchronous:
+        // assessment happens later, in an adhoc task, after the student has
+        // already submitted. So regardless of gradingmethod, this question
+        // is graded outside the normal engine grading flow - a human (or,
+        // later, an async regrade once AI results land) sets the grade
+        // after the fact, which is exactly what manualgraded supports.
+        return question_engine::make_behaviour('manualgraded', $qa, $preferredbehaviour);
     }
 
     #[\Override]
@@ -71,13 +79,7 @@ class qtype_speakup_question extends question_with_responses {
     }
 
     /**
-     * Get the upload file size limit that applies here.
-     *
-     * Ported from qtype_recordrtc::get_upload_size_limit() (The Open
-     * University, GPL v3+) - roughly copied from lib/form/filemanager.php.
-     *
-     * @param context $context the context we are in.
-     * @return int max size in bytes.
+     * @return int the upload file size limit that applies here.
      */
     public function get_upload_size_limit(context $context): int {
         global $CFG;
@@ -92,9 +94,52 @@ class qtype_speakup_question extends question_with_responses {
         return get_user_max_upload_file_size($context, $CFG->maxbytes, $coursebytes);
     }
 
+    /**
+     * Checks file access for a question of this type.
+     *
+     * Without this, Moodle's default question_definition::check_file_access()
+     * does not recognise our custom file areas as servable and silently
+     * refuses them (a generic "file not found" rather than a permission
+     * error, for security reasons) - this bit us for both the recorded
+     * response and the audio prompt. Ported from qtype_recordrtc's
+     * equivalent check (The Open University, GPL v3+), which authorizes
+     * exactly this 'response_recording' file area the same way; the
+     * 'qtype_speakup'/'audioprompt' branch is new here, for the optional
+     * audio prompt set on the editing form.
+     *
+     * @param question_attempt $qa the question attempt being displayed.
+     * @param question_display_options $options the options that control display of the question.
+     * @param string $component the name of the component we are serving files for.
+     * @param string $filearea the name of the file area.
+     * @param array $args the remaining bits of the file path.
+     * @param bool $forcedownload whether the user must be forced to download the file.
+     * @return bool true if the user can access this file.
+     */
+    #[\Override]
+    public function check_file_access($qa, $options, $component, $filearea,
+            $args, $forcedownload): bool {
+        if ($component === 'question' && $filearea === 'response_recording') {
+            // The student's own recorded response - always accessible to
+            // whoever can already see this question attempt.
+            return true;
+        }
+
+        if ($component === 'qtype_speakup' && $filearea === 'audioprompt') {
+            // The (optional) audio version of the question prompt, set on
+            // the editing form - part of the question content itself.
+            return true;
+        }
+
+        return parent::check_file_access($qa, $options, $component, $filearea,
+                $args, $forcedownload);
+    }
+
     #[\Override]
     public function summarise_response(array $response) {
-        if (empty($response['recording'])) {
+        // Same caveat as is_complete_response(): $response['recording'] is
+        // not guaranteed to be an object here (see the comment there).
+        if (empty($response['recording']) || !is_object($response['recording'])
+                || !method_exists($response['recording'], 'get_files')) {
             return get_string('norecording', 'qtype_speakup');
         }
         $files = $response['recording']->get_files();
@@ -106,7 +151,17 @@ class qtype_speakup_question extends question_with_responses {
 
     #[\Override]
     public function is_complete_response(array $response): bool {
-        if (empty($response['recording'])) {
+        // Note: $response['recording'] is not reliably an object with a
+        // get_files() method. In particular, qbehaviour_manualgraded's
+        // process_finish() builds $response from
+        // $this->qa->get_last_step()->get_qt_data() - a raw, previously
+        // persisted value for the field, not a freshly re-inflated file
+        // object - so it can be a plain string here. Moodle core's own
+        // qtype_essay handles this the same defensive way (checking
+        // "instanceof question_response_files" before ever calling
+        // get_files()), rather than assuming the type, so we do the same.
+        if (empty($response['recording']) || !is_object($response['recording'])
+                || !method_exists($response['recording'], 'get_files')) {
             return false;
         }
         return count($response['recording']->get_files()) > 0;

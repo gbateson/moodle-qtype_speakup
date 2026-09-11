@@ -75,10 +75,12 @@ class qtype_speakup_renderer extends qtype_renderer {
 
         if ($options->readonly) {
             // Review: read-only playback widget, no recorder controls.
+            // Note: get_response_file_url() already returns a plain string
+            // URL, not a moodle_url object - do not call ->out() on it.
             $recordingurl = $existingfile ? $qa->get_response_file_url($existingfile) : null;
             $widget = ($question->mediatype === SPEAKUP_MEDIA_VIDEO)
-                    ? new video_playback($filename, $recordingurl ? $recordingurl->out(false) : null, $candownload)
-                    : new audio_playback($filename, $recordingurl ? $recordingurl->out(false) : null, $candownload);
+                    ? new video_playback($filename, $recordingurl, $candownload)
+                    : new audio_playback($filename, $recordingurl, $candownload);
             $output .= $this->render($widget);
 
         } else {
