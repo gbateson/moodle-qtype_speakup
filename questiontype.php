@@ -43,6 +43,23 @@ define('SPEAKUP_FEEDBACK_FORMATIVE', 'formative');
 /** Feedback accompanies a final grade. */
 define('SPEAKUP_FEEDBACK_SUMMATIVE', 'summative');
 
+/** Student records audio only. */
+define('SPEAKUP_MEDIA_AUDIO', 'audio');
+/** Student records audio + webcam video, e.g. for assessing non-verbal communication too. */
+define('SPEAKUP_MEDIA_VIDEO', 'video');
+
+/**
+ * Default recorder quality/size settings.
+ *
+ * TODO: move these to an admin settings.php page (audio/video bitrate,
+ * video width/height) once the plugin has one - qtype_recordrtc exposes
+ * these as site-wide admin settings rather than hard-coded constants.
+ */
+define('SPEAKUP_AUDIO_BITRATE', 128000);
+define('SPEAKUP_VIDEO_BITRATE', 2500000);
+define('SPEAKUP_VIDEO_WIDTH', 640);
+define('SPEAKUP_VIDEO_HEIGHT', 480);
+
 class qtype_speakup extends question_type {
 
     #[\Override]
@@ -50,6 +67,7 @@ class qtype_speakup extends question_type {
         return [
             'qtype_speakup_options',
             'timelimitinseconds',
+            'mediatype',
             'gradingmethod',
             'feedbackmode',
             'airubric',

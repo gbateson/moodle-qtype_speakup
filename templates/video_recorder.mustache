@@ -1,0 +1,80 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template qtype_speakup/video_recorder
+
+    Video recorder widget. Adapted from qtype_recordrtc/video_recorder
+    (The Open University, GPL v3+): qtype_speakup always has exactly one
+    recorder per question, so there is no per-widget name parsed from a
+    question-text placeholder - "widgetname" here is just a fixed
+    accessible label.
+
+    Context variables required for this template:
+    * maxrecordingduration: Length limit (in seconds) for the recording.
+    * allowpausing: whether this question allows the recording to be paused.
+    * hasrecording: boolean - whether there is already a recording.
+    * recordingurl: the URL of that recording (empty string if none).
+    * aspectratio: '4x3' or '16x9'.
+    * width: width of the video in pixels.
+    * candownload: whether the current user should see options to download the recording.
+
+    Example context (json):
+    {
+        "filename": "recording.webm",
+        "widgetname": "Record your answer",
+        "maxrecordingduration": 60,
+        "allowpausing": false,
+        "hasrecording": false,
+        "recordingurl": "http://example.com/moodle/draftfile.php?...",
+        "aspectratio": "4x3",
+        "width": 640,
+        "candownload": true
+    }
+}}
+<span class="qtype_speakup-video-widget qtype_speakup-ratio-{{aspectratio}} d-flex flex-column mw-100"
+      style="width: {{width}}px" data-media-type="video" data-widget-name="{{widgetname}}"
+      data-error-message="{{#str}}err_compatibility, qtype_speakup{{/str}}"
+      data-state="{{^hasrecording}}new{{/hasrecording}}{{#hasrecording}}recorded{{/hasrecording}}"
+      data-max-recording-duration="{{maxrecordingduration}}" data-recording-filename="{{filename}}">
+    <span class="qtype_speakup-no-recording-placeholder mb-1 text-center{{#hasrecording}} hide{{/hasrecording}}">{{#str}}norecording, qtype_speakup{{/str}}</span>
+    <span class="qtype_speakup-media-player{{^hasrecording}} hide{{/hasrecording}}">
+        <video playsinline controls class="w-100 d-none"{{^candownload}} oncontextmenu="return false;" controlsList=" nodownload"{{/candownload}} data-source="{{recordingurl}}">
+        </video>
+    </span>
+    <span>
+        <button type="button" {{#hasrecording}}disabled {{/hasrecording}}class="qtype_speakup-main-button btn btn-secondary osep-smallbutton m-0 w-100">
+            {{! Seemingly unnecessary space inside the span is needed for screen-readers, and it must be a non-breaking space. }}
+            {{^hasrecording}}{{#str}}startcamerax, qtype_speakup, <span class="sr-only visually-hidden">&nbsp;{{widgetname}}</span>{{/str}}{{/hasrecording}}
+            {{#hasrecording}}{{#str}}recordagainx, qtype_speakup, <span class="sr-only visually-hidden">&nbsp;{{widgetname}}</span>{{/str}}{{/hasrecording}}
+        </button>
+    </span>
+    <span class="qtype_speakup-control-row w-100 hide">
+        <span class="qtype_speakup-time-left flex-grow-1 text-center position-relative">
+            {{> qtype_speakup/progress_bar }}
+        </span>
+        {{#allowpausing}}
+            <span class="qtype_speakup-pause-button hide">
+                <button type="button" data-pause="1" class="btn btn-secondary osep-smallbutton ms-1 me-0">
+                    {{#str}}pause, qtype_speakup{{/str}}
+                </button>
+            </span>
+        {{/allowpausing}}
+        <button type="button" class="qtype_speakup-stop-button btn btn-secondary osep-smallbutton ms-1 me-0">
+            {{#str}}stoprecording, qtype_speakup{{/str}}
+        </button>
+    </span>
+</span>

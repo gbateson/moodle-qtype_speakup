@@ -9,6 +9,8 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timelimitinseconds" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="60" SEQUENCE="false"/>
+        <FIELD NAME="mediatype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="audio" SEQUENCE="false"
+            COMMENT="audio or video - see SPEAKUP_MEDIA_* constants"/>
         <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"/>
         <FIELD NAME="feedbackmode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="formative" SEQUENCE="false"/>
         <FIELD NAME="airubric" TYPE="text" NOTNULL="false" SEQUENCE="false"/>

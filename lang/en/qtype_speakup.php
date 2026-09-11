@@ -32,8 +32,12 @@ $string['pluginnameediting'] = 'Editing a SpeakUp spoken response question';
 $string['pluginnamesummary'] = 'Students give a timed spoken response, assessed by exact/pattern matching, AI, or a teacher.';
 
 // Editing form.
-$string['timelimit'] = 'Response time limit';
-$string['timelimit_help'] = 'The maximum time, in seconds, the student has to record their spoken response after they start recording.';
+$string['timelimitinseconds'] = 'Response time limit';
+$string['timelimitinseconds_help'] = 'The maximum time, in seconds, the student has to record their spoken response after they start recording.';
+$string['mediatype'] = 'Response type';
+$string['mediatype_help'] = 'Audio only, or audio plus webcam video. Video lets AI assessment also consider non-verbal communication such as facial expressions and gestures, in addition to the spoken language.';
+$string['mediatype_audio'] = 'Audio only';
+$string['mediatype_video'] = 'Audio + video (webcam)';
 $string['audioprompt'] = 'Audio prompt (optional)';
 $string['audioprompt_help'] = 'An optional audio file the student hears instead of, or as well as, the written question text.';
 $string['gradingmethod'] = 'Grading method';
@@ -58,6 +62,8 @@ $string['airubric_help'] = 'Instructions sent to the AI assessment engine togeth
 $string['norecording'] = 'No recording submitted.';
 $string['recordyouranswer'] = 'Record your answer';
 $string['startrecording'] = 'Start recording';
+$string['startrecordingx'] = 'Start recording {$a}';
+$string['startcamerax'] = 'Start camera {$a}';
 $string['stoprecording'] = 'Stop recording';
 $string['timeremaining'] = 'Time remaining: {$a}';
 $string['recordingsubmitted'] = 'Recording submitted';
@@ -65,6 +71,49 @@ $string['awaitingtranscription'] = 'Your recording has been received and is bein
 $string['awaitingaiassessment'] = 'Your recording has been transcribed and sent for assessment.';
 $string['transcript'] = 'Transcript';
 $string['norecordingpermission'] = 'This browser or device could not access the microphone. Please check permissions and try again.';
+
+// Recorder widget strings (used directly by amd/src/avrecording.js via
+// M.util.get_string calls - keys and structure follow qtype_recordrtc,
+// The Open University, GPL v3+).
+$string['timedisplay'] = '{$a->mins}:{$a->secs}';
+$string['startsharescreen'] = 'Start screen recording';
+$string['recordagainx'] = 'Re-record {$a}';
+$string['uploadpreparing'] = 'Preparing upload ...';
+$string['uploadpreparingpercent'] = 'Preparing upload ({$a}%)';
+$string['uploadprogress'] = 'Uploading ({$a})';
+$string['uploadcomplete'] = 'Recording uploaded';
+$string['uploadfailed'] = 'Upload failed';
+$string['uploadfailed404'] = 'Upload failed (file too big?)';
+$string['uploadaborted'] = 'Saving aborted';
+$string['recordingfailed'] = 'Recording failed';
+$string['pause'] = 'Pause';
+$string['resume'] = 'Resume';
+$string['recordagain'] = 'Re-record';
+$string['nearingmaxsize'] = 'You have attained the maximum size limit for file uploads';
+$string['nearingmaxsize_title'] = 'Recording stopped';
+$string['gumabort'] = 'Something strange happened which prevented the webcam/microphone from being used';
+$string['gumabort_title'] = 'Something happened';
+$string['gumnotallowed'] = 'You must allow the browser access to the webcam/microphone';
+$string['gumnotallowed_title'] = 'Wrong permissions';
+$string['gumnotfound'] = 'There is no input device connected or enabled';
+$string['gumnotfound_title'] = 'Device missing';
+$string['gumnotreadable'] = 'Something is preventing the browser from accessing the webcam/microphone';
+$string['gumnotreadable_title'] = 'Hardware error';
+$string['gumnotsupported'] = 'Your browser does not support recording over an insecure connection and must close the plugin';
+$string['gumnotsupported_title'] = 'No support for insecure connection';
+$string['gumoverconstrained'] = 'The current webcam/microphone can not produce a stream with the required constraints';
+$string['gumoverconstrained_title'] = 'Problem with constraints';
+$string['gumsecurity'] = 'Your browser does not support recording over an insecure connection and must close the plugin';
+$string['gumsecurity_title'] = 'No support for insecure connection';
+$string['gumtype'] = 'Tried to get stream from the webcam/microphone, but no constraints were specified';
+$string['gumtype_title'] = 'No constraints specified';
+$string['nowebrtc'] = 'Your browser offers limited or no support for WebRTC technologies yet, and cannot be used with this type of question. Please switch or upgrade your browser.';
+$string['nowebrtctitle'] = 'WebRTC not supported';
+$string['insecurewarning'] = 'Your browser will not allow this plugin to work unless it is used over HTTPS.';
+$string['insecurewarningtitle'] = 'Insecure connection';
+$string['err_compatibility'] = 'While iOS/iPadOS devices can record video files in open formats, they cannot currently play them back. Until Apple fix this, you will have to use another device to view this video.';
+$string['downloadrecording'] = 'Download {$a}';
+$string['speakup:downloadrecordings'] = 'Download recordings';
 
 // Privacy.
 $string['privacy:metadata:speakup_response'] = 'Information about a student\'s spoken response to a SpeakUp question.';

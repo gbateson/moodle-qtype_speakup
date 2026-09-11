@@ -28,44 +28,70 @@ class qtype_speakup_edit_form extends question_edit_form {
 
     #[\Override]
     protected function definition_inner($mform) {
-        $mform->addElement('duration', 'timelimitinseconds', get_string('timelimit', 'qtype_speakup'));
-        $mform->addHelpButton('timelimitinseconds', 'timelimit', 'qtype_speakup');
-        $mform->setDefault('timelimitinseconds', 60);
-        $mform->addRule('timelimitinseconds', null, 'required', null, 'client');
+        $plugin = 'qtype_speakup';
 
-        $mform->addElement('filemanager', 'audioprompt', get_string('audioprompt', 'qtype_speakup'), null, [
+        $name = 'timelimitinseconds';
+        $label = get_string($name, $plugin);
+        $mform->addElement('duration', $name, $label);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 60);
+        //$mform->addRule($name, null, 'required', null, 'client');
+
+        $name = 'mediatype';
+        $label = get_string($name, $plugin);
+        $options = [
+            SPEAKUP_MEDIA_AUDIO => get_string('mediatype_audio', $plugin),
+            SPEAKUP_MEDIA_VIDEO => get_string('mediatype_video', $plugin),
+        ];
+        $mform->addElement('select', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, SPEAKUP_MEDIA_AUDIO);
+
+        $name = 'audioprompt';
+        $label = get_string($name, $plugin);
+        $options = [
             'subdirs' => 0,
             'maxfiles' => 1,
             'accepted_types' => ['audio'],
-        ]);
-        $mform->addHelpButton('audioprompt', 'audioprompt', 'qtype_speakup');
+        ];
+        $mform->addElement('filemanager', $name, $label, null, $options);
+        $mform->addHelpButton($name, $name, $plugin);
 
-        $mform->addElement('select', 'gradingmethod', get_string('gradingmethod', 'qtype_speakup'), [
-            SPEAKUP_GRADING_EXACT  => get_string('gradingmethod_exact', 'qtype_speakup'),
-            SPEAKUP_GRADING_AI     => get_string('gradingmethod_ai', 'qtype_speakup'),
-            SPEAKUP_GRADING_MANUAL => get_string('gradingmethod_manual', 'qtype_speakup'),
-        ]);
-        $mform->addHelpButton('gradingmethod', 'gradingmethod', 'qtype_speakup');
+        $name = 'gradingmethod';
+        $label = get_string($name, $plugin);
+        $options = [
+            SPEAKUP_GRADING_EXACT  => get_string('gradingmethod_exact', $plugin),
+            SPEAKUP_GRADING_AI     => get_string('gradingmethod_ai', $plugin),
+            SPEAKUP_GRADING_MANUAL => get_string('gradingmethod_manual', $plugin),
+        ];
+        $mform->addElement('select', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, SPEAKUP_GRADING_EXACT);
 
-        $mform->addElement('select', 'feedbackmode', get_string('feedbackmode', 'qtype_speakup'), [
-            SPEAKUP_FEEDBACK_FORMATIVE => get_string('feedbackmode_formative', 'qtype_speakup'),
-            SPEAKUP_FEEDBACK_SUMMATIVE => get_string('feedbackmode_summative', 'qtype_speakup'),
-        ]);
-        $mform->addHelpButton('feedbackmode', 'feedbackmode', 'qtype_speakup');
+        $name = 'feedbackmode';
+        $label = get_string($name, $plugin);
+        $options = [
+            SPEAKUP_FEEDBACK_FORMATIVE => get_string('feedbackmode_formative', $plugin),
+            SPEAKUP_FEEDBACK_SUMMATIVE => get_string('feedbackmode_summative', $plugin),
+        ];
+        $mform->addElement('select', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
 
         // Pattern-matching fields, shown only when gradingmethod = exact.
-        $mform->addElement('textarea', 'expectedanswers', get_string('expectedanswers', 'qtype_speakup'),
-                ['rows' => 6, 'class' => 'form-control']);
-        $mform->addHelpButton('expectedanswers', 'expectedanswers', 'qtype_speakup');
-        $mform->hideIf('expectedanswers', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
-        $mform->hideIf('expectedanswers[helpicon]', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+        $name = 'expectedanswers';
+        $label = get_string($name, $plugin);
+        $options = ['rows' => 6];
+        $mform->addElement('textarea', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
 
         // AI rubric field, shown only when gradingmethod = ai.
-        $mform->addElement('textarea', 'airubric', get_string('airubric', 'qtype_speakup'),
-                ['rows' => 6, 'class' => 'form-control']);
-        $mform->addHelpButton('airubric', 'airubric', 'qtype_speakup');
-        $mform->hideIf('airubric', 'gradingmethod', 'neq', SPEAKUP_GRADING_AI);
-        $mform->hideIf('airubric[helpicon]', 'gradingmethod', 'neq', SPEAKUP_GRADING_AI);
+        $name = 'airubric';
+        $label = get_string($name, $plugin);
+        $options = ['rows' => 6];
+        $mform->addElement('textarea', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AI);
     }
 
     #[\Override]

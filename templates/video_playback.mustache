@@ -1,0 +1,61 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template qtype_speakup/video_playback
+
+    Display the recorded video for playback when the question is being
+    reviewed (readonly). Ported unmodified in structure from
+    qtype_recordrtc/video_playback, The Open University, GPL v3+.
+
+    Context variables required for this template:
+    * hasrecording: true if there is a recording.
+    * filename: The filename to use for downloading the video.
+    * recordingurl: The URL of the recording.
+    * aspectratio: '4x3' or '16x9'.
+    * width: width of the video in pixels.
+    * candownload: whether the current user should see options to download the recording.
+
+    Example context (json):
+    {
+        "hasrecording": true,
+        "filename": "recording.webm",
+        "recordingurl": "http://example.com/moodle/pluginfile.php?...",
+        "aspectratio": "4x3",
+        "width": 640,
+        "candownload": true
+    }
+}}
+<span class="qtype_speakup-video-widget qtype_speakup-ratio-{{aspectratio}} d-flex flex-column mw-100"
+        style="width: {{width}}px" data-error-message="{{#str}}err_compatibility, qtype_speakup{{/str}}">
+    {{#hasrecording}}
+        <span class="qtype_speakup-media-player">
+            <video controls class="w-100 d-none"{{^candownload}} oncontextmenu="return false;" controlsList=" nodownload"{{/candownload}}
+                   data-source="{{recordingurl}}">
+            </video>
+        </span>
+        {{#candownload}}
+            <a href="{{recordingurl}}" class="qtype_speakup-download-icon align-middle">
+                {{#pix}}f/video, core, {{#str}}downloadrecording, qtype_speakup, {{filename}}{{/str}}{{/pix}}
+            </a>
+        {{/candownload}}
+    {{/hasrecording}}
+    {{^hasrecording}}
+        <span class="qtype_speakup-no-recording-placeholder flex-grow-1 text-center">
+            {{#str}}norecording, qtype_speakup{{/str}}
+        </span>
+    {{/hasrecording}}
+</span>

@@ -38,6 +38,9 @@ class qtype_speakup_question extends question_with_responses {
     /** @var string one of SPEAKUP_GRADING_EXACT / SPEAKUP_GRADING_AI / SPEAKUP_GRADING_MANUAL. */
     public $gradingmethod;
 
+    /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
+    public $mediatype;
+
     /** @var string one of SPEAKUP_FEEDBACK_FORMATIVE / SPEAKUP_FEEDBACK_SUMMATIVE. */
     public $feedbackmode;
 
@@ -67,6 +70,28 @@ class qtype_speakup_question extends question_with_responses {
         return ['recording' => question_attempt::PARAM_FILES];
     }
 
+    /**
+     * Get the upload file size limit that applies here.
+     *
+     * Ported from qtype_recordrtc::get_upload_size_limit() (The Open
+     * University, GPL v3+) - roughly copied from lib/form/filemanager.php.
+     *
+     * @param context $context the context we are in.
+     * @return int max size in bytes.
+     */
+    public function get_upload_size_limit(context $context): int {
+        global $CFG;
+
+        // Get the course file size limit.
+        $coursebytes = 0;
+        [$context, $course] = get_context_info_array($context->id);
+        if (is_object($course)) {
+            $coursebytes = $course->maxbytes;
+        }
+
+        return get_user_max_upload_file_size($context, $CFG->maxbytes, $coursebytes);
+    }
+
     #[\Override]
     public function summarise_response(array $response) {
         if (empty($response['recording'])) {
@@ -92,7 +117,21 @@ class qtype_speakup_question extends question_with_responses {
         return $this->is_complete_response($response);
     }
 
-    #[\Override]
+    /**
+     * Return an error to display under the response if it is not valid.
+     *
+     * Unlike is_complete_response() and is_gradable_response(), this is not
+     * declared on question_definition/question_with_responses - it comes
+     * from the question_automatically_gradable interface, which this class
+     * does not implement. It is still called directly by the recorder
+     * renderer/JS to show a validation message before submission, so it is
+     * kept here as a plain (non-overriding) helper method.
+     *
+     * @param array $response responses, as returned by
+     *      {@see question_attempt_step::get_qt_data()}.
+     * @return string the message to display, or an empty string if the
+     *      response is already complete (see is_complete_response()).
+     */
     public function get_validation_error(array $response) {
         if (!$this->is_complete_response($response)) {
             return get_string('norecording', 'qtype_speakup');

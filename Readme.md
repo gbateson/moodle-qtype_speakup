@@ -25,16 +25,25 @@ are original to this project.
 
 ## Architecture
 
-- **Recording**: browser MediaRecorder API (`amd/src/`, adapted from recordrtc) captures
-  audio client-side, uploads via the standard Moodle draft-file-area mechanism.
+- **Recording**: browser MediaRecorder API (`amd/src/`, based on qtype_recordrtc)
+  captures audio, or audio+video, client-side depending on the question's
+  `mediatype` setting, and uploads via the standard Moodle draft-file-area
+  mechanism. Unlike our original plan, we are keeping recordrtc's video and
+  screen-recording code rather than stripping it to audio-only, since a
+  planned use case is AI assessment of non-verbal communication (facial
+  expression, gesture) alongside spoken language.
 - **Storage**: recordings are stored as Moodle files against the question
   attempt, same pattern as any file-upload question type.
 - **Transcription + AI assessment**: run asynchronously via a Moodle adhoc
   task (`classes/task/assess_response.php`), never inline in the request that
   handles the student's submission. Results are written to
-  `qtype_speakup_response` and picked up on next view/regrade.
+  `qtype_speakup_response` and picked up on next view/regrade. Video
+  assessment (frames/clip sent to a multimodal model) is a distinct pipeline
+  from audio transcription+text assessment and is not yet designed in detail.
 - **Grading modes**: `SPEAKUP_GRADING_EXACT`, `SPEAKUP_GRADING_AI`,
   `SPEAKUP_GRADING_MANUAL`, set per question in `qtype_speakup_options`.
+- **Media type**: `SPEAKUP_MEDIA_AUDIO` or `SPEAKUP_MEDIA_VIDEO`, also set per
+  question in `qtype_speakup_options`.
 
 ## Roadmap
 
