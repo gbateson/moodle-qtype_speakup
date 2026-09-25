@@ -12,8 +12,14 @@
         <FIELD NAME="mediatype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="audio" SEQUENCE="false"
             COMMENT="audio or video - see SPEAKUP_MEDIA_* constants"/>
         <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"/>
+        <FIELD NAME="sttlanguage" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="en-US" SEQUENCE="false"
+            COMMENT="BCP-47 language tag used for live browser speech recognition, e.g. en-US, ja-JP"/>
+        <FIELD NAME="allowpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Whether the student may pause/resume mid-recording. Off by default."/>
         <FIELD NAME="feedbackmode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="formative" SEQUENCE="false"/>
         <FIELD NAME="airubric" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="aiproviderid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="FK to qtype_speakup_ai_providers.id - which admin-configured AI provider to use for AI assessment, if gradingmethod involves AI."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -27,6 +33,9 @@
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="answertext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="isregex" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="weight" TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false"
+            COMMENT="Percent (0-100) of the pattern-matching grade this phrase contributes if matched. Matched phrases add up, capped at 100%."/>
+        <FIELD NAME="casesensitive" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -51,6 +60,43 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="questionattemptid" TYPE="foreign-unique" FIELDS="questionattemptid" REFTABLE="question_attempts" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <TABLE NAME="qtype_speakup_ai_providers" COMMENT="Admin-configured AI providers, selectable per question. Credentials live here (admin-only), never on individual questions.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Display name shown to teachers in the question-editing form, e.g. 'OpenAI GPT-4o'."/>
+        <FIELD NAME="providertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="external" SEQUENCE="false"
+            COMMENT="'core' (Moodle's own AI subsystem) or 'external' (arbitrary REST API)."/>
+        <FIELD NAME="capability" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="text" SEQUENCE="false"
+            COMMENT="'text' or 'multimodal'. Always 'text' for providertype=core, since core's generate_text action cannot accept files."/>
+        <FIELD NAME="corename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=core: the specific core AI provider plugin name (e.g. aiprovider_openai), or blank for 'any available'."/>
+        <FIELD NAME="url" TYPE="char" LENGTH="1333" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: the API endpoint URL."/>
+        <FIELD NAME="username" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: optional username, for APIs that need one alongside the key."/>
+        <FIELD NAME="apikey" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: the API key/secret. Admin-only - never exposed to the question-editing form."/>
+        <FIELD NAME="headers" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: extra HTTP headers as JSON, e.g. {&quot;Authorization&quot;:&quot;Bearer ...&quot;}."/>
+        <FIELD NAME="model" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: model identifier to include in the request, if applicable."/>
+        <FIELD NAME="returnpath" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: comma-separated key path to extract the answer from the JSON response, e.g. 'choices,0,message,content'."/>
+        <FIELD NAME="requesttemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For providertype=external: JSON request body template, with tokens {{RUBRIC}}, {{TRANSCRIPT}}, {{AUDIO_BASE64}}, {{AUDIO_MIMETYPE}} substituted at call time. Lets each provider's own request shape be configured without hard-coding any one vendor's API."/>
+        <FIELD NAME="uploadstyle" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false"
+            COMMENT="For providertype=external + capability=multimodal: how the audio/video file is sent - 'inline_base64' or 'upload_reference'. 'none' for text-only providers."/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
     </TABLE>
   </TABLES>

@@ -40,4 +40,15 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+
+    // Manage the site-wide AI provider list (URLs, API keys, etc). Deliberately
+    // restricted - this page handles credentials, not just question content.
+    'qtype/speakup:manageaiproviders' => [
+        'riskbitmask' => RISK_CONFIG | RISK_PERSONAL,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

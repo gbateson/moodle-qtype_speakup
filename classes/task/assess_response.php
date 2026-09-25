@@ -16,14 +16,21 @@
 
 namespace qtype_speakup\task;
 
+use qtype_speakup\ai_caller;
+use qtype_speakup\ai_provider;
+
 /**
- * Adhoc task: transcribe a submitted recording, then (if the question uses
- * AI grading) send the transcript to an AI assessment engine, and store the
- * result so it can be picked up next time the attempt is graded/rendered.
+ * Adhoc task: assess one SpeakUp question's response with AI, then post the
+ * result the same way a human teacher's manual grade is posted.
  *
- * This runs via cron rather than inline in the web request, because both
- * transcription and AI assessment calls are slow and can fail transiently -
- * they should never block the student's submit action.
+ * Queued by \qtype_speakup\observer::quiz_attempt_submitted() - runs via
+ * cron rather than inline in the submit request, since an AI provider call
+ * is slow and can fail transiently; it should never block the student's
+ * submit action.
+ *
+ * custom_data required: usageid, slot (identify the question_attempt to
+ * assess), userid and contextid (passed through to the core AI subsystem,
+ * if that is the configured provider type).
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -36,79 +43,114 @@ class assess_response extends \core\task\adhoc_task {
         global $DB;
 
         $data = $this->get_custom_data();
-        $questionattemptid = $data->questionattemptid;
-        $fileid = $data->fileid;
+        $usageid = $data->usageid;
+        $slot = $data->slot;
 
-        $record = $DB->get_record('qtype_speakup_response', ['questionattemptid' => $questionattemptid]);
+        $quba = \question_engine::load_questions_usage_by_activity($usageid);
+        $qa = $quba->get_question_attempt($slot);
+        /** @var \qtype_speakup_question $question */
+        $question = $quba->get_question($slot);
+
+        if (!($question instanceof \qtype_speakup_question) || $question->gradingmethod !== \SPEAKUP_GRADING_AI) {
+            // Question was changed (e.g. gradingmethod edited) since this
+            // task was queued - nothing to do.
+            mtrace('qtype_speakup: question at usage ' . $usageid . ' slot ' . $slot .
+                    ' is no longer an AI-graded SpeakUp question, skipping.');
+            return;
+        }
+
+        $qadatabaseid = $qa->get_database_id();
+        $record = $DB->get_record('qtype_speakup_response', ['questionattemptid' => $qadatabaseid]);
         if (!$record) {
-            mtrace("qtype_speakup: no response row for question_attempt $questionattemptid, skipping.");
-            return;
+            $record = new \stdClass();
+            $record->questionattemptid = $qadatabaseid;
+            $record->timecreated = time();
+            $record->timemodified = $record->timecreated;
+            $record->id = $DB->insert_record('qtype_speakup_response', $record);
         }
 
-        // Step 1: transcription. Swap in a real provider here (e.g. Whisper
-        // API, or a self-hosted whisper.cpp endpoint for institutions with
-        // data-residency requirements).
+        $success = false;
         try {
-            $transcript = $this->transcribe(\get_file_storage()->get_file_by_id($fileid));
-            $record->transcript = $transcript;
-            $record->transcriptstatus = 'done';
-        } catch (\Throwable $e) {
-            mtrace('qtype_speakup: transcription failed: ' . $e->getMessage());
-            $record->transcriptstatus = 'failed';
-            $record->timemodified = time();
-            $DB->update_record('qtype_speakup_response', $record);
-            return;
-        }
-
-        // Step 2: AI assessment, only if this question is configured for it.
-        if (!empty($data->gradingmethod) && $data->gradingmethod === \SPEAKUP_GRADING_AI) {
-            try {
-                [$score, $feedback] = $this->assess(
-                    $record->transcript,
-                    $data->airubric ?? ''
-                );
-                $record->aiscore = $score;
-                $record->aifeedback = $feedback;
-                $record->aistatus = 'done';
-            } catch (\Throwable $e) {
-                mtrace('qtype_speakup: AI assessment failed: ' . $e->getMessage());
-                $record->aistatus = 'failed';
+            $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
+            if (!$provider) {
+                throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
             }
-        } else {
-            $record->aistatus = 'notapplicable';
+
+            $transcript = (string) $qa->get_last_qt_var('browsertranscript', '');
+            $file = null;
+            if ($provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
+                $files = $qa->get_last_qt_files('recording', $data->contextid);
+                $file = reset($files) ?: null;
+            }
+
+            [$fraction, $feedback] = ai_caller::assess(
+                    $provider, (int) $data->contextid, (int) $data->userid,
+                    (string) $question->airubric, $transcript, $file);
+
+            $record->transcript = $transcript;
+            $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';
+            $record->aifeedback = $feedback;
+            $record->aiscore = $fraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
+            $record->aistatus = 'done';
+            $success = true;
+
+        } catch (\Throwable $e) {
+            // Any failure here (missing/misconfigured provider, network
+            // error, unparseable AI response, etc.) leaves this question
+            // on manual grading rather than propagating the error - the
+            // renderer shows an explicit "AI assessment failed" message
+            // by checking $record->aistatus directly (see renderer.php).
+            mtrace('qtype_speakup: AI assessment failed for usage ' . $usageid . ' slot ' . $slot .
+                    ': ' . $e->getMessage());
+            $record->aistatus = 'failed';
         }
 
         $record->timemodified = time();
         $DB->update_record('qtype_speakup_response', $record);
 
-        // TODO: once the grade/feedback is available, this should trigger
-        // updating the question_attempt / question_usage grade, e.g. via
-        // question_engine::load_questions_usage_by_activity() + regrade,
-        // or by marking the attempt as needing regrading on next view.
-    }
+        if ($success) {
+            // Post the AI's result the same way a human teacher's grading
+            // action would - manual_grade() works via process_action(),
+            // the same mechanism the grading UI itself uses, so a teacher
+            // can subsequently override it in the completely ordinary way,
+            // with full grading history. This sidesteps a real limitation
+            // of grade_response(): it is only ever given $response, never
+            // the question_attempt itself or its database id, so it has
+            // no way to look up a per-attempt stored AI result - posting
+            // via manual_grade() here, where $qa is directly available,
+            // avoids needing that at all.
+            $qa->manual_grade($record->aifeedback, $fraction * $qa->get_max_mark(), FORMAT_PLAIN, time());
+            \question_engine::save_questions_usage_by_activity($quba);
 
-    /**
-     * Transcribe an audio file to text. Placeholder - wire up a real
-     * transcription provider (Whisper API / self-hosted whisper.cpp / etc).
-     *
-     * @param \stored_file $file
-     * @return string
-     */
-    protected function transcribe(\stored_file $file): string {
-        throw new \coding_exception('transcribe() is not implemented yet - configure a transcription provider.');
-    }
-
-    /**
-     * Send a transcript + rubric to the configured AI assessment engine.
-     * Placeholder - wire up a real provider behind a pluggable interface
-     * (see \qtype_speakup\ai\assessor_interface, to be added) so
-     * institutions can choose their own backend.
-     *
-     * @param string $transcript
-     * @param string $rubric
-     * @return array [float $score 0..1, string $feedbackhtml]
-     */
-    protected function assess(string $transcript, string $rubric): array {
-        throw new \coding_exception('assess() is not implemented yet - configure an AI assessment provider.');
+            // manual_grade() only updates the question engine's own data
+            // (the per-question mark, visible immediately) - it does NOT
+            // touch mod_quiz's own separate, cached attempt-level and
+            // gradebook-facing totals (quiz_attempts.sumgrades, and the
+            // grade shown in the gradebook). Those are normally kept in
+            // sync by mod_quiz's own code paths (e.g. the manual-grading
+            // comment form, or the student finishing their attempt) -
+            // since we are updating a grade from a background task,
+            // bypassing all of that, we need to explicitly ask mod_quiz to
+            // resync them, via its own public grade_calculator class.
+            $attemptrecord = $DB->get_record('quiz_attempts', ['uniqueid' => $usageid]);
+            if ($attemptrecord) {
+                $quizobj = \mod_quiz\quiz_settings::create((int) $attemptrecord->quiz);
+                $gradecalculator = $quizobj->get_grade_calculator();
+                $gradecalculator->recompute_all_attempt_sumgrades();
+                $gradecalculator->recompute_final_grade((int) $attemptrecord->userid);
+            } else {
+                // Not actually a quiz attempt (shouldn't happen given this
+                // task is only ever queued from the quiz observer, but
+                // defend against it rather than fatal-erroring here).
+                mtrace('qtype_speakup: no quiz_attempts row found for usage ' . $usageid .
+                        ' - skipping quiz grade resync.');
+            }
+        }
+        // On failure, deliberately leave the attempt exactly as it was
+        // (still "not yet graded", via manualgraded behaviour) - the
+        // renderer shows an explicit "AI assessment failed" message by
+        // checking $record->aistatus directly, and a teacher can grade it
+        // manually like any other manualgraded question. No regrade is
+        // needed for that to work correctly.
     }
 }

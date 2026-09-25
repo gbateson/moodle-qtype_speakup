@@ -23,6 +23,17 @@
  * assessment engine (via an adhoc task, since it is not instantaneous), or
  * manual grading only.
  *
+ * Extends question_graded_automatically (rather than question_with_responses
+ * directly) so that SPEAKUP_GRADING_EXACT can produce a real automatic
+ * grade via grade_response() below - that base class already implements
+ * question_automatically_gradable's get_hint()/get_right_answer_summary(),
+ * and inherits classify_response()/un_summarise_response() from
+ * question_with_responses, so grade_response() is the only genuinely new
+ * method this class needs to add. Modelled on qtype_essayautograde, which
+ * uses this same "one grade_response() serves both automatic and manual
+ * modes" pattern to add automatic grading on top of a normally
+ * manually-graded question type.
+ *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -30,7 +41,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-class qtype_speakup_question extends question_with_responses {
+class qtype_speakup_question extends question_graded_automatically {
 
     /** @var int time limit in seconds for the recording. */
     public $timelimitinseconds;
@@ -41,11 +52,20 @@ class qtype_speakup_question extends question_with_responses {
     /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
     public $mediatype;
 
+    /** @var string BCP-47 language tag for live browser speech recognition, e.g. 'en-US'. */
+    public $sttlanguage;
+
+    /** @var bool whether the student may pause/resume mid-recording. */
+    public $allowpause;
+
     /** @var string one of SPEAKUP_FEEDBACK_FORMATIVE / SPEAKUP_FEEDBACK_SUMMATIVE. */
     public $feedbackmode;
 
     /** @var string instructions sent to the AI assessment engine, if used. */
     public $airubric;
+
+    /** @var int|null id of the qtype_speakup_ai_providers row to use for AI assessment, if any. */
+    public $aiproviderid;
 
     /** @var stdClass[] expected answers/regexes, each with ->answertext and ->isregex. */
     public $expectedanswers = [];
@@ -55,27 +75,43 @@ class qtype_speakup_question extends question_with_responses {
 
     #[\Override]
     public function make_behaviour(question_attempt $qa, $preferredbehaviour) {
-        // Always use manualgraded, regardless of $preferredbehaviour or our
-        // own gradingmethod setting. This mirrors qtype_recordrtc, which
-        // never hands off to the quiz's configured behaviour either.
-        //
-        // Behaviours like deferredfeedback/adaptive/immediatefeedback
-        // require the question to implement question_automatically_gradable
-        // (specifically a synchronous grade_response() method), which we do
-        // not yet do - see grade_by_pattern() below, which is not currently
-        // wired into that interface. Even once SPEAKUP_GRADING_EXACT is
-        // wired up properly, SPEAKUP_GRADING_AI cannot ever be synchronous:
-        // assessment happens later, in an adhoc task, after the student has
-        // already submitted. So regardless of gradingmethod, this question
-        // is graded outside the normal engine grading flow - a human (or,
-        // later, an async regrade once AI results land) sets the grade
-        // after the fact, which is exactly what manualgraded supports.
+        if ($this->gradingmethod === SPEAKUP_GRADING_EXACT) {
+            // Automatic grading via grade_response() below (weighted
+            // phrase matching against the live browser transcript).
+            // make_archetypal_behaviour() (rather than a hardcoded
+            // 'deferredfeedback') respects whatever behaviour the quiz is
+            // actually configured with - matching both
+            // qtype_essayautograde's own approach and core's own
+            // question_graded_automatically_with_countback::make_behaviour().
+            return question_engine::make_archetypal_behaviour($preferredbehaviour, $qa);
+        }
+
+        // SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI both stay on
+        // manualgraded. For AI mode this is deliberate, not a limitation:
+        // grade_response() only ever receives $response (the submitted
+        // qt_data), never the question_attempt itself or its database id,
+        // so it has no way to look up a per-attempt stored AI result at
+        // regrade time. Instead, once the async AI call completes (see
+        // classes/task/assess_response.php), the result is posted via
+        // question_attempt::manual_grade() - the exact same mechanism a
+        // human teacher's grading action uses - which needs no special
+        // support from grade_response() at all, and gives a teacher
+        // full, ordinary override capability on top of it for free.
         return question_engine::make_behaviour('manualgraded', $qa, $preferredbehaviour);
     }
 
     #[\Override]
     public function get_expected_data(): array {
-        return ['recording' => question_attempt::PARAM_FILES];
+        return [
+            'recording' => question_attempt::PARAM_FILES,
+            // Live transcript captured client-side by the browser's own
+            // speech recognition, if available (see amd/src/speechrecognition.js).
+            // Silently empty if the browser/language is unsupported - this
+            // never blocks a submission, it only affects whether a
+            // pattern-matching suggestion can be computed (see
+            // grade_transcript() below).
+            'browsertranscript' => PARAM_RAW,
+        ];
     }
 
     /**
@@ -138,15 +174,20 @@ class qtype_speakup_question extends question_with_responses {
     public function summarise_response(array $response) {
         // Same caveat as is_complete_response(): $response['recording'] is
         // not guaranteed to be an object here (see the comment there).
-        if (empty($response['recording']) || !is_object($response['recording'])
-                || !method_exists($response['recording'], 'get_files')) {
+        if (empty($response['recording'])) {
             return get_string('norecording', 'qtype_speakup');
         }
-        $files = $response['recording']->get_files();
-        foreach ($files as $file) {
-            return s($file->get_filename());
+        if (is_object($response['recording']) && method_exists($response['recording'], 'get_files')) {
+            $files = $response['recording']->get_files();
+            foreach ($files as $file) {
+                return s($file->get_filename());
+            }
+            return get_string('norecording', 'qtype_speakup');
         }
-        return get_string('norecording', 'qtype_speakup');
+        // Non-empty but not a file-like object - a real recording exists
+        // (see is_complete_response()) but we can't cheaply get its actual
+        // filename from this raw value, so fall back to a generic label.
+        return get_string('recordingsubmitted', 'qtype_speakup');
     }
 
     #[\Override]
@@ -160,11 +201,21 @@ class qtype_speakup_question extends question_with_responses {
         // qtype_essay handles this the same defensive way (checking
         // "instanceof question_response_files" before ever calling
         // get_files()), rather than assuming the type, so we do the same.
-        if (empty($response['recording']) || !is_object($response['recording'])
-                || !method_exists($response['recording'], 'get_files')) {
+        if (empty($response['recording'])) {
             return false;
         }
-        return count($response['recording']->get_files()) > 0;
+        if (is_object($response['recording']) && method_exists($response['recording'], 'get_files')) {
+            return count($response['recording']->get_files()) > 0;
+        }
+        // A non-empty value that isn't a file-like object still indicates
+        // a previously-saved recording: Moodle only ever stores a
+        // non-empty value here if files were genuinely associated with
+        // this response when it was saved. Treating this as "incomplete"
+        // (as an earlier version of this method did) caused real,
+        // successfully recorded responses to be marked "not answered" at
+        // finish time - a worse bug than the crash this guard originally
+        // fixed.
+        return true;
     }
 
     #[\Override]
@@ -175,18 +226,17 @@ class qtype_speakup_question extends question_with_responses {
     /**
      * Return an error to display under the response if it is not valid.
      *
-     * Unlike is_complete_response() and is_gradable_response(), this is not
-     * declared on question_definition/question_with_responses - it comes
-     * from the question_automatically_gradable interface, which this class
-     * does not implement. It is still called directly by the recorder
-     * renderer/JS to show a validation message before submission, so it is
-     * kept here as a plain (non-overriding) helper method.
+     * Now genuinely part of the question_automatically_gradable interface
+     * contract (inherited via question_graded_automatically), unlike
+     * earlier when this class extended question_with_responses directly
+     * and this was just a plain helper with no matching ancestor.
      *
      * @param array $response responses, as returned by
      *      {@see question_attempt_step::get_qt_data()}.
      * @return string the message to display, or an empty string if the
      *      response is already complete (see is_complete_response()).
      */
+    #[\Override]
     public function get_validation_error(array $response) {
         if (!$this->is_complete_response($response)) {
             return get_string('norecording', 'qtype_speakup');
@@ -207,12 +257,77 @@ class qtype_speakup_question extends question_with_responses {
     }
 
     /**
-     * Entry point called (typically from a renderer or a scheduled task) once
-     * a transcript is available, to actually compute a grade/feedback.
+     * Grade a response to the question. Required by the
+     * question_automatically_gradable interface (inherited via
+     * question_graded_automatically).
      *
-     * For SPEAKUP_GRADING_AI this would normally be invoked from
-     * \qtype_speakup\task\assess_response after the async AI call returns,
-     * rather than synchronously during grading().
+     * Only ever actually produces an automatic grade for
+     * SPEAKUP_GRADING_EXACT - see make_behaviour() above for why
+     * SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI never reach here via
+     * the normal grading flow (they stay on manualgraded behaviour), but
+     * this method still needs to handle being called for them defensively
+     * (e.g. if a regrade is attempted after a gradingmethod change), in
+     * which case it defers to manual grading rather than fabricating a
+     * grade for a mode that has none yet.
+     *
+     * @param array $response responses, as returned by
+     *      {@see question_attempt_step::get_qt_data()}.
+     * @return array (float|null $fraction, question_state $state).
+     */
+    /**
+     * Grade a response to the question. Required by the
+     * question_automatically_gradable interface (inherited via
+     * question_graded_automatically).
+     *
+     * Only ever actually produces an automatic grade for
+     * SPEAKUP_GRADING_EXACT - see make_behaviour() above for why
+     * SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI never reach here via
+     * the normal grading flow (they stay on manualgraded behaviour), but
+     * this method still needs to handle being called for them defensively
+     * (e.g. if a regrade is attempted after a gradingmethod change), in
+     * which case it defers to manual grading rather than fabricating a
+     * grade for a mode that has none yet.
+     *
+     * @param array $response responses, as returned by
+     *      {@see question_attempt_step::get_qt_data()}.
+     * @return array (float|null $fraction, question_state $state).
+     */
+    #[\Override]
+    public function grade_response(array $response): array {
+        if ($this->gradingmethod === SPEAKUP_GRADING_EXACT) {
+            $transcript = (string) ($response['browsertranscript'] ?? '');
+            [$fraction, ] = $this->grade_by_pattern($transcript);
+            if ($fraction !== null) {
+                return [$fraction, question_state::graded_state_for_fraction($fraction)];
+            }
+            // No live transcript was captured (unsupported browser/
+            // language) - nothing to auto-grade from, so fall through to
+            // manual grading below rather than fabricating a fraction.
+        }
+
+        return [null, question_state::manually_graded_state_for_fraction(null)];
+    }
+
+    /**
+     * Entry point called (typically from the renderer, during review) once
+     * a transcript is available, to compute a suggested grade/feedback for
+     * display purposes.
+     *
+     * For SPEAKUP_GRADING_EXACT, this now doubles as the actual official
+     * grading logic too, via grade_response() above - they deliberately
+     * share grade_by_pattern() so the number shown to a student/teacher as
+     * a "suggestion" is always identical to what the grade actually is.
+     *
+     * The transcript passed in is normally the student's browser-captured
+     * live transcript (qt_data field 'browsertranscript', from
+     * amd/src/speechrecognition.js) - instant, client-side, no server
+     * call. If the student's browser/language did not support live
+     * transcription, that field is simply empty and the caller should
+     * treat this as "no suggestion available", not an error.
+     *
+     * For SPEAKUP_GRADING_AI this would normally be invoked (from
+     * \qtype_speakup\task\assess_response) once the async AI call returns,
+     * using the server-side transcript instead.
      *
      * @param string $transcript text transcript of the student's recording.
      * @return array [fraction, feedback html]
@@ -235,27 +350,72 @@ class qtype_speakup_question extends question_with_responses {
     }
 
     /**
-     * Compare a transcript against the configured expected answers/regexes.
+     * Compare a transcript against the configured expected phrases/regexes,
+     * using weighted, additive scoring: each matched phrase contributes up
+     * to its own weight% of the grade, capped at 100% overall. Modelled on
+     * qtype_essayautograde's target-phrase scoring.
+     *
+     * Plain-text phrases match as a case-insensitive (unless the phrase's
+     * own casesensitive flag is set) substring anywhere in the transcript -
+     * not a whole-transcript equality check, since a real spoken transcript
+     * will usually contain more than just the target phrase.
      *
      * @param string $transcript
-     * @return array [fraction, feedback html]
+     * @return array [fraction, feedback html] - fraction is null (not 0.0)
+     *      if there was no transcript to check at all, since that is a lack
+     *      of data, not evidence of a wrong answer.
      */
     protected function grade_by_pattern(string $transcript): array {
-        $normalised = trim(core_text::strtolower($transcript));
+        if (trim($transcript) === '') {
+            return [null, get_string('suggestedmatch_none', 'qtype_speakup')];
+        }
+
+        $totalweight = 0.0;
+        $matchedweight = 0.0;
+        $matchedphrases = [];
 
         foreach ($this->expectedanswers as $expected) {
+            $weight = isset($expected->weight) ? (float) $expected->weight : 0.0;
+            if ($weight <= 0) {
+                continue;
+            }
+            $totalweight += $weight;
+
             if (!empty($expected->isregex)) {
-                if (@preg_match($this->to_php_regex($expected->answertext), $transcript)) {
-                    return [1.0, get_string('recordingsubmitted', 'qtype_speakup')];
-                }
+                $ismatch = (bool) @preg_match($this->to_php_regex($expected->answertext), $transcript);
             } else {
-                if (core_text::strtolower(trim($expected->answertext)) === $normalised) {
-                    return [1.0, get_string('recordingsubmitted', 'qtype_speakup')];
+                $needle = trim($expected->answertext);
+                if ($needle === '') {
+                    continue;
                 }
+                $ismatch = empty($expected->casesensitive)
+                        ? (stripos($transcript, $needle) !== false)
+                        : (strpos($transcript, $needle) !== false);
+            }
+
+            if ($ismatch) {
+                $matchedweight += $weight;
+                $matchedphrases[] = $expected->answertext;
             }
         }
 
-        return [0.0, ''];
+        if ($totalweight <= 0) {
+            // No phrases configured with a positive weight - nothing to
+            // check against, so there is no suggestion to make.
+            return [null, get_string('suggestedmatch_none', 'qtype_speakup')];
+        }
+
+        $fraction = min(1.0, $matchedweight / $totalweight);
+
+        if ($fraction >= 1.0) {
+            $feedback = get_string('suggestedmatch_yes', 'qtype_speakup');
+        } else if ($fraction <= 0.0) {
+            $feedback = get_string('suggestedmatch_no', 'qtype_speakup');
+        } else {
+            $feedback = get_string('suggestedmatch_partial', 'qtype_speakup', round($fraction * 100));
+        }
+
+        return [$fraction, $feedback];
     }
 
     /**

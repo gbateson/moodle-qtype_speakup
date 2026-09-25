@@ -69,8 +69,11 @@ class qtype_speakup extends question_type {
             'timelimitinseconds',
             'mediatype',
             'gradingmethod',
+            'sttlanguage',
+            'allowpause',
             'feedbackmode',
             'airubric',
+            'aiproviderid',
         ];
     }
 
@@ -84,22 +87,25 @@ class qtype_speakup extends question_type {
         global $DB;
         parent::save_question_options($question);
 
-        // Save one row per expected-answer / regex line into a child table,
-        // similar in spirit to how shortanswer/regexp question types store
-        // multiple qtype_*_options rows keyed on questionid.
+        // Save one row per phrase, from the repeated answertext/weight/
+        // casesensitive form fields (see edit_speakup_form.php). Similar in
+        // spirit to how shortanswer/regexp question types store multiple
+        // rows keyed on questionid, but with a weighted-phrase shape
+        // modelled on qtype_essayautograde's target-phrase scoring.
         $DB->delete_records('qtype_speakup_answers', ['questionid' => $question->id]);
 
-        if (!empty($question->expectedanswers)) {
-            $lines = preg_split('/\r\n|\r|\n/', $question->expectedanswers);
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '') {
+        if (!empty($question->answertext)) {
+            foreach ($question->answertext as $key => $answertext) {
+                $answertext = trim($answertext);
+                if ($answertext === '') {
                     continue;
                 }
                 $record = new stdClass();
                 $record->questionid = $question->id;
-                $record->answertext = $line;
-                $record->isregex = (bool) preg_match('#^/.*/[a-zA-Z]*$#', $line);
+                $record->answertext = $answertext;
+                $record->isregex = (bool) preg_match('#^/.*/[a-zA-Z]*$#', $answertext);
+                $record->weight = isset($question->weight[$key]) ? round((float) $question->weight[$key], 2) : 0;
+                $record->casesensitive = !empty($question->casesensitive[$key]) ? 1 : 0;
                 $DB->insert_record('qtype_speakup_answers', $record);
             }
         }
@@ -116,6 +122,30 @@ class qtype_speakup extends question_type {
         $question->options->expectedanswers = array_values($answers);
 
         return true;
+    }
+
+    /**
+     * Copy the expected-answers array from $questiondata->options onto the
+     * live question instance.
+     *
+     * Moodle's base question_type::initialise_question_instance() only
+     * auto-copies scalar fields from $questiondata->options onto $question
+     * - it deliberately skips arrays. Since our expected answers live in a
+     * separate child table (qtype_speakup_answers) rather than a flat
+     * column, and are loaded as an array in get_question_options() above,
+     * they need to be wired across explicitly here - the same pattern
+     * Moodle core's own qtype_shortanswer uses for its own answers table.
+     * Without this, $question->expectedanswers is always empty and
+     * grade_by_pattern() silently never matches anything, regardless of
+     * what was actually said.
+     *
+     * @param question_definition $question the question instance.
+     * @param object $questiondata the question data loaded from the database.
+     */
+    #[\Override]
+    protected function initialise_question_instance(question_definition $question, $questiondata) {
+        parent::initialise_question_instance($question, $questiondata);
+        $question->expectedanswers = $questiondata->options->expectedanswers ?? [];
     }
 
     #[\Override]

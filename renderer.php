@@ -42,9 +42,12 @@ class qtype_speakup_renderer extends qtype_renderer {
 
     #[\Override]
     public function formulation_and_controls(question_attempt $qa, question_display_options $options): string {
+        global $DB;
+
         /** @var qtype_speakup_question $question */
         $question = $qa->get_question();
         $candownload = has_capability('qtype/speakup:downloadrecordings', $this->page->context);
+        $qadatabaseid = $qa->get_database_id();
         $output = '';
 
         $existingfiles = $qa->get_last_qt_files('recording', $options->context->id);
@@ -59,6 +62,14 @@ class qtype_speakup_renderer extends qtype_renderer {
             // Add a hidden form field with the draft item id.
             $output .= html_writer::empty_tag('input', ['type' => 'hidden',
                     'name' => $qa->get_qt_field_name('recording'), 'value' => $draftitemid]);
+
+            // Add a hidden form field to receive the live browser transcript
+            // (if any), filled in by amd/src/speechrecognition.js. Matched
+            // by CSS class rather than DOM id, since get_qt_field_name()
+            // values aren't guaranteed to be simple CSS-selector-safe ids.
+            $output .= html_writer::empty_tag('input', ['type' => 'hidden',
+                    'class' => 'qtype_speakup-browsertranscript-field',
+                    'name' => $qa->get_qt_field_name('browsertranscript'), 'value' => '']);
 
             // Warning for browsers that won't work.
             $output .= $this->cannot_work_warnings();
@@ -83,15 +94,66 @@ class qtype_speakup_renderer extends qtype_renderer {
                     : new audio_playback($filename, $recordingurl, $candownload);
             $output .= $this->render($widget);
 
+            // Show the live browser transcript (if any was captured) and,
+            // for pattern-matching questions, a suggested match result -
+            // this is only ever a suggestion for whoever is grading; it
+            // never sets a grade itself (see make_behaviour() above).
+            $browsertranscript = (string) $qa->get_last_qt_var('browsertranscript', '');
+            if ($browsertranscript !== '') {
+                $output .= html_writer::tag('div',
+                        html_writer::tag('strong', get_string('browsertranscript', 'qtype_speakup') . ': ') .
+                        s($browsertranscript),
+                        ['class' => 'qtype_speakup-transcript']);
+            }
+            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT) {
+                [, $matchfeedback] = $question->grade_transcript($browsertranscript);
+                if ($matchfeedback !== '') {
+                    $output .= html_writer::tag('div', s($matchfeedback),
+                            ['class' => 'qtype_speakup-suggested-match']);
+                }
+            } else if ($question->gradingmethod === SPEAKUP_GRADING_AI) {
+                // AI assessment is asynchronous (adhoc task, not yet wired
+                // to an actual provider call as of this phase) - show
+                // "pending" until a result lands in qtype_speakup_response,
+                // per the earlier design decision that AI grading should
+                // never silently show as 0 or ungraded with no explanation.
+                $airesponse = $qadatabaseid ? $DB->get_record('qtype_speakup_response',
+                        ['questionattemptid' => $qadatabaseid]) : false;
+                if ($airesponse && $airesponse->aistatus === 'done') {
+                    $output .= html_writer::tag('div', s($airesponse->aifeedback),
+                            ['class' => 'qtype_speakup-ai-feedback']);
+                } else if ($airesponse && $airesponse->aistatus === 'failed') {
+                    $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
+                            ['class' => 'qtype_speakup-ai-feedback text-danger']);
+                } else {
+                    $output .= html_writer::tag('div', get_string('aiassessmentpending', 'qtype_speakup'),
+                            ['class' => 'qtype_speakup-ai-feedback text-muted']);
+                }
+            }
+
         } else {
             // Being attempted: active recorder widget.
             $recordingurl = $existingfile ? moodle_url::make_draftfile_url($draftitemid, '/', $filename) : null;
             $widget = ($question->mediatype === SPEAKUP_MEDIA_VIDEO)
                     ? new video_recorder($filename, $question->timelimitinseconds,
-                            false, $recordingurl, $candownload)
+                            (bool) $question->allowpause, $recordingurl, $candownload)
                     : new audio_recorder($filename, $question->timelimitinseconds,
-                            false, $recordingurl, $candownload);
+                            (bool) $question->allowpause, $recordingurl, $candownload);
             $output .= $this->render($widget);
+
+            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT || $question->gradingmethod === SPEAKUP_GRADING_AI) {
+                // Visible live transcript, filled in (and shown/hidden) by
+                // amd/src/speechrecognition.js as the student speaks. Stays
+                // empty and invisible for browsers/languages where live
+                // transcription isn't available - it never blocks or
+                // affects the recording itself. Also used for AI mode when
+                // the chosen provider is text-only (e.g. core AI), which
+                // has no other way to get a transcript.
+                $output .= html_writer::tag('div', '', [
+                    'class' => 'qtype_speakup-live-transcript text-muted small mt-1',
+                    'aria-live' => 'polite',
+                ]);
+            }
 
             // Initialise the JavaScript.
             $repositories = repository::get_instances(
@@ -116,6 +178,17 @@ class qtype_speakup_renderer extends qtype_renderer {
             $this->page->requires->strings_for_js($this->strings_for_js(), 'qtype_speakup');
             $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'init',
                     [$qa->get_outer_question_div_unique_id(), $settings]);
+
+            // Live client-side transcription (browser speech recognition),
+            // only meaningful for pattern-matching questions. It is always
+            // safe to call this even on unsupported browsers - the module
+            // simply does nothing in that case, leaving the hidden
+            // 'browsertranscript' field empty and the recording/upload
+            // path completely unaffected.
+            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT || $question->gradingmethod === SPEAKUP_GRADING_AI) {
+                $this->page->requires->js_call_amd('qtype_speakup/speechrecognition', 'init',
+                        [$qa->get_outer_question_div_unique_id(), $question->sttlanguage]);
+            }
         }
 
         $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'addPlaybackErrorHandlingToVideoElements',

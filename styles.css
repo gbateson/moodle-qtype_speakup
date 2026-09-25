@@ -1,0 +1,81 @@
+/**
+ * Styles for qtype_speakup.
+ *
+ * Ported from qtype_recordrtc (The Open University, GPL v3+), with the
+ * class prefix renamed from qtype_recordrtc- to qtype_speakup- throughout.
+ * This was deferred during initial development, which is why the
+ * recorder's timer/progress-bar elements visually overlapped the main
+ * button before this file existed - they rely on the background, border
+ * and z-index rules here to layer correctly rather than collide.
+ */
+
+/* Styles for audio widgets. */
+.que.speakup .qtype_speakup-audio-widget {
+    width: 26em;
+}
+
+/* Styles for video widgets. */
+.que.speakup .qtype_speakup-ratio-16x9 .qtype_speakup-no-recording-placeholder {
+    padding: calc(28.125% - 10.5px) 0;
+}
+.que.speakup .qtype_speakup-ratio-4x3 .qtype_speakup-no-recording-placeholder {
+    padding: calc(37.5% - 10.5px) 0;
+}
+
+/* Other styles used while the question is being attempted. */
+.que.speakup .qtype_speakup-no-recording-placeholder,
+.que.speakup .qtype_speakup-time-left {
+    color: #676463;
+}
+.que.speakup .qtype_speakup-no-recording-placeholder,
+.que.speakup .qtype_speakup-time-left {
+    background-color: #f0f0f1;
+}
+.que.speakup .qtype_speakup-download-icon img {
+    height: 28px;
+    width: 28px;
+}
+.que.speakup .specificfeedback {
+    margin: 0 0 0.5em;
+    padding: 0.5em 0.5em 0;
+    background: #fff3bf;
+    border: 1px solid #fff3bf;
+}
+
+
+.que.speakup .qtype_speakup-progressbar {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border: 1px solid #000;
+}
+
+.que.speakup .qtype_speakup-progressbar.qtype_speakup-timer-back {
+    background: #0b55a8;
+    color: #fff;
+}
+
+.que.speakup .qtype_speakup-progressbar.qtype_speakup-timer-front {
+    background: #f0f0f1;
+    color: #000;
+    z-index: 1;
+}
+
+/* New in qtype_speakup: visible live transcript below the recorder,
+   filled in by amd/src/speechrecognition.js (not present in recordrtc,
+   which has no live-transcription feature). */
+.que.speakup .qtype_speakup-live-transcript {
+    min-height: 1.2em;
+}
+
+/* Styles used on the editing form. */
+#speakup_edit_form label[for="id_timelimitinseconds_number"],
+#speakup_edit_form label[for="id_timelimitinseconds_timeunit"] {
+    display: none;
+}
+
+/* Hide any section header (fieldset) whose fields are all hidden by hideIf(). */
+#speakup_edit_form fieldset.collapsible:not(:has(.fitem:not([hidden]))) {
+    display: none !important;
+}
