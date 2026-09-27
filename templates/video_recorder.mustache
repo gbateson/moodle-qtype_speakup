@@ -56,7 +56,7 @@
         </video>
     </span>
     <span>
-        <button type="button" {{#hasrecording}}disabled {{/hasrecording}}class="qtype_speakup-main-button btn btn-secondary osep-smallbutton m-0 w-100">
+        <button type="button" {{#hasrecording}}disabled {{/hasrecording}}class="qtype_speakup-main-button btn btn-secondary m-0 w-100">
             {{! Seemingly unnecessary space inside the span is needed for screen-readers, and it must be a non-breaking space. }}
             {{^hasrecording}}{{#str}}startcamerax, qtype_speakup, <span class="sr-only visually-hidden">&nbsp;{{widgetname}}</span>{{/str}}{{/hasrecording}}
             {{#hasrecording}}{{#str}}recordagainx, qtype_speakup, <span class="sr-only visually-hidden">&nbsp;{{widgetname}}</span>{{/str}}{{/hasrecording}}
@@ -68,12 +68,12 @@
         </span>
         {{#allowpausing}}
             <span class="qtype_speakup-pause-button hide">
-                <button type="button" data-pause="1" class="btn btn-secondary osep-smallbutton ms-1 me-0">
+                <button type="button" data-pause="1" class="btn btn-secondary ms-1 me-0">
                     {{#str}}pause, qtype_speakup{{/str}}
                 </button>
             </span>
         {{/allowpausing}}
-        <button type="button" class="qtype_speakup-stop-button btn btn-secondary osep-smallbutton ms-1 me-0">
+        <button type="button" class="qtype_speakup-stop-button btn btn-secondary ms-1 me-0">
             {{#str}}stoprecording, qtype_speakup{{/str}}
         </button>
     </span>

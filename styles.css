@@ -14,6 +14,19 @@
     width: 26em;
 }
 
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player,
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player audio {
+    max-height: 36px;
+}
+
+.que.speakup .qtype_speakup-no-recording-placeholder {
+    align-self: center;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
 /* Styles for video widgets. */
 .que.speakup .qtype_speakup-ratio-16x9 .qtype_speakup-no-recording-placeholder {
     padding: calc(28.125% - 10.5px) 0;
@@ -26,22 +39,20 @@
 .que.speakup .qtype_speakup-no-recording-placeholder,
 .que.speakup .qtype_speakup-time-left {
     color: #676463;
-}
-.que.speakup .qtype_speakup-no-recording-placeholder,
-.que.speakup .qtype_speakup-time-left {
     background-color: #f0f0f1;
 }
+
 .que.speakup .qtype_speakup-download-icon img {
     height: 28px;
     width: 28px;
 }
+
 .que.speakup .specificfeedback {
     margin: 0 0 0.5em;
     padding: 0.5em 0.5em 0;
     background: #fff3bf;
     border: 1px solid #fff3bf;
 }
-
 
 .que.speakup .qtype_speakup-progressbar {
     left: 0;
@@ -62,9 +73,8 @@
     z-index: 1;
 }
 
-/* New in qtype_speakup: visible live transcript below the recorder,
-   filled in by amd/src/speechrecognition.js (not present in recordrtc,
-   which has no live-transcription feature). */
+/* Live transcript below the recorder.
+   See amd/src/speechrecognition.js */
 .que.speakup .qtype_speakup-live-transcript {
     min-height: 1.2em;
 }
