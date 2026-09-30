@@ -50,7 +50,7 @@
       data-error-message="{{#str}}err_compatibility, qtype_speakup{{/str}}"
       data-state="{{^hasrecording}}new{{/hasrecording}}{{#hasrecording}}recorded{{/hasrecording}}"
       data-max-recording-duration="{{maxrecordingduration}}" data-recording-filename="{{filename}}">
-    <span class="qtype_speakup-no-recording-placeholder mb-1 text-center{{#hasrecording}} hide{{/hasrecording}}">{{#str}}norecording, qtype_speakup{{/str}}</span>
+    <span class="qtype_speakup-no-recording-placeholder mb-1 text-center w-100{{#hasrecording}} hide{{/hasrecording}}">{{#str}}norecording, qtype_speakup{{/str}}</span>
     <span class="qtype_speakup-media-player{{^hasrecording}} hide{{/hasrecording}}">
         <video playsinline controls class="w-100 d-none"{{^candownload}} oncontextmenu="return false;" controlsList=" nodownload"{{/candownload}} data-source="{{recordingurl}}">
         </video>

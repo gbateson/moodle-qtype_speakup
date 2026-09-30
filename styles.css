@@ -3,10 +3,6 @@
  *
  * Ported from qtype_recordrtc (The Open University, GPL v3+), with the
  * class prefix renamed from qtype_recordrtc- to qtype_speakup- throughout.
- * This was deferred during initial development, which is why the
- * recorder's timer/progress-bar elements visually overlapped the main
- * button before this file existed - they rely on the background, border
- * and z-index rules here to layer correctly rather than collide.
  */
 
 /* Styles for audio widgets. */
