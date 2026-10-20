@@ -38,13 +38,18 @@ namespace qtype_speakup;
  *   providers put the model in the URL path or want the key in a header
  *   other than the automatic Bearer-token fallback (e.g. Gemini's
  *   x-goog-api-key header) - see assess_via_external() below.
- * - Only inline_base64 file upload is implemented for multimodal
- *   external providers. upload_reference (a genuine two-step upload-then-
- *   reference flow) is provider-specific enough (upload endpoint, its own
- *   response shape, how the returned id gets referenced in the follow-up
- *   request) that it is deliberately deferred rather than half-built -
- *   choosing it currently throws a clear, caught error rather than
- *   silently sending no file.
+ * - Both inline_base64 and upload_reference file upload are supported for
+ *   multimodal external providers. Unlike the main request above,
+ *   upload_reference genuinely cannot be made generic across providers -
+ *   each provider that offers a real "upload the file, then reference it"
+ *   flow uses its own actual protocol (own endpoints, own non-JSON or
+ *   multi-step handshakes, own way of identifying the uploaded file
+ *   afterwards). So each supported protocol is a small dedicated class
+ *   under classes/upload/ (see uploader_factory), which returns whatever
+ *   extra {{...}} tokens (e.g. {{AUDIO_FILE_URI}}) the provider's own
+ *   requesttemplate needs in place of {{AUDIO_BASE64}}. Adding another
+ *   provider's own protocol means adding one new class there - this file
+ *   never needs to know or care which protocol was actually used.
  * - Every failure path throws \moodle_exception. Callers (the adhoc task)
  *   are expected to catch these and treat them as "AI assessment failed"
  *   (per the design decision that a failed AI call drops the question to
@@ -138,11 +143,39 @@ class ai_caller {
 
         $audiobase64 = '';
         $audiomimetype = '';
+        $extratokens = [];
         if ($file && $provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
-            if ($provider->uploadstyle === ai_provider::UPLOAD_REFERENCE) {
-                throw new \moodle_exception('erroruploadreferencenotsupported', 'qtype_speakup');
+            // Fail loudly if the template has no slot for the recording.
+            // Otherwise the token is simply never substituted (or replaced
+            // with an empty string) and some providers - Gemini included -
+            // quietly accept the request and grade the transcript alone,
+            // which looks like success but isn't. Checked before uploading,
+            // so a misconfigured provider doesn't upload files for nothing.
+            $requiredtoken = [
+                ai_provider::UPLOAD_REFERENCE => '{{AUDIO_FILE_URI}}',
+                ai_provider::UPLOAD_INLINE_BASE64 => '{{AUDIO_BASE64}}',
+            ][$provider->uploadstyle] ?? null;
+            if ($requiredtoken !== null && strpos($provider->requesttemplate, $requiredtoken) === false) {
+                throw new \moodle_exception('errortemplatemissingaudio', 'qtype_speakup', '', $requiredtoken);
             }
-            if ($provider->uploadstyle === ai_provider::UPLOAD_INLINE_BASE64) {
+
+            if ($provider->uploadstyle === ai_provider::UPLOAD_REFERENCE) {
+                // A genuine upload-then-reference flow is provider-specific
+                // in ways plain JSON templating can't express (see the
+                // class docblock above and classes/upload/uploader.php) -
+                // delegate to whichever protocol implementation this
+                // provider is configured to use, and merge in whatever
+                // extra tokens it returns (e.g. {{AUDIO_FILE_URI}}) below.
+                $uploader = \qtype_speakup\upload\uploader_factory::create((string) $provider->uploadprotocol);
+                $result = $uploader->upload($file, $provider);
+                // AUDIO_MIMETYPE is always treated as a "raw" (unescaped)
+                // token alongside AUDIO_BASE64 below, regardless of which
+                // upload style produced it - pull it out here so both
+                // paths end up in exactly the same place.
+                $audiomimetype = $result['AUDIO_MIMETYPE'] ?? '';
+                unset($result['AUDIO_MIMETYPE']);
+                $extratokens = $result;
+            } else if ($provider->uploadstyle === ai_provider::UPLOAD_INLINE_BASE64) {
                 $audiobase64 = base64_encode($file->get_content());
                 $audiomimetype = $file->get_mimetype();
             }
@@ -151,24 +184,27 @@ class ai_caller {
         $model = (string) ($provider->model ?? '');
         $apikey = (string) ($provider->apikey ?? '');
 
-        // The URL and headers are not JSON, so {{MODEL}} / {{APIKEY}} are
-        // substituted there as plain text - e.g. a provider that puts the
-        // model in its URL path (rather than the request body), or an
-        // API-key header convention other than the Bearer-token fallback
-        // below (see e.g. Gemini's x-goog-api-key header).
-        $url = str_replace(['{{MODEL}}', '{{APIKEY}}'], [$model, $apikey], $provider->url);
-        $headerstemplate = str_replace(['{{MODEL}}', '{{APIKEY}}'], [$model, $apikey], (string) $provider->headers);
+        // The URL and headers are not JSON, so every token is substituted
+        // there as plain text - e.g. a provider that puts the model in
+        // the URL path, or an API-key header convention other than the
+        // automatic Bearer-token fallback below (see e.g. Gemini's
+        // x-goog-api-key header).
+        $plaintokens = array_merge(['MODEL' => $model, 'APIKEY' => $apikey], $extratokens);
+        $url = self::substitute_plain($provider->url, $plaintokens);
+        $headerstemplate = self::substitute_plain((string) $provider->headers, $plaintokens);
 
-        // The request body IS JSON, so RUBRIC/TRANSCRIPT/MODEL/APIKEY are
-        // JSON-string-escaped before substitution (in case any contain
-        // quotes, newlines, etc). AUDIO_BASE64/AUDIO_MIMETYPE are left
-        // as-is, since base64 and MIME-type strings never need escaping.
-        $body = str_replace(
-                ['{{RUBRIC}}', '{{TRANSCRIPT}}', '{{MODEL}}', '{{APIKEY}}', '{{AUDIO_BASE64}}', '{{AUDIO_MIMETYPE}}'],
-                [self::json_string_escape($fullrubric), self::json_string_escape($transcript),
-                        self::json_string_escape($model), self::json_string_escape($apikey),
-                        $audiobase64, $audiomimetype],
-                $provider->requesttemplate);
+        // The request body IS JSON. RUBRIC/TRANSCRIPT/MODEL/APIKEY, and
+        // any extra tokens an uploader returned (e.g. AUDIO_FILE_URI), are
+        // JSON-string-escaped, since they could in principle contain
+        // quotes, newlines, etc. AUDIO_BASE64/AUDIO_MIMETYPE never need
+        // escaping (a base64 string and a MIME type never contain
+        // characters JSON needs escaped), so they are substituted as-is
+        // regardless of which upload style produced them.
+        $escapedtokens = array_merge(
+                ['RUBRIC' => $fullrubric, 'TRANSCRIPT' => $transcript, 'MODEL' => $model, 'APIKEY' => $apikey],
+                $extratokens);
+        $body = self::substitute_escaped($provider->requesttemplate, $escapedtokens);
+        $body = self::substitute_plain($body, ['AUDIO_BASE64' => $audiobase64, 'AUDIO_MIMETYPE' => $audiomimetype]);
 
         json_decode($body);
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -313,6 +349,45 @@ class ai_caller {
             }
         }
         return $value;
+    }
+
+    /**
+     * Substitute {{...}} tokens into a plain-text (non-JSON) string, e.g.
+     * a URL or a headers template - values are inserted verbatim, with no
+     * escaping of any kind.
+     *
+     * @param string $template
+     * @param array $tokens token name (without braces) => value.
+     * @return string
+     */
+    protected static function substitute_plain(string $template, array $tokens): string {
+        $search = [];
+        $replace = [];
+        foreach ($tokens as $name => $value) {
+            $search[] = '{{' . $name . '}}';
+            $replace[] = (string) $value;
+        }
+        return str_replace($search, $replace, $template);
+    }
+
+    /**
+     * Substitute {{...}} tokens into a JSON request body template - each
+     * value is JSON-string-escaped first, since the template supplies the
+     * surrounding quotes itself (e.g. "content": "{{TRANSCRIPT}}") and the
+     * values may contain quotes, newlines, etc.
+     *
+     * @param string $template
+     * @param array $tokens token name (without braces) => value.
+     * @return string
+     */
+    protected static function substitute_escaped(string $template, array $tokens): string {
+        $search = [];
+        $replace = [];
+        foreach ($tokens as $name => $value) {
+            $search[] = '{{' . $name . '}}';
+            $replace[] = self::json_string_escape((string) $value);
+        }
+        return str_replace($search, $replace, $template);
     }
 
     /**

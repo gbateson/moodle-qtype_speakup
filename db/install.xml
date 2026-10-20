@@ -90,6 +90,10 @@
             COMMENT="For providertype=external: JSON request body template, with tokens {{RUBRIC}}, {{TRANSCRIPT}}, {{AUDIO_BASE64}}, {{AUDIO_MIMETYPE}} substituted at call time. Lets each provider's own request shape be configured without hard-coding any one vendor's API."/>
         <FIELD NAME="uploadstyle" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false"
             COMMENT="For providertype=external + capability=multimodal: how the audio/video file is sent - 'inline_base64' or 'upload_reference'. 'none' for text-only providers."/>
+        <FIELD NAME="uploadurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For uploadstyle=upload_reference: the endpoint used to upload the file itself, before referencing it in the main request (e.g. Gemini's resumable-upload endpoint). Separate from 'url' since the upload and generate endpoints are often different paths on the same host. Supports the {{APIKEY}} token."/>
+        <FIELD NAME="uploadprotocol" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For uploadstyle=upload_reference: which provider-specific upload protocol implementation to use (see classes/upload/). A real upload-then-reference flow is not expressible generically the way the main JSON request template is, so each supported protocol is its own PHP class, selected here by name."/>
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
         <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>

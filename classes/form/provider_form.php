@@ -139,6 +139,26 @@ class provider_form extends \moodleform {
         $mform->hideIf($name, 'providertype', 'neq', ai_provider::TYPE_EXTERNAL);
         $mform->hideIf($name, 'capability', 'neq', ai_provider::CAPABILITY_MULTIMODAL);
 
+        $name = 'uploadprotocol';
+        $label = get_string($name, $plugin);
+        $protocolmenu = \qtype_speakup\upload\uploader_factory::get_protocol_menu();
+        $mform->addElement('select', $name, $label, ['' => get_string('choosedots')] + $protocolmenu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'providertype', 'neq', ai_provider::TYPE_EXTERNAL);
+        $mform->hideIf($name, 'capability', 'neq', ai_provider::CAPABILITY_MULTIMODAL);
+        $mform->hideIf($name, 'uploadstyle', 'neq', ai_provider::UPLOAD_REFERENCE);
+
+        $name = 'uploadurl';
+        $label = get_string($name, $plugin);
+        $mform->addElement('text', $name, $label, ['size' => 60]);
+        // Not PARAM_URL, for the same reason as the main 'url' field above -
+        // this needs to preserve a literal {{APIKEY}} token.
+        $mform->setType($name, PARAM_RAW_TRIMMED);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'providertype', 'neq', ai_provider::TYPE_EXTERNAL);
+        $mform->hideIf($name, 'capability', 'neq', ai_provider::CAPABILITY_MULTIMODAL);
+        $mform->hideIf($name, 'uploadstyle', 'neq', ai_provider::UPLOAD_REFERENCE);
+
         $name = 'enabled';
         $label = get_string($name, $plugin);
         $mform->addElement('advcheckbox', $name, $label);
@@ -178,12 +198,45 @@ class provider_form extends \moodleform {
                 // template (e.g. {{TRANSCRIPT}} unquoted) is not valid
                 // JSON by itself.
                 $sample = str_replace(
-                        ['{{RUBRIC}}', '{{TRANSCRIPT}}', '{{MODEL}}', '{{APIKEY}}', '{{AUDIO_BASE64}}', '{{AUDIO_MIMETYPE}}'],
-                        ['sample rubric', 'sample transcript', 'sample-model', 'sample-key', 'AAAA', 'audio/webm'],
+                        ['{{RUBRIC}}', '{{TRANSCRIPT}}', '{{MODEL}}', '{{APIKEY}}', '{{AUDIO_BASE64}}', '{{AUDIO_MIMETYPE}}',
+                                '{{AUDIO_FILE_URI}}'],
+                        ['sample rubric', 'sample transcript', 'sample-model', 'sample-key', 'AAAA', 'audio/webm',
+                                'https://example.com/sample-file'],
                         $data['requesttemplate']);
                 json_decode($sample);
                 if (json_last_error() !== JSON_ERROR_NONE) {
                     $errors['requesttemplate'] = get_string('err_invalidjson', 'qtype_speakup');
+                }
+            }
+            // Upload settings only matter for multimodal providers. The
+            // upload fields are merely hidden (hideIf), not disabled, for
+            // text-only providers, so their stale values are still
+            // submitted - checking them only inside this block avoids
+            // demanding settings the admin cannot even see.
+            if ($data['capability'] === ai_provider::CAPABILITY_MULTIMODAL) {
+                $template = $data['requesttemplate'];
+                // Don't overwrite a more fundamental template error (empty
+                // or invalid JSON) found above.
+                $templateok = !isset($errors['requesttemplate']);
+
+                switch ($data['uploadstyle']) {
+                    case ai_provider::UPLOAD_REFERENCE:
+                        if (empty($data['uploadprotocol'])) {
+                            $errors['uploadprotocol'] = get_string('err_uploadprotocolrequired', 'qtype_speakup');
+                        }
+                        if (trim($data['uploadurl']) === '') {
+                            $errors['uploadurl'] = get_string('err_uploadurlrequired', 'qtype_speakup');
+                        }
+                        if ($templateok && strpos($template, '{{AUDIO_FILE_URI}}') === false) {
+                            $errors['requesttemplate'] = get_string('err_templateneedsfileuri', 'qtype_speakup');
+                        }
+                        break;
+
+                    case ai_provider::UPLOAD_INLINE_BASE64:
+                        if ($templateok && strpos($template, '{{AUDIO_BASE64}}') === false) {
+                            $errors['requesttemplate'] = get_string('err_templateneedsbase64', 'qtype_speakup');
+                        }
+                        break;
                 }
             }
         } else if (trim($data['corename']) !== '') {

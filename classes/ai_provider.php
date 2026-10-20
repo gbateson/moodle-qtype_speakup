@@ -98,6 +98,22 @@ class ai_provider {
     public static function save(\stdClass $data): int {
         global $DB;
 
+        // Upload settings only apply to external multimodal providers. The
+        // form merely hides these fields otherwise, so their old values
+        // would still be submitted - clear them, so the stored record
+        // always matches what the admin actually sees on the form.
+        $providertype = $data->providertype ?? self::TYPE_EXTERNAL;
+        $capability = $data->capability ?? self::CAPABILITY_TEXT;
+        $uploadstyle = $data->uploadstyle ?? self::UPLOAD_NONE;
+        if ($providertype !== self::TYPE_EXTERNAL || $capability !== self::CAPABILITY_MULTIMODAL) {
+            $uploadstyle = self::UPLOAD_NONE;
+        }
+        $data->uploadstyle = $uploadstyle;
+        if ($uploadstyle !== self::UPLOAD_REFERENCE) {
+            $data->uploadprotocol = null;
+            $data->uploadurl = null;
+        }
+
         $data->timemodified = time();
 
         if (!empty($data->id)) {

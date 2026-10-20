@@ -183,7 +183,7 @@ $string['model'] = 'Model';
 $string['returnpath'] = 'Response key path';
 $string['returnpath_help'] = 'Comma-separated path to the answer within the provider\'s JSON response, e.g. `choices,0,message,content` for an OpenAI-style chat completion response.';
 $string['requesttemplate'] = 'Request body template';
-$string['requesttemplate_help'] = 'The JSON request body to send, exactly as this provider expects it, with these tokens substituted at call time: `{{RUBRIC}}` (the assessment instructions), `{{TRANSCRIPT}}` (the transcript, if any), `{{MODEL}}` (the model name, from the Model field below), `{{APIKEY}}` (the API key, from the field above), `{{AUDIO_BASE64}}` (the recording, base64-encoded, for multimodal providers using inline upload), `{{AUDIO_MIMETYPE}}` (its MIME type, e.g. audio/webm). `{{MODEL}}` and `{{APIKEY}}` also work in the URL and extra-headers fields above - useful for a provider that puts the model in its URL path, or the key in a header rather than the request body. Example for an OpenAI-style chat completion: `{"model": "{{MODEL}}", "messages": [{"role": "system", "content": "{{RUBRIC}}"}, {"role": "user", "content": "{{TRANSCRIPT}}"}]}`.';
+$string['requesttemplate_help'] = 'The JSON request body to send, exactly as this provider expects it, with these tokens substituted at call time: `{{RUBRIC}}` (the assessment instructions), `{{TRANSCRIPT}}` (the transcript, if any), `{{MODEL}}` (the model name, from the Model field below), `{{APIKEY}}` (the API key, from the field above), `{{AUDIO_BASE64}}` (the recording, base64-encoded, for multimodal providers using inline upload), `{{AUDIO_MIMETYPE}}` (its MIME type, e.g. audio/webm), `{{AUDIO_FILE_URI}}` (for providers using the "upload first, then reference" style below - the reference the provider gave back after uploading, in place of {{AUDIO_BASE64}}). `{{MODEL}}` and `{{APIKEY}}` also work in the URL and extra-headers fields above - useful for a provider that puts the model in its URL path, or the key in a header rather than the request body. Example for an OpenAI-style chat completion: `{"model": "{{MODEL}}", "messages": [{"role": "system", "content": "{{RUBRIC}}"}, {"role": "user", "content": "{{TRANSCRIPT}}"}]}`. Example for Gemini using upload-then-reference: `{"contents": [{"parts": [{"text": "{{RUBRIC}}"}, {"file_data": {"mime_type": "{{AUDIO_MIMETYPE}}", "file_uri": "{{AUDIO_FILE_URI}}"}}]}]}`.';
 $string['err_requesttemplaterequired'] = 'A request body template is required for an external provider.';
 
 // AI calling (classes/ai_caller.php).
@@ -193,7 +193,17 @@ $string['errorcoreaiunavailable'] = 'Moodle\'s core AI subsystem is not availabl
 $string['errornotranscript'] = 'No transcript is available to assess (the student\'s browser may not have supported live transcription).';
 $string['erroraiprovider'] = 'The AI provider returned an error: {$a}';
 $string['errorproviderconfig'] = 'No AI provider is configured for this question, or the configured provider could not be found.';
-$string['erroruploadreferencenotsupported'] = 'The "upload first, then reference" file upload style is not yet supported.';
+$string['uploadprotocol'] = 'Upload protocol';
+$string['uploadprotocol_help'] = 'Which provider-specific "upload the file first" protocol to use. A real upload-then-reference flow works differently for every provider that offers one, so each supported protocol is implemented separately - if the provider you need is not listed, use "Inline" upload instead (works for any provider, up to that provider\'s own request-size limit).';
+$string['uploadprotocol_gemini'] = 'Google Gemini (resumable upload)';
+$string['uploadurl'] = 'Upload URL';
+$string['uploadurl_help'] = 'The endpoint used to upload the file itself, before referencing it in the main request - separate from the main API URL above, since the upload and assessment endpoints are often different paths on the same host. Supports the `{{APIKEY}}` token. For Gemini: `https://generativelanguage.googleapis.com/upload/v1beta/files?key={{APIKEY}}`.';
+$string['err_uploadprotocolrequired'] = 'Please choose which upload protocol this provider uses.';
+$string['err_uploadurlrequired'] = 'An upload URL is required for the "upload first, then reference" style.';
+$string['erroruploadprotocolunknown'] = 'This provider\'s configured upload protocol ({$a}) is not recognised.';
+$string['err_templateneedsfileuri'] = 'With the "upload first, then reference" style, the request template must include the {{AUDIO_FILE_URI}} token, or the uploaded recording will never be sent.';
+$string['err_templateneedsbase64'] = 'With the "inline" upload style, the request template must include the {{AUDIO_BASE64}} token, or the recording will never be sent.';
+$string['errortemplatemissingaudio'] = 'This provider is configured as multimodal, but its request template does not include the token for its upload style ({$a}), so the recording would not be sent. Edit the provider\'s request template.';
 $string['errorrequestnotvalidjson'] = 'The provider\'s request template does not produce valid JSON once the rubric/transcript are inserted. Check the template for unescaped special characters.';
 $string['erroraiproviderresponse'] = 'The AI provider\'s response could not be understood (invalid JSON, or the configured response key path did not match).';
 $string['erroraiscoreunparseable'] = 'The AI did not return a score in the expected format.';

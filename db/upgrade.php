@@ -153,5 +153,38 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091126, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091146) {
+        $table = new xmldb_table('qtype_speakup_ai_providers');
+
+        $field = new xmldb_field('uploadurl', XMLDB_TYPE_CHAR, '255',
+                null, null, null, null, 'uploadstyle');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field('uploadprotocol', XMLDB_TYPE_CHAR, '30',
+                null, null, null, null, 'uploadurl');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091146, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026091147) {
+        // Providers saved with uploadstyle=upload_reference before the
+        // uploadprotocol field existed have it empty, which makes every AI
+        // assessment fail with "upload protocol not recognised". Gemini is
+        // the only protocol implemented so far, so it is the only value
+        // such a provider can have meant.
+        $DB->execute("UPDATE {qtype_speakup_ai_providers}
+                         SET uploadprotocol = ?
+                       WHERE uploadstyle = ?
+                         AND (uploadprotocol IS NULL OR uploadprotocol = '')",
+                [\qtype_speakup\upload\uploader_factory::PROTOCOL_GEMINI, 'upload_reference']);
+
+        upgrade_plugin_savepoint(true, 2026091147, 'qtype', 'speakup');
+    }
+
     return true;
 }
