@@ -67,7 +67,16 @@ $string['sttlanguage_help'] = 'The language the student is expected to speak, us
 $string['aisettings'] = 'AI assessment settings';
 $string['aisettings_help'] = 'Settings used when this question is assessed (in full or in part) by AI.';
 $string['airubric'] = 'AI assessment rubric / instructions';
-$string['airubric_help'] = 'Instructions sent to the AI assessment engine together with the transcript, e.g. what aspects of fluency, grammar, vocabulary or pronunciation to evaluate, and how to score them.';
+$string['airubric_help'] = 'Instructions sent to the AI assessment engine together with the transcript, e.g. what aspects of fluency, grammar, vocabulary or pronunciation to evaluate, and how to score them.
+
+You can include all or part of the question text, as plain text, with these placeholders:
+
+* `{{questiontext}}` - the whole question text
+* `{{questiontext.rubric}}` - the first element with `class="rubric"`
+* `{{questiontext#task}}` - the element with `id="task"`
+* `{{questiontext div.rubric}}` - the first `div` with `class="rubric"`
+
+Multilang content (`lang="xx"`) is sent to the AI in English, so every student is graded against the same rubric. For another language, add it after a colon, e.g. `{{questiontext.rubric:ja}}`. `<summary>` labels and media players are left out. To keep part of the question text away from students, put it in an element with the `d-none` class, e.g. `<div class="rubric d-none">...</div>`.';
 $string['aiproviderid'] = 'AI provider';
 $string['aiproviderid_help'] = 'Which admin-configured AI provider to use for assessing this question. Providers (and their credentials) are set up separately by a site administrator under Site administration > Plugins > Question types > Manage AI providers - you only choose which one to use here.';
 $string['noaiproviders'] = 'No AI providers are configured yet. An administrator can add one under Site administration > Plugins > Question types > Manage AI providers.';

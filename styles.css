@@ -89,3 +89,13 @@
 #speakup_edit_form fieldset.collapsible:not(:has(.fitem:not([hidden]))) {
     display: none !important;
 }
+
+/*
+ * Summary text that changes when a <details> element in the question text
+ * is opened, e.g.
+ * <summary><span class="show-if-closed">Show rubric</span><span class="show-if-open">Close rubric</span></summary>
+ */
+.que.speakup details:not([open]) > summary .show-if-open,
+.que.speakup details[open] > summary .show-if-closed {
+    display: none;
+}

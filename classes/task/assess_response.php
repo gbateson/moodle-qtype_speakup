@@ -18,6 +18,7 @@ namespace qtype_speakup\task;
 
 use qtype_speakup\ai_caller;
 use qtype_speakup\ai_provider;
+use qtype_speakup\rubric_placeholders;
 
 /**
  * Adhoc task: assess one SpeakUp question's response with AI, then post the
@@ -83,9 +84,13 @@ class assess_response extends \core\task\adhoc_task {
                 $file = reset($files) ?: null;
             }
 
+            // Fill in any {{questiontext...}} placeholders.
+            $rubric = rubric_placeholders::expand((string) $question->airubric,
+                    (string) $question->questiontext);
+
             [$fraction, $feedback] = ai_caller::assess(
                     $provider, (int) $data->contextid, (int) $data->userid,
-                    (string) $question->airubric, $transcript, $file);
+                    $rubric, $transcript, $file);
 
             $record->transcript = $transcript;
             $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';
