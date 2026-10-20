@@ -41,7 +41,10 @@ class assess_response extends \core\task\adhoc_task {
 
     #[\Override]
     public function execute() {
-        global $DB;
+        global $CFG, $DB;
+
+        // Cron doesn't load the question engine, so load it here.
+        require_once($CFG->libdir . '/questionlib.php');
 
         $data = $this->get_custom_data();
         $usageid = $data->usageid;
@@ -94,6 +97,10 @@ class assess_response extends \core\task\adhoc_task {
 
             $record->transcript = $transcript;
             $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';
+            // The AI may reply in Markdown, even when told not to.
+            if (\qtype_speakup\feedback_format::detect($feedback) == FORMAT_MARKDOWN) {
+                $feedback = \qtype_speakup\feedback_format::tidy_markdown($feedback);
+            }
             $record->aifeedback = $feedback;
             $record->aiscore = $fraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';
@@ -124,7 +131,8 @@ class assess_response extends \core\task\adhoc_task {
             // no way to look up a per-attempt stored AI result - posting
             // via manual_grade() here, where $qa is directly available,
             // avoids needing that at all.
-            $qa->manual_grade($record->aifeedback, $fraction * $qa->get_max_mark(), FORMAT_PLAIN, time());
+            $qa->manual_grade($record->aifeedback, $fraction * $qa->get_max_mark(),
+                    \qtype_speakup\feedback_format::detect((string) $record->aifeedback), time());
             \question_engine::save_questions_usage_by_activity($quba);
 
             // manual_grade() only updates the question engine's own data

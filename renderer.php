@@ -112,20 +112,23 @@ class qtype_speakup_renderer extends qtype_renderer {
                             ['class' => 'qtype_speakup-suggested-match']);
                 }
             } else if ($question->gradingmethod === SPEAKUP_GRADING_AI) {
-                // AI assessment is asynchronous (adhoc task, not yet wired
-                // to an actual provider call as of this phase) - show
-                // "pending" until a result lands in qtype_speakup_response,
-                // per the earlier design decision that AI grading should
-                // never silently show as 0 or ungraded with no explanation.
+                // AI assessment runs later, in an adhoc task. Until it is
+                // done, say so, rather than silently showing no grade.
+                // Once it is done, show nothing here: the AI's feedback is
+                // saved as the grading comment, which Moodle shows itself.
                 $airesponse = $qadatabaseid ? $DB->get_record('qtype_speakup_response',
                         ['questionattemptid' => $qadatabaseid]) : false;
                 if ($airesponse && $airesponse->aistatus === 'done') {
-                    $output .= html_writer::tag('div', s($airesponse->aifeedback),
-                            ['class' => 'qtype_speakup-ai-feedback']);
+                    // Nothing to add - see above.
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
                     $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-danger']);
                 } else {
+                    if (!$airesponse) {
+                        // Previews never fire the quiz event that queues
+                        // AI assessment, so queue them here instead.
+                        \qtype_speakup\ai_queue::queue_preview($qa);
+                    }
                     $output .= html_writer::tag('div', get_string('aiassessmentpending', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-muted']);
                 }

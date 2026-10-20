@@ -59,14 +59,7 @@ class observer {
                 continue;
             }
 
-            $task = new \qtype_speakup\task\assess_response();
-            $task->set_custom_data([
-                'usageid' => $attempt->uniqueid,
-                'slot' => $slot,
-                'userid' => $attempt->userid,
-                'contextid' => $event->contextid,
-            ]);
-            \core\task\manager::queue_adhoc_task($task);
+            ai_queue::queue((int) $attempt->uniqueid, (int) $slot, (int) $attempt->userid, (int) $event->contextid);
         }
     }
 }
