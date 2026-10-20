@@ -3,10 +3,6 @@
  *
  * Ported from qtype_recordrtc (The Open University, GPL v3+), with the
  * class prefix renamed from qtype_recordrtc- to qtype_speakup- throughout.
- * This was deferred during initial development, which is why the
- * recorder's timer/progress-bar elements visually overlapped the main
- * button before this file existed - they rely on the background, border
- * and z-index rules here to layer correctly rather than collide.
  */
 
 /* Styles for audio widgets. */
@@ -21,7 +17,8 @@
 
 .que.speakup .qtype_speakup-no-recording-placeholder {
     align-self: center;
-    border: 1px solid #dee2e6;
+    /* Same colour as Bootstrap's border-dark: --bs-dark (Bootstrap 5), --dark (Bootstrap 4). */
+    border: 1px solid var(--bs-dark, var(--dark, #343a40));
     border-radius: 0.375rem;
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
