@@ -200,7 +200,6 @@ class gemini_uploader extends uploader {
             }
             $decoded = json_decode((string) $rawresponse, true);
             $state = $decoded['state'] ?? '';
-            mtrace('qtype_speakup: Gemini file state -> ' . ($state === '' ? 'unknown' : $state));
         }
 
         if ($state !== 'ACTIVE') {

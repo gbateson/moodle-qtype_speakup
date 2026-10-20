@@ -228,25 +228,11 @@ class ai_caller {
             $headers[] = 'Authorization: Bearer ' . $apikey;
         }
 
-        // Log exactly what is about to be sent, via mtrace() - this only
-        // ever appears in cron/CLI output (admin-only), never shown to
-        // students, so it is safe to include the real request here. The
-        // API key is redacted wherever it appears (URL, headers, or body),
-        // since logs can end up copy-pasted/stored elsewhere even when the
-        // immediate audience is trusted.
-        $redact = function (string $text) use ($apikey): string {
-            return $apikey !== '' ? str_replace($apikey, '***REDACTED***', $text) : $text;
-        };
-        mtrace('qtype_speakup: AI request URL -> ' . $redact($url));
-        mtrace('qtype_speakup: AI request headers -> ' . $redact(implode(' | ', $headers)));
-        mtrace('qtype_speakup: AI request body -> ' . $redact($body));
-
         $curl = new \curl();
         $curl->setHeader($headers);
         $rawresponse = $curl->post($url, $body);
 
         $info = $curl->get_info();
-        mtrace('qtype_speakup: AI response (HTTP ' . ($info['http_code'] ?? '?') . ') -> ' . $redact((string) $rawresponse));
 
         if (!empty($info['http_code']) && $info['http_code'] >= 400) {
             // Try to surface the provider's own error message from the
