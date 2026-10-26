@@ -43,6 +43,15 @@ defined('MOODLE_INTERNAL') || die();
 
 class qtype_speakup_question extends question_graded_automatically {
 
+    /**
+     * Seconds by which an uploaded file may exceed the time limit before
+     * it is flagged as too long (on the review page, and to the AI).
+     */
+    const DURATION_LEEWAY_SECONDS = 5;
+
+    /** @var string one of SPEAKUP_RESPONSE_RECORD / SPEAKUP_RESPONSE_UPLOAD. */
+    public $responsemethod;
+
     /** @var int time limit in seconds for the recording. */
     public $timelimitinseconds;
 

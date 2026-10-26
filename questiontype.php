@@ -48,6 +48,14 @@ define('SPEAKUP_MEDIA_AUDIO', 'audio');
 /** Student records audio + webcam video, e.g. for assessing non-verbal communication too. */
 define('SPEAKUP_MEDIA_VIDEO', 'video');
 
+/** Student records their response live in the browser. */
+define('SPEAKUP_RESPONSE_RECORD', 'record');
+/**
+ * Student uploads an audio or video file. On a smartphone, choosing a
+ * file usually also offers to record one there and then.
+ */
+define('SPEAKUP_RESPONSE_UPLOAD', 'upload');
+
 /**
  * Default recorder quality/size settings.
  *
@@ -74,6 +82,7 @@ class qtype_speakup extends question_type {
             'feedbackmode',
             'airubric',
             'aiproviderid',
+            'responsemethod',
         ];
     }
 
@@ -85,6 +94,16 @@ class qtype_speakup extends question_type {
     #[\Override]
     public function save_question_options($question) {
         global $DB;
+
+        // For pattern matching, aiproviderid holds the transcription
+        // provider, which the question form has in a separate field (see
+        // edit_speakup_form.php). It is only needed for uploaded files.
+        if ($question->gradingmethod === SPEAKUP_GRADING_EXACT && property_exists($question, 'transcriptionproviderid')) {
+            $isupload = ($question->responsemethod ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD;
+            $question->aiproviderid = ($isupload && !empty($question->transcriptionproviderid))
+                    ? (int) $question->transcriptionproviderid : null;
+        }
+
         parent::save_question_options($question);
 
         // Save one row per phrase, from the repeated answertext/weight/

@@ -186,5 +186,18 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091147, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091148) {
+        // How the student gives their response: record or upload.
+        // Existing questions keep live recording only.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('responsemethod', XMLDB_TYPE_CHAR, '20',
+                null, XMLDB_NOTNULL, null, 'record', 'aiproviderid');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091148, 'qtype', 'speakup');
+    }
+
     return true;
 }

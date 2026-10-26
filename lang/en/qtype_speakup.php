@@ -40,6 +40,20 @@ $string['mediatype'] = 'Response type';
 $string['mediatype_help'] = 'Audio only, or audio plus webcam video. Video lets AI assessment also consider non-verbal communication such as facial expressions and gestures, in addition to the spoken language.';
 $string['mediatype_audio'] = 'Audio only';
 $string['mediatype_video'] = 'Audio + video (webcam)';
+$string['responsemethod'] = 'Response method';
+$string['responsemethod_help'] = 'How students give their response:
+
+* **Record** - students record their response live, in the browser.
+* **Upload** - students upload an audio or video file. On a smartphone, choosing a file usually also offers to record one there and then.
+
+Uploaded files have no live transcript. So, unless they are graded manually, they are first transcribed by an AI provider that receives the audio or video file itself, and then graded by pattern matching or AI. This happens in the background, after the response is submitted. The time limit still applies to uploads: files that are longer than the time limit are flagged when the response is reviewed.';
+$string['responsemethod_record'] = 'Record';
+$string['responsemethod_upload'] = 'Upload';
+$string['transcriptionproviderid'] = 'Transcription provider';
+$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so this AI provider transcribes them first, and the transcript is then graded by pattern matching. The provider must be one that receives the audio or video file itself.';
+$string['err_transcriptionproviderrequired'] = 'Uploaded files need an AI provider to transcribe them. Please choose one.';
+$string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider to transcribe them, but none are configured yet. Choose "Record", or "Manual grading only", or ask an administrator to add an AI provider.';
+$string['err_uploadneedsmultimodal'] = 'Uploaded files have no live transcript, so they need an AI provider that receives the audio or video file itself. Choose a different provider, or "Record".';
 $string['audioprompt'] = 'Audio prompt (optional)';
 $string['audioprompt_help'] = 'An optional audio file the student hears instead of, or as well as, the written question text.';
 $string['gradingmethod'] = 'Grading method';

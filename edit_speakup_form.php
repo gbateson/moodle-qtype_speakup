@@ -57,6 +57,19 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, SPEAKUP_MEDIA_AUDIO);
 
+        $name = 'responsemethod';
+        $label = get_string($name, $plugin);
+        $options = [
+            SPEAKUP_RESPONSE_RECORD => get_string('responsemethod_record', $plugin),
+            SPEAKUP_RESPONSE_UPLOAD => get_string('responsemethod_upload', $plugin),
+        ];
+        $mform->addElement('select', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, SPEAKUP_RESPONSE_RECORD);
+
+        // Pausing only applies to live recording.
+        $mform->hideIf('allowpause', 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
         $name = 'audioprompt';
         $label = get_string($name, $plugin);
         $options = [
@@ -143,6 +156,27 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 'en-US');
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+        // Live transcription only happens while recording in the browser.
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        // Uploaded files have no live transcript, so pattern matching needs
+        // an AI provider to transcribe them first. This is saved in the same
+        // aiproviderid field as the AI provider below (see data_preprocessing()
+        // and qtype_speakup::save_question_options()). It is a separate form
+        // field because hideIf() can't show one field for "AI grading, or
+        // pattern matching with uploads".
+        $name = 'transcriptionproviderid';
+        $label = get_string($name, $plugin);
+        $providermenu = \qtype_speakup\ai_provider::get_menu(true);
+        if (empty($providermenu)) {
+            $mform->addElement('static', $name, $label, get_string('noaiproviders', $plugin));
+        } else {
+            $mform->addElement('select', $name, $label, ['' => get_string('choosedots')] + $providermenu);
+            $mform->setType($name, PARAM_INT);
+        }
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+        $mform->hideIf($name, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
 
         // AI rubric field, shown only when gradingmethod = ai.
         $name = 'aisettings';
@@ -199,6 +233,11 @@ class qtype_speakup_edit_form extends question_edit_form {
     public function data_preprocessing($question) {
         $question = parent::data_preprocessing($question);
 
+        // The transcription provider is stored in aiproviderid.
+        if (isset($question->options->aiproviderid)) {
+            $question->transcriptionproviderid = $question->options->aiproviderid;
+        }
+
         if (!empty($question->options->expectedanswers)) {
             $question->answertext = [];
             $question->weight = [];
@@ -253,6 +292,32 @@ class qtype_speakup_edit_form extends question_edit_form {
             $providermenu = \qtype_speakup\ai_provider::get_menu(true);
             if (!empty($providermenu) && empty($data['aiproviderid'])) {
                 $errors['aiproviderid'] = get_string('err_aiproviderrequired', 'qtype_speakup');
+            }
+        }
+
+        // An uploaded file has no live browser transcript. So, unless it is
+        // graded manually, it needs an AI provider that receives the file
+        // itself and can transcribe it: for pattern matching, the
+        // transcription provider; for AI grading, the AI provider.
+        if (($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD) {
+            $field = '';
+            if ($data['gradingmethod'] === SPEAKUP_GRADING_EXACT) {
+                $field = 'transcriptionproviderid';
+            } else if ($data['gradingmethod'] === SPEAKUP_GRADING_AI) {
+                $field = 'aiproviderid';
+            }
+            if ($field) {
+                $providerid = (int) ($data[$field] ?? 0);
+                if (empty(\qtype_speakup\ai_provider::get_menu(true))) {
+                    $errors['responsemethod'] = get_string('err_uploadneedsprovider', 'qtype_speakup');
+                } else if (empty($providerid)) {
+                    $errors[$field] = get_string('err_transcriptionproviderrequired', 'qtype_speakup');
+                } else {
+                    $provider = \qtype_speakup\ai_provider::get($providerid);
+                    if ($provider && $provider->capability !== \qtype_speakup\ai_provider::CAPABILITY_MULTIMODAL) {
+                        $errors[$field] = get_string('err_uploadneedsmultimodal', 'qtype_speakup');
+                    }
+                }
             }
         }
 
