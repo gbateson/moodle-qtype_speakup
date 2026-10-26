@@ -106,26 +106,22 @@ class qtype_speakup_renderer extends qtype_renderer {
                         ['class' => 'qtype_speakup-transcript']);
             }
             if ($question->is_automated() && !$question->is_graded_later()) {
-                [, $matchfeedback] = $question->grade_transcript($browsertranscript);
-                if ($matchfeedback !== '') {
-                    $output .= html_writer::tag('div', s($matchfeedback),
-                            ['class' => 'qtype_speakup-suggested-match']);
-                }
-                $duration = $question->needs_duration() ? \qtype_speakup\media_info::get_duration($existingfile) : null;
-                [, $itemfeedback] = $question->grade_by_items($browsertranscript, $duration);
-                if ($itemfeedback !== '') {
-                    $output .= html_writer::tag('div', s($itemfeedback),
-                            ['class' => 'qtype_speakup-item-scores']);
-                }
+                // Graded straight away, from the live transcript.
+                $output .= $this->grading_details($question, $options, $browsertranscript, $existingfile, null);
             } else if ($question->is_graded_later()) {
                 // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.
-                // Once it is done, show nothing here: the feedback is
-                // saved as the grading comment, which Moodle shows itself.
+                // Once it is done, show the grading details. The feedback
+                // is saved as the grading comment, which Moodle shows itself.
                 $airesponse = $qadatabaseid ? $DB->get_record('qtype_speakup_response',
                         ['questionattemptid' => $qadatabaseid]) : false;
                 if ($airesponse && $airesponse->aistatus === 'done') {
-                    // Nothing to add - see above.
+                    $transcript = (string) ($airesponse->transcript ?? '');
+                    if ($transcript === '') {
+                        $transcript = $browsertranscript;
+                    }
+                    $aifraction = ($question->uses_ai() && $airesponse->aiscore !== null) ? (float) $airesponse->aiscore : null;
+                    $output .= $this->grading_details($question, $options, $transcript, $existingfile, $aifraction);
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
                     $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-danger']);
@@ -204,6 +200,151 @@ class qtype_speakup_renderer extends qtype_renderer {
                 [$qa->get_outer_question_div_unique_id()]);
 
         return $output;
+    }
+
+    /**
+     * Hide the grading comment (e.g. the AI's feedback) from viewers who
+     * should not see it, according to the question's "Show grading comment"
+     * setting.
+     *
+     * Core calls this just before the behaviour shows the comment, with the
+     * same display options. Core clones the display options for each
+     * question (see core_question_renderer::question()), so hiding the
+     * comment here only affects this question.
+     *
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @return string
+     */
+    #[\Override]
+    public function manual_comment(question_attempt $qa, question_display_options $options) {
+        /** @var qtype_speakup_question $question */
+        $question = $qa->get_question();
+        if ($question->is_automated() && $options->manualcomment == question_display_options::VISIBLE
+                && !$this->can_show((int) $question->showcomment, $options)) {
+            $options->manualcomment = question_display_options::HIDDEN;
+        }
+        return parent::manual_comment($qa, $options);
+    }
+
+    /**
+     * Can the current viewer see a grading detail?
+     *
+     * As in qtype_essayautograde, a viewer who can grade quizzes counts as a
+     * teacher, and anyone else as a student.
+     *
+     * @param int $setting one of the SPEAKUP_SHOW_* constants.
+     * @param question_display_options $options
+     * @return bool
+     */
+    protected function can_show(int $setting, question_display_options $options): bool {
+        $isteacher = has_capability('mod/quiz:grade', $options->context);
+        switch ($setting) {
+            case SPEAKUP_SHOW_STUDENTS_ONLY:
+                return !$isteacher;
+            case SPEAKUP_SHOW_TEACHERS_ONLY:
+                return $isteacher;
+            case SPEAKUP_SHOW_TEACHERS_AND_STUDENTS:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Show the details of an automated grade, according to the question's
+     * "Show ..." settings: which target phrases were used, the target item
+     * values, and how the grade was calculated.
+     *
+     * @param qtype_speakup_question $question
+     * @param question_display_options $options
+     * @param string $transcript the transcript the response was graded from.
+     * @param stored_file|null $file the recording, for its length.
+     * @param float|null $aifraction the AI's score (0..1), if assessed by AI.
+     * @return string HTML
+     */
+    protected function grading_details(qtype_speakup_question $question, question_display_options $options,
+            string $transcript, ?stored_file $file, ?float $aifraction): string {
+        $plugin = 'qtype_speakup';
+        $output = '';
+
+        $phrases = $question->phrase_results($transcript);
+        $duration = $question->needs_duration() ? \qtype_speakup\media_info::get_duration($file) : null;
+        $items = $question->item_results($transcript, $duration);
+
+        if ($phrases && $this->can_show((int) $question->showphrases, $options)) {
+            $list = [];
+            foreach ($phrases as $result) {
+                $a = (object) ['phrase' => s($result->phrase), 'percent' => round($result->percent, 1)];
+                $list[] = get_string($result->used ? 'phraseresultused' : 'phraseresultnotused', $plugin, $a);
+            }
+            $output .= $this->details_section(get_string('expectedanswers', $plugin), $list, 'qtype_speakup-phrases');
+        }
+
+        if ($items && $this->can_show((int) $question->showitems, $options)) {
+            $list = [];
+            foreach ($items as $result) {
+                $list[] = get_string('itemscore', $plugin, (object) [
+                    'item' => $result->label,
+                    'value' => ($result->value === null) ? get_string('itemunknown', $plugin) : round($result->value, 1),
+                    'percent' => round($result->percent, 1),
+                ]);
+            }
+            $output .= $this->details_section(get_string('itemsheader', $plugin), $list, 'qtype_speakup-items');
+        }
+
+        if (($phrases || $items || $aifraction !== null) && $this->can_show((int) $question->showcalculation, $options)) {
+            $list = [];
+            $total = 0.0;
+            if ($phrases) {
+                $percent = 0.0;
+                foreach ($phrases as $result) {
+                    $percent += $result->used ? $result->percent : 0;
+                }
+                $percent = min(100.0, $percent);
+                $total += $percent;
+                $list[] = get_string('calcphrases', $plugin, round($percent, 1));
+            }
+            if ($items) {
+                $percent = 0.0;
+                foreach ($items as $result) {
+                    $percent += $result->percent;
+                }
+                $percent = min(100.0, $percent);
+                $total += $percent;
+                $list[] = get_string('calcitems', $plugin, round($percent, 1));
+            }
+            if ($aifraction !== null) {
+                $percent = $aifraction * (int) $question->aiweighting;
+                $total += $percent;
+                $list[] = get_string('calcholistic', $plugin, (object) [
+                    'score' => round($aifraction * 100, 1),
+                    'weighting' => (int) $question->aiweighting,
+                    'percent' => round($percent, 1),
+                ]);
+            }
+            $capped = ($total > 100);
+            $total = min(100.0, $total);
+            $list[] = html_writer::tag('strong', get_string($capped ? 'calctotalcapped' : 'calctotal', $plugin, round($total, 1)));
+            $output .= $this->details_section(get_string('calculation', $plugin), $list, 'qtype_speakup-calculation');
+        }
+
+        return $output;
+    }
+
+    /**
+     * Show one section of the grading details: a heading and a list.
+     *
+     * @param string $heading
+     * @param string[] $list HTML list items.
+     * @param string $class CSS class for the section.
+     * @return string HTML
+     */
+    protected function details_section(string $heading, array $list, string $class): string {
+        return html_writer::div(
+                html_writer::tag('h5', $heading, ['class' => 'mt-2 mb-1']) .
+                html_writer::alist($list, ['class' => 'mb-1']),
+                'qtype_speakup-grading-details ' . $class);
     }
 
     /**

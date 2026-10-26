@@ -44,6 +44,15 @@ define('SPEAKUP_FEEDBACK_FORMATIVE', 'formative');
 /** Feedback accompanies a final grade. */
 define('SPEAKUP_FEEDBACK_SUMMATIVE', 'summative');
 
+/** Show this grading detail to nobody. (Values as in qtype_essayautograde.) */
+define('SPEAKUP_SHOW_NONE', 0);
+/** Show this grading detail to students only. */
+define('SPEAKUP_SHOW_STUDENTS_ONLY', 1);
+/** Show this grading detail to teachers only. */
+define('SPEAKUP_SHOW_TEACHERS_ONLY', 2);
+/** Show this grading detail to teachers and students. */
+define('SPEAKUP_SHOW_TEACHERS_AND_STUDENTS', 3);
+
 /** Student records audio only. */
 define('SPEAKUP_MEDIA_AUDIO', 'audio');
 /** Student records audio + webcam video, e.g. for assessing non-verbal communication too. */
@@ -86,6 +95,10 @@ class qtype_speakup extends question_type {
             'responsemethod',
             'aiassessment',
             'aiweighting',
+            'showcalculation',
+            'showphrases',
+            'showitems',
+            'showcomment',
         ];
     }
 

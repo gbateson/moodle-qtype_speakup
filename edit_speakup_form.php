@@ -279,6 +279,26 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'aiassessment', 'notchecked');
+
+        // Who sees each grading detail, for automated grading. As in
+        // qtype_essayautograde: nobody, students only, teachers only, or both.
+        $name = 'showheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setExpanded($name, false);
+
+        $showmenu = [
+            SPEAKUP_SHOW_NONE => get_string('no'),
+            SPEAKUP_SHOW_STUDENTS_ONLY => get_string('showtostudentsonly', $plugin),
+            SPEAKUP_SHOW_TEACHERS_ONLY => get_string('showtoteachersonly', $plugin),
+            SPEAKUP_SHOW_TEACHERS_AND_STUDENTS => get_string('showtoteachersandstudents', $plugin),
+        ];
+        foreach (['showphrases', 'showitems', 'showcalculation', 'showcomment'] as $name) {
+            $mform->addElement('select', $name, get_string($name, $plugin), $showmenu);
+            $mform->addHelpButton($name, $name, $plugin);
+            $mform->setDefault($name, SPEAKUP_SHOW_TEACHERS_AND_STUDENTS);
+            $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        }
     }
 
     /**

@@ -63,6 +63,18 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int for automated grading with AI: percentage of the question grade given by the AI's score. */
     public $aiweighting;
 
+    /** @var int who sees the grade calculation: one of the SPEAKUP_SHOW_* constants. */
+    public $showcalculation;
+
+    /** @var int who sees which target phrases were used: one of the SPEAKUP_SHOW_* constants. */
+    public $showphrases;
+
+    /** @var int who sees the target item values: one of the SPEAKUP_SHOW_* constants. */
+    public $showitems;
+
+    /** @var int who sees the grading comment: one of the SPEAKUP_SHOW_* constants. */
+    public $showcomment;
+
     /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
     public $mediatype;
 
@@ -225,8 +237,8 @@ class qtype_speakup_question extends question_graded_automatically {
      *      are no target items, or no transcript to check them in.
      */
     public function grade_by_items(string $transcript, ?float $duration): array {
-        $items = $this->get_active_items();
-        if (empty($items)) {
+        $results = $this->item_results($transcript, $duration);
+        if (empty($results)) {
             return [null, ''];
         }
         if (trim($transcript) === '') {
@@ -235,23 +247,47 @@ class qtype_speakup_question extends question_graded_automatically {
 
         $percent = 0.0;
         $lines = [];
-        foreach ($items as $item) {
-            $value = \qtype_speakup\text_stats::get_value($item->itemtype, $transcript, $duration);
-            $share = 0.0;
-            if ($value !== null && $value >= (float) $item->mincount) {
-                $max = (float) $item->maxcount;
-                $share = (int) $item->percent * min($value, $max) / $max;
-            }
-            $percent += $share;
+        foreach ($results as $result) {
+            $percent += $result->percent;
             $lines[] = get_string('itemscore', 'qtype_speakup', (object) [
-                'item' => get_string('item' . $item->itemtype, 'qtype_speakup'),
-                'value' => ($value === null) ? get_string('itemunknown', 'qtype_speakup') : round($value, 1),
-                'percent' => round($share, 1),
+                'item' => $result->label,
+                'value' => ($result->value === null) ? get_string('itemunknown', 'qtype_speakup') : round($result->value, 1),
+                'percent' => round($result->percent, 1),
             ]);
         }
         $percent = min(100.0, $percent);
 
         return [$percent / 100, implode(' ', $lines)];
+    }
+
+    /**
+     * Get the result of each target item for a transcript.
+     *
+     * @param string $transcript
+     * @param float|null $duration length of the recording in seconds, if known.
+     * @return stdClass[] each with ->label (the item's name), ->value (or
+     *      null if unknown) and ->percent (the share of the question grade
+     *      it awards). Empty if there are no target items.
+     */
+    public function item_results(string $transcript, ?float $duration): array {
+        $results = [];
+        foreach ($this->get_active_items() as $item) {
+            $value = null;
+            $percent = 0.0;
+            if (trim($transcript) !== '') {
+                $value = \qtype_speakup\text_stats::get_value($item->itemtype, $transcript, $duration);
+                if ($value !== null && $value >= (float) $item->mincount) {
+                    $max = (float) $item->maxcount;
+                    $percent = (int) $item->percent * min($value, $max) / $max;
+                }
+            }
+            $results[] = (object) [
+                'label' => get_string('item' . $item->itemtype, 'qtype_speakup'),
+                'value' => $value,
+                'percent' => $percent,
+            ];
+        }
+        return $results;
     }
 
     /**
@@ -535,10 +571,8 @@ class qtype_speakup_question extends question_graded_automatically {
      *      that is a lack of data, not evidence of a wrong answer.
      */
     protected function grade_by_pattern(string $transcript): array {
-        $phrases = array_filter($this->expectedanswers, function ($phrase) {
-            return trim($phrase->answertext) !== '' && self::phrase_percent($phrase) > 0;
-        });
-        if (empty($phrases)) {
+        $results = $this->phrase_results($transcript);
+        if (empty($results)) {
             return [null, ''];
         }
         if (trim($transcript) === '') {
@@ -547,20 +581,43 @@ class qtype_speakup_question extends question_graded_automatically {
 
         $matched = 0;
         $percent = 0.0;
-        foreach ($phrases as $phrase) {
-            if ($this->phrase_is_used($phrase, $transcript)) {
+        foreach ($results as $result) {
+            if ($result->used) {
                 $matched++;
-                $percent += self::phrase_percent($phrase);
+                $percent += $result->percent;
             }
         }
         $percent = min(100.0, $percent);
 
         $feedback = get_string('phrasesmatched', 'qtype_speakup', (object) [
             'matched' => $matched,
-            'total' => count($phrases),
+            'total' => count($results),
             'percent' => round($percent, 1),
         ]);
         return [$percent / 100, $feedback];
+    }
+
+    /**
+     * Get the result of each target phrase for a transcript.
+     *
+     * @param string $transcript
+     * @return stdClass[] each with ->phrase, ->used (bool) and ->percent
+     *      (the share of the question grade it awards if used). Empty if
+     *      there are no target phrases.
+     */
+    public function phrase_results(string $transcript): array {
+        $results = [];
+        foreach ($this->expectedanswers as $phrase) {
+            if (trim($phrase->answertext) === '' || self::phrase_percent($phrase) <= 0) {
+                continue;
+            }
+            $results[] = (object) [
+                'phrase' => $phrase->answertext,
+                'used' => (trim($transcript) !== '') && $this->phrase_is_used($phrase, $transcript),
+                'percent' => self::phrase_percent($phrase),
+            ];
+        }
+        return $results;
     }
 
     /**

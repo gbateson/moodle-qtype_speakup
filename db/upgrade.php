@@ -305,5 +305,21 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091151, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091152) {
+        // Who sees each grading detail: 0 nobody, 1 students only,
+        // 2 teachers only, 3 teachers and students (as now).
+        $table = new xmldb_table('qtype_speakup_options');
+        $previous = 'aiweighting';
+        foreach (['showcalculation', 'showphrases', 'showitems', 'showcomment'] as $name) {
+            $field = new xmldb_field($name, XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '3', $previous);
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+            $previous = $name;
+        }
+
+        upgrade_plugin_savepoint(true, 2026091152, 'qtype', 'speakup');
+    }
+
     return true;
 }

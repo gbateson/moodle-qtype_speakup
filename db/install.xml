@@ -27,6 +27,14 @@
             COMMENT="For automated grading: whether the response is also assessed by AI."/>
         <FIELD NAME="aiweighting" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="100" SEQUENCE="false"
             COMMENT="For automated grading with AI assessment: the percentage of the question grade given by the AI's score (0-100)."/>
+        <FIELD NAME="showcalculation" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees how the automated grade was calculated: 0 nobody, 1 students only, 2 teachers only, 3 teachers and students - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showphrases" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees which target phrases were used - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showitems" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees the target item values - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showcomment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees the grading comment (e.g. the AI's feedback) - see SPEAKUP_SHOW_* constants"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
