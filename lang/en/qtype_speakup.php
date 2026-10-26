@@ -68,12 +68,25 @@ $string['feedbackmode_help'] = 'Formative feedback is shown to the student to he
 $string['feedbackmode_formative'] = 'Formative (practice)';
 $string['feedbackmode_summative'] = 'Summative (assessed)';
 $string['expectedanswers'] = 'Target phrases';
-$string['expectedanswers_help'] = 'Each phrase (or regular expression) contributes up to its own weight% of the pattern-matching grade if it matches the live transcript of the student\'s recording. Matched phrases add up, capped at 100%. A plain phrase matches as a substring anywhere in the transcript (case-insensitive, unless "Case sensitive" is checked); to use a regular expression instead, prefix a line with `/` and end it with `/` plus optional flags, e.g. `/\\bgood (morning|afternoon)\\b/i`.';
-$string['answertext'] = 'Phrase';
-$string['weight'] = 'Weight (%)';
-$string['casesensitive'] = 'Case sensitive';
-$string['addmorephrases'] = 'Add {no} more phrases';
-$string['err_invalidweight'] = 'Weight must be between 0 and 100.';
+$string['expectedanswers_help'] = 'Each target phrase that is used in the response awards its own share of the question grade. The shares add up, capped at 100%. The phrases are checked in a transcript of the response: the live transcript from the browser for recordings, or a transcript made by the AI provider.';
+$string['phrasegroup'] = 'Target phrase [{no}]';
+$string['phrasegroup_help'] = 'The share of the question grade awarded if this phrase is used in the response. The shares of all the target phrases that are used add up, together with the target items and the AI assessment (if used), and the total is capped at 100%.
+
+A phrase matches anywhere in the transcript. Spaces in the phrase match any spaces in the transcript. To use a regular expression instead, start the phrase with `/` and end it with `/` plus optional flags, e.g. `/\\bgood (morning|afternoon)\\b/i`.
+
+"Divided by" makes shares that are not whole numbers, e.g. 100% divided by 3 is 33.33%.';
+$string['phrasetext1'] = 'If';
+$string['phrasetext2'] = 'is used, award';
+$string['phrasetext3'] = 'of the question grade.';
+$string['phrasedivisor1'] = 'exactly';
+$string['phrasedivisorn'] = 'divided by {$a}';
+$string['phraseoptions'] = 'Target phrase [{no}] options';
+$string['phrasefullmatch0'] = 'Match full or partial words.';
+$string['phrasefullmatch1'] = 'Match full words only.';
+$string['phrasecasesensitive0'] = 'Match is case-insensitive.';
+$string['phrasecasesensitive1'] = 'Match is case-sensitive.';
+$string['addmorephrase1'] = '1 more target phrase';
+$string['addmorephrases'] = '{$a} more target phrases';
 $string['sttlanguage'] = 'Response language';
 $string['sttlanguage_help'] = 'The language the student is expected to speak, as a language tag, e.g. `en-US`, `en-GB`, `ja-JP`.
 
@@ -117,10 +130,8 @@ $string['aiassessmentpending'] = 'Your response is waiting to be assessed. Your 
 $string['aiassessmentfailed'] = 'Your response could not be processed. It will be graded manually by your teacher.';
 $string['transcript'] = 'Transcript';
 $string['browsertranscript'] = 'Live transcript (from browser speech recognition)';
-$string['suggestedmatch_yes'] = 'Suggested match: model answer matched.';
-$string['suggestedmatch_no'] = 'Suggested match: no model answer matched.';
-$string['suggestedmatch_partial'] = 'Suggested match: {$a}% (some but not all target phrases matched).';
-$string['suggestedmatch_none'] = 'No live transcript was captured for this response (unsupported browser/language, or pattern-matching is not used for this question).';
+$string['phrasesmatched'] = 'Target phrases used: {$a->matched} of {$a->total} ({$a->percent}% of the question grade).';
+$string['suggestedmatch_none'] = 'No transcript is available for this response, so the target phrases could not be checked.';
 $string['norecordingpermission'] = 'This browser or device could not access the microphone. Please check permissions and try again.';
 
 // Recorder widget strings (used directly by amd/src/avrecording.js via

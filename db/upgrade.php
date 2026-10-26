@@ -230,5 +230,61 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091149, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091150) {
+        // Target phrases now each award their own share of the question
+        // grade ("If [phrase] is used, award [percent] divided by [divisor]
+        // of the question grade"), instead of a weight relative to the
+        // other phrases. Each phrase also gets a "full words only" option.
+        $table = new xmldb_table('qtype_speakup_answers');
+
+        $fields = [
+            new xmldb_field('percent', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '0', 'casesensitive'),
+            new xmldb_field('divisor', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'percent'),
+            new xmldb_field('fullmatch', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'divisor'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        // Convert each question's old relative weights to shares of the
+        // question grade, so existing questions grade exactly as before.
+        // For example, three phrases weighted 100 each become 100% divided
+        // by 3 each. The share is written as a whole-number percent divided
+        // by the smallest divisor (1-20) that represents it closely.
+        $weightfield = new xmldb_field('weight');
+        if ($dbman->field_exists($table, $weightfield)) {
+            $rows = $DB->get_records('qtype_speakup_answers', null, 'questionid, id', 'id, questionid, weight');
+            $totals = [];
+            foreach ($rows as $row) {
+                if ($row->weight > 0) {
+                    $totals[$row->questionid] = ($totals[$row->questionid] ?? 0) + $row->weight;
+                }
+            }
+            foreach ($rows as $row) {
+                $share = 0.0;
+                if ($row->weight > 0 && !empty($totals[$row->questionid])) {
+                    $share = 100 * $row->weight / $totals[$row->questionid];
+                }
+                $percent = (int) round($share);
+                $divisor = 1;
+                for ($d = 1; $d <= 20; $d++) {
+                    $p = (int) round($share * $d);
+                    if ($p <= 100 && abs(($p / $d) - $share) < 0.01) {
+                        $percent = $p;
+                        $divisor = $d;
+                        break;
+                    }
+                }
+                $DB->update_record('qtype_speakup_answers',
+                        (object) ['id' => $row->id, 'percent' => $percent, 'divisor' => $divisor]);
+            }
+            $dbman->drop_field($table, $weightfield);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091150, 'qtype', 'speakup');
+    }
+
     return true;
 }

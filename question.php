@@ -81,7 +81,10 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int|null id of the qtype_speakup_ai_providers row to use for AI assessment, if any. */
     public $aiproviderid;
 
-    /** @var stdClass[] expected answers/regexes, each with ->answertext and ->isregex. */
+    /**
+     * @var stdClass[] target phrases, each with ->answertext, ->isregex,
+     *      ->percent, ->divisor, ->fullmatch and ->casesensitive.
+     */
     public $expectedanswers = [];
 
     /** The single recorded-audio filename used in the response file area. */
@@ -377,72 +380,87 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
-     * Compare a transcript against the configured expected phrases/regexes,
-     * using weighted, additive scoring: each matched phrase contributes up
-     * to its own weight% of the grade, capped at 100% overall. Modelled on
-     * qtype_essayautograde's target-phrase scoring.
+     * Get the share of the question grade (0..100) a target phrase awards
+     * if it is used: its percent divided by its divisor.
      *
-     * Plain-text phrases match as a case-insensitive (unless the phrase's
-     * own casesensitive flag is set) substring anywhere in the transcript -
-     * not a whole-transcript equality check, since a real spoken transcript
-     * will usually contain more than just the target phrase.
+     * @param stdClass $phrase a target phrase.
+     * @return float
+     */
+    public static function phrase_percent(stdClass $phrase): float {
+        $divisor = max(1, (int) ($phrase->divisor ?? 1));
+        return max(0, (int) ($phrase->percent ?? 0)) / $divisor;
+    }
+
+    /**
+     * Is a target phrase used in a transcript?
+     *
+     * A plain phrase matches anywhere in the transcript, case-insensitively
+     * unless "case sensitive" is set, and only as whole words if "full
+     * match" is set. Spaces in the phrase match any run of spaces. A
+     * phrase written as /pattern/flags is used as a regular expression.
+     *
+     * @param stdClass $phrase a target phrase.
+     * @param string $transcript
+     * @return bool
+     */
+    protected function phrase_is_used(stdClass $phrase, string $transcript): bool {
+        $text = trim($phrase->answertext);
+        if ($text === '') {
+            return false;
+        }
+        if (!empty($phrase->isregex)) {
+            return (bool) @preg_match($this->to_php_regex($text), $transcript);
+        }
+        $pattern = preg_replace('/\s+/u', '\\s+', preg_quote($text, '/'));
+        if (!empty($phrase->fullmatch)) {
+            // Not touching a letter or digit on either side. Unlike \b,
+            // this also works for letters outside a-z, e.g. "café".
+            $pattern = '(?<![\p{L}\p{N}])' . $pattern . '(?![\p{L}\p{N}])';
+        }
+        $flags = 'u' . (empty($phrase->casesensitive) ? 'i' : '');
+        return (bool) preg_match('/' . $pattern . '/' . $flags, $transcript);
+    }
+
+    /**
+     * Score a transcript against the target phrases.
+     *
+     * Each target phrase that is used awards its own share of the question
+     * grade ("If [phrase] is used, award [percent] divided by [divisor] of
+     * the question grade"). The shares add up, capped at 100%. Modelled on
+     * qtype_essayautograde's target phrases.
      *
      * @param string $transcript
-     * @return array [fraction, feedback html] - fraction is null (not 0.0)
-     *      if there was no transcript to check at all, since that is a lack
-     *      of data, not evidence of a wrong answer.
+     * @return array [fraction, feedback] - fraction is null (not 0.0) if
+     *      there was no transcript, or no target phrases, to check, since
+     *      that is a lack of data, not evidence of a wrong answer.
      */
     protected function grade_by_pattern(string $transcript): array {
+        $phrases = array_filter($this->expectedanswers, function ($phrase) {
+            return trim($phrase->answertext) !== '' && self::phrase_percent($phrase) > 0;
+        });
+        if (empty($phrases)) {
+            return [null, ''];
+        }
         if (trim($transcript) === '') {
             return [null, get_string('suggestedmatch_none', 'qtype_speakup')];
         }
 
-        $totalweight = 0.0;
-        $matchedweight = 0.0;
-        $matchedphrases = [];
-
-        foreach ($this->expectedanswers as $expected) {
-            $weight = isset($expected->weight) ? (float) $expected->weight : 0.0;
-            if ($weight <= 0) {
-                continue;
-            }
-            $totalweight += $weight;
-
-            if (!empty($expected->isregex)) {
-                $ismatch = (bool) @preg_match($this->to_php_regex($expected->answertext), $transcript);
-            } else {
-                $needle = trim($expected->answertext);
-                if ($needle === '') {
-                    continue;
-                }
-                $ismatch = empty($expected->casesensitive)
-                        ? (stripos($transcript, $needle) !== false)
-                        : (strpos($transcript, $needle) !== false);
-            }
-
-            if ($ismatch) {
-                $matchedweight += $weight;
-                $matchedphrases[] = $expected->answertext;
+        $matched = 0;
+        $percent = 0.0;
+        foreach ($phrases as $phrase) {
+            if ($this->phrase_is_used($phrase, $transcript)) {
+                $matched++;
+                $percent += self::phrase_percent($phrase);
             }
         }
+        $percent = min(100.0, $percent);
 
-        if ($totalweight <= 0) {
-            // No phrases configured with a positive weight - nothing to
-            // check against, so there is no suggestion to make.
-            return [null, get_string('suggestedmatch_none', 'qtype_speakup')];
-        }
-
-        $fraction = min(1.0, $matchedweight / $totalweight);
-
-        if ($fraction >= 1.0) {
-            $feedback = get_string('suggestedmatch_yes', 'qtype_speakup');
-        } else if ($fraction <= 0.0) {
-            $feedback = get_string('suggestedmatch_no', 'qtype_speakup');
-        } else {
-            $feedback = get_string('suggestedmatch_partial', 'qtype_speakup', round($fraction * 100));
-        }
-
-        return [$fraction, $feedback];
+        $feedback = get_string('phrasesmatched', 'qtype_speakup', (object) [
+            'matched' => $matched,
+            'total' => count($phrases),
+            'percent' => round($percent, 1),
+        ]);
+        return [$percent / 100, $feedback];
     }
 
     /**

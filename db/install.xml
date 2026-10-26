@@ -34,15 +34,19 @@
       </KEYS>
     </TABLE>
 
-    <TABLE NAME="qtype_speakup_answers" COMMENT="Expected answers / regexes for pattern-matched SpeakUp questions.">
+    <TABLE NAME="qtype_speakup_answers" COMMENT="Target phrases for automated grading of SpeakUp questions.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="answertext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="isregex" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="weight" TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="true" DEFAULT="100" SEQUENCE="false"
-            COMMENT="Percent (0-100) of the pattern-matching grade this phrase contributes if matched. Matched phrases add up, capped at 100%."/>
         <FIELD NAME="casesensitive" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Percent (0-100) of the question grade awarded if this phrase is used, before dividing by divisor."/>
+        <FIELD NAME="divisor" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="The percent is divided by this (1-20), e.g. 100% divided by 3 = 33.33%."/>
+        <FIELD NAME="fullmatch" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="1 = match whole words only; 0 = also match part of a word."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

@@ -109,11 +109,8 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
 
         // Target phrases, shown only for automated grading.
-        // Weighted-phrase model based on qtype_essayautograde's target
-        // phrases: each phrase contributes up to its own weight% of the
-        // grade if matched (case-insensitive substring match by default,
-        // or a full regex if written as /pattern/flags), and matched
-        // phrases add up, capped at 100%.
+        // Modelled on qtype_essayautograde's target phrases: "If [phrase] is
+        // used, award [percent] [divided by n] of the question grade."
         $name = 'phrasesheader';
         $mform->addElement('header', $name, get_string('expectedanswers', $plugin));
         $mform->addHelpButton($name, 'expectedanswers', $plugin);
@@ -123,39 +120,51 @@ class qtype_speakup_edit_form extends question_edit_form {
         // hideIf() or by adding a CSS class. Instead, a separate CSS rule is
         // added to styles.css for each header that must be hidden when empty.
 
-        $repeatarray = [
-            $mform->createElement('text', 'answertext', get_string('answertext', $plugin), ['size' => 40]),
-            $mform->createElement('text', 'weight', get_string('weight', $plugin), ['size' => 5]),
-            $mform->createElement('advcheckbox', 'casesensitive', get_string('casesensitive', $plugin)),
-        ];
-        $repeatedoptions = [
-            'answertext' => ['type' => PARAM_RAW_TRIMMED],
-            'weight' => ['type' => PARAM_FLOAT],
-            'casesensitive' => ['type' => PARAM_BOOL],
-        ];
-
-        // The initial number of rows must be at least as many as the
-        // question already has saved phrases, or existing phrases beyond
-        // the third would be silently present in the form's data but not
-        // rendered as visible rows - only appearing once "Add more" adds
-        // enough new rows to reach them, which looks like duplicated/
-        // misplaced data rather than what it actually is (data that was
-        // there all along, just not yet displayed).
-        $countphrases = 0;
-        if (!empty($this->question->options->expectedanswers)) {
-            $countphrases = count($this->question->options->expectedanswers);
+        $percentmenu = $this->get_percent_menu();
+        $divisormenu = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $divisormenu[$i] = ($i == 1) ? get_string('phrasedivisor1', $plugin) : get_string('phrasedivisorn', $plugin, $i);
         }
-        $repeatsatstart = max($countphrases, 3);
+        $fullmatchmenu = [
+            0 => get_string('phrasefullmatch0', $plugin),
+            1 => get_string('phrasefullmatch1', $plugin),
+        ];
+        $casesensitivemenu = [
+            0 => get_string('phrasecasesensitive0', $plugin),
+            1 => get_string('phrasecasesensitive1', $plugin),
+        ];
 
-        $repeatno = $this->repeat_elements($repeatarray, $repeatsatstart, $repeatedoptions,
-                'answercount', 'answeradd', 2, get_string('addmorephrases', $plugin), true);
+        $elements = [
+            $mform->createElement('group', 'phrasegroup', get_string('phrasegroup', $plugin), [
+                $mform->createElement('static', '', '', get_string('phrasetext1', $plugin)),
+                $mform->createElement('text', 'phrasematch', '', ['size' => 30]),
+                $mform->createElement('static', '', '', get_string('phrasetext2', $plugin)),
+                $mform->createElement('select', 'phrasepercent', '', $percentmenu),
+                $mform->createElement('select', 'phrasedivisor', '', $divisormenu),
+                $mform->createElement('static', '', '', get_string('phrasetext3', $plugin)),
+            ], ' ', false),
+            $mform->createElement('group', 'phraseoptions', get_string('phraseoptions', $plugin), [
+                $mform->createElement('select', 'phrasefullmatch', '', $fullmatchmenu),
+                $mform->createElement('select', 'phrasecasesensitive', '', $casesensitivemenu),
+            ], ' ', false),
+        ];
+        $options = [
+            'phrasegroup' => ['helpbutton' => ['phrasegroup', $plugin]],
+            'phrasematch' => ['type' => PARAM_RAW_TRIMMED],
+            'phrasepercent' => ['type' => PARAM_INT],
+            'phrasedivisor' => ['type' => PARAM_INT],
+            'phrasefullmatch' => ['type' => PARAM_INT],
+            'phrasecasesensitive' => ['type' => PARAM_INT],
+        ];
+
+        // Show at least as many rows as the question already has phrases.
+        $repeats = max(1, count($this->question->options->expectedanswers ?? []));
+        $repeatno = $this->add_repeat_rows($mform, 'phrase', $elements, $options, $repeats);
         for ($i = 0; $i < $repeatno; $i++) {
-            $mform->hideIf('answertext[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
-            $mform->hideIf('weight[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
-            $mform->hideIf('casesensitive[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf('phrasegroup[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf('phraseoptions[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         }
-        // Hide the "Add 2 more phrases" button too, when phrases aren't in use.
-        $mform->hideIf('answeradd', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        $mform->hideIf('phraseaddgroup', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
 
         // Uploaded files have no live transcript, so without AI assessment
         // an AI provider must transcribe them first. (With AI assessment,
@@ -250,6 +259,63 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->setAttributes($attributes);
     }
 
+    /**
+     * Get a menu of percentages, 100% down to 0%.
+     *
+     * @return array percent => label
+     */
+    protected function get_percent_menu(): array {
+        $menu = [];
+        for ($i = 100; $i >= 0; $i--) {
+            $menu[$i] = $i . '%';
+        }
+        return $menu;
+    }
+
+    /**
+     * Add repeated rows (e.g. target phrases), with an "Add [n more]"
+     * button and menu, as in qtype_essayautograde.
+     *
+     * Element names follow the $type: e.g. for "phrase", the number of rows
+     * is in "phrasecount", the button is "phraseadd", the menu is
+     * "phraseaddcount", and both are in the group "phraseaddgroup". The
+     * menu labels use the strings "addmore{$type}1" and "addmore{$type}s".
+     *
+     * @param MoodleQuickForm $mform
+     * @param string $type e.g. "phrase"
+     * @param array $elements the elements in each row.
+     * @param array $options options for repeat_elements().
+     * @param int $repeats number of rows to start with.
+     * @return int the number of rows added.
+     */
+    protected function add_repeat_rows($mform, string $type, array $elements, array $options, int $repeats): int {
+        $plugin = 'qtype_speakup';
+        $addname = $type . 'add';
+        $addcountname = $type . 'addcount';
+        $addcount = optional_param($addcountname, 1, PARAM_INT);
+
+        $repeatno = $this->repeat_elements($elements, $repeats, $options,
+                $type . 'count', $addname, $addcount, get_string('add'), true);
+
+        // Replace repeat_elements()'s own "Add" button with a button and a
+        // menu of how many rows to add.
+        $mform->removeElement($addname);
+        $menu = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $menu[$i] = ($i == 1) ? get_string('addmore' . $type . '1', $plugin)
+                                  : get_string('addmore' . $type . 's', $plugin, $i);
+        }
+        $mform->addGroup([
+            $mform->createElement('submit', $addname, get_string('add')),
+            $mform->createElement('select', $addcountname, '', $menu),
+        ], $addname . 'group', '', ' ', false);
+        $mform->registerNoSubmitButton($addname);
+        $mform->setDefault($addcountname, $addcount);
+        $mform->setType($addcountname, PARAM_INT);
+
+        return $repeatno;
+    }
+
     #[\Override]
     public function data_preprocessing($question) {
         $question = parent::data_preprocessing($question);
@@ -259,25 +325,18 @@ class qtype_speakup_edit_form extends question_edit_form {
             $question->transcriptionproviderid = $question->options->aiproviderid;
         }
 
-        if (!empty($question->options->expectedanswers)) {
-            $question->answertext = [];
-            $question->weight = [];
-            $question->casesensitive = [];
-            foreach ($question->options->expectedanswers as $row) {
-                $question->answertext[] = $row->answertext;
-                $question->weight[] = round((float) $row->weight, 2);
-                $question->casesensitive[] = $row->casesensitive;
-            }
-        } else {
-            // Brand new question, nothing saved yet - give the initial
-            // blank rows a sensible starting weight, via the same
-            // set_data() mechanism used above for already-saved phrases,
-            // rather than repeat_elements()'s own per-row 'default' option
-            // (which was found to conflict with already-saved weights
-            // being correctly displayed/saved - every weight was ending up
-            // as 100, the DB column's own schema default, regardless of
-            // what was actually entered).
-            $question->weight = array_fill(0, 3, 100);
+        // Target phrases.
+        $question->phrasematch = [];
+        $question->phrasepercent = [];
+        $question->phrasedivisor = [];
+        $question->phrasefullmatch = [];
+        $question->phrasecasesensitive = [];
+        foreach ($question->options->expectedanswers ?? [] as $row) {
+            $question->phrasematch[] = $row->answertext;
+            $question->phrasepercent[] = (int) $row->percent;
+            $question->phrasedivisor[] = (int) $row->divisor;
+            $question->phrasefullmatch[] = (int) $row->fullmatch;
+            $question->phrasecasesensitive[] = (int) $row->casesensitive;
         }
 
         return $question;
@@ -294,20 +353,11 @@ class qtype_speakup_edit_form extends question_edit_form {
         $isautomated = ($data['gradingmethod'] === SPEAKUP_GRADING_AUTO);
         $usesai = $isautomated && !empty($data['aiassessment']);
 
-        if ($isautomated && !empty($data['answertext'])) {
-            foreach ($data['answertext'] as $key => $answertext) {
-                $answertext = trim($answertext);
-                if ($answertext === '') {
-                    continue;
-                }
-                if (preg_match('#^/.*/[a-zA-Z]*$#', $answertext)) {
-                    if (@preg_match($answertext, '') === false) {
-                        $errors["answertext[$key]"] = get_string('err_invalidregex', 'qtype_speakup', s($answertext));
-                    }
-                }
-                if (isset($data['weight'][$key])
-                        && ($data['weight'][$key] < 0 || $data['weight'][$key] > 100)) {
-                    $errors["weight[$key]"] = get_string('err_invalidweight', 'qtype_speakup');
+        if ($isautomated && !empty($data['phrasematch'])) {
+            foreach ($data['phrasematch'] as $key => $phrase) {
+                $phrase = trim($phrase);
+                if ($phrase !== '' && preg_match('#^/.*/[a-zA-Z]*$#', $phrase) && @preg_match($phrase, '') === false) {
+                    $errors["phrasegroup[$key]"] = get_string('err_invalidregex', 'qtype_speakup', s($phrase));
                 }
             }
         }

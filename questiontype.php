@@ -110,25 +110,26 @@ class qtype_speakup extends question_type {
 
         parent::save_question_options($question);
 
-        // Save one row per phrase, from the repeated answertext/weight/
-        // casesensitive form fields (see edit_speakup_form.php). Similar in
-        // spirit to how shortanswer/regexp question types store multiple
-        // rows keyed on questionid, but with a weighted-phrase shape
-        // modelled on qtype_essayautograde's target-phrase scoring.
+        // Save one row per target phrase, from the repeated phrase fields
+        // (see edit_speakup_form.php): "If [phrasematch] is used, award
+        // [phrasepercent] divided by [phrasedivisor] of the question grade",
+        // modelled on qtype_essayautograde's target phrases.
         $DB->delete_records('qtype_speakup_answers', ['questionid' => $question->id]);
 
-        if (!empty($question->answertext)) {
-            foreach ($question->answertext as $key => $answertext) {
-                $answertext = trim($answertext);
-                if ($answertext === '') {
+        if (!empty($question->phrasematch)) {
+            foreach ($question->phrasematch as $key => $phrase) {
+                $phrase = trim($phrase);
+                if ($phrase === '') {
                     continue;
                 }
                 $record = new stdClass();
                 $record->questionid = $question->id;
-                $record->answertext = $answertext;
-                $record->isregex = (bool) preg_match('#^/.*/[a-zA-Z]*$#', $answertext);
-                $record->weight = isset($question->weight[$key]) ? round((float) $question->weight[$key], 2) : 0;
-                $record->casesensitive = !empty($question->casesensitive[$key]) ? 1 : 0;
+                $record->answertext = $phrase;
+                $record->isregex = (int) preg_match('#^/.*/[a-zA-Z]*$#', $phrase);
+                $record->percent = min(100, max(0, (int) ($question->phrasepercent[$key] ?? 0)));
+                $record->divisor = min(20, max(1, (int) ($question->phrasedivisor[$key] ?? 1)));
+                $record->fullmatch = empty($question->phrasefullmatch[$key]) ? 0 : 1;
+                $record->casesensitive = empty($question->phrasecasesensitive[$key]) ? 0 : 1;
                 $DB->insert_record('qtype_speakup_answers', $record);
             }
         }
