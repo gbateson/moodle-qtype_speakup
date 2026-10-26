@@ -54,6 +54,25 @@
       </KEYS>
     </TABLE>
 
+    <TABLE NAME="qtype_speakup_items" COMMENT="Target items for automated grading of SpeakUp questions, e.g. the number of words or the speech rate.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="itemtype" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"
+            COMMENT="What is counted, e.g. words, uniquewords or speechrate - see the ITEM_ constants in classes/text_stats.php"/>
+        <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Up to this percent (0-100) of the question grade is awarded for this item."/>
+        <FIELD NAME="mincount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Below this value, nothing is awarded."/>
+        <FIELD NAME="maxcount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="At or above this value, the full percent is awarded. In between, percent x value / maxcount."/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="questionid" TYPE="foreign" FIELDS="questionid" REFTABLE="question" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
     <TABLE NAME="qtype_speakup_response" COMMENT="Per-attempt transcript and AI feedback for SpeakUp responses.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>

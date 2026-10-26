@@ -134,6 +134,28 @@ class qtype_speakup extends question_type {
             }
         }
 
+        // Save one row per target item: "Proportionally award up to
+        // [itempercent] of the question grade for [itemmin] to [itemmax]
+        // [itemtype]". Rows with no percent or no upper number are skipped.
+        $DB->delete_records('qtype_speakup_items', ['questionid' => $question->id]);
+
+        if (!empty($question->itemtype)) {
+            foreach ($question->itemtype as $key => $itemtype) {
+                $percent = min(100, max(0, (int) ($question->itempercent[$key] ?? 0)));
+                $maxcount = max(0, (float) ($question->itemmax[$key] ?? 0));
+                if ($percent == 0 || $maxcount == 0 || !in_array($itemtype, \qtype_speakup\text_stats::get_item_types())) {
+                    continue;
+                }
+                $record = new stdClass();
+                $record->questionid = $question->id;
+                $record->itemtype = $itemtype;
+                $record->percent = $percent;
+                $record->mincount = min($maxcount, max(0, (float) ($question->itemmin[$key] ?? 0)));
+                $record->maxcount = $maxcount;
+                $DB->insert_record('qtype_speakup_items', $record);
+            }
+        }
+
         return true;
     }
 
@@ -144,6 +166,9 @@ class qtype_speakup extends question_type {
 
         $answers = $DB->get_records('qtype_speakup_answers', ['questionid' => $question->id], 'id ASC');
         $question->options->expectedanswers = array_values($answers);
+
+        $items = $DB->get_records('qtype_speakup_items', ['questionid' => $question->id], 'id ASC');
+        $question->options->targetitems = array_values($items);
 
         return true;
     }
@@ -170,12 +195,14 @@ class qtype_speakup extends question_type {
     protected function initialise_question_instance(question_definition $question, $questiondata) {
         parent::initialise_question_instance($question, $questiondata);
         $question->expectedanswers = $questiondata->options->expectedanswers ?? [];
+        $question->targetitems = $questiondata->options->targetitems ?? [];
     }
 
     #[\Override]
     public function delete_question($questionid, $contextid) {
         global $DB;
         $DB->delete_records('qtype_speakup_answers', ['questionid' => $questionid]);
+        $DB->delete_records('qtype_speakup_items', ['questionid' => $questionid]);
         parent::delete_question($questionid, $contextid);
     }
 

@@ -93,6 +93,44 @@ $string['sttlanguage_help'] = 'The language the student is expected to speak, as
 For live recordings, the browser\'s built-in speech recognition (if available) uses it to make an instant transcript. If the student\'s browser does not support speech recognition, or this language, live transcription is skipped, and the response is still recorded normally.
 
 For uploaded files, it is given to the AI provider as a hint when transcribing.';
+$string['itemsheader'] = 'Target items';
+$string['itemsheader_help'] = 'Target items award part of the question grade for how much the student says, e.g. the number of words, or the speech rate. They are counted in a transcript of the response.';
+$string['itemgroup'] = 'Target item [{no}]';
+$string['itemgroup_help'] = 'Below the first number, this item awards nothing. From the first number, it awards a share of the percent in proportion to the value, up to the full percent at the second number. For example, "up to 20% for 50 to 100 Words" awards nothing for 40 words, 10% for 50 words, 15% for 75 words, and 20% for 100 words or more.
+
+The scores of all the target items add up, together with the target phrases and the AI assessment (if used), and the total is capped at 100%.
+
+* **Characters** - letters and digits, not counting spaces or punctuation.
+* **Words** - separated by spaces.
+* **Sentences** - ended by a full stop, question mark or exclamation mark.
+* **Unique words** - different words, ignoring capital letters.
+* **Long words** - words with three or more syllables.
+* **Characters / Words / Long words per sentence** - divided by the number of sentences.
+* **Lexical density** - unique words as a percentage of words.
+* **Speech rate** - words per minute of recording.
+
+Items that count sentences need a transcript with punctuation, which only an AI provider makes. So they can only be used with AI assessment, or with uploaded files.';
+$string['itemtext1'] = 'Proportionally award up to';
+$string['itemtext2'] = 'of the question grade for';
+$string['itemtext3'] = 'to';
+$string['itemchars'] = 'Characters';
+$string['itemwords'] = 'Words';
+$string['itemsentences'] = 'Sentences';
+$string['itemuniquewords'] = 'Unique words';
+$string['itemlongwords'] = 'Long words';
+$string['itemcharspersentence'] = 'Characters per sentence';
+$string['itemwordspersentence'] = 'Words per sentence';
+$string['itemlongwordspersentence'] = 'Long words per sentence';
+$string['itemlexicaldensity'] = 'Lexical density (%)';
+$string['itemspeechrate'] = 'Speech rate (words per minute)';
+$string['addmoreitem1'] = '1 more target item';
+$string['addmoreitems'] = '{$a} more target items';
+$string['itemscore'] = '{$a->item}: {$a->value} ({$a->percent}% of the question grade).';
+$string['itemunknown'] = 'unknown';
+$string['noitemtranscript'] = 'No transcript is available for this response, so the target items could not be counted.';
+$string['err_itemmax'] = 'Enter numbers for this item, and a second number greater than 0.';
+$string['err_itemrange'] = 'The first number must not be greater than the second number.';
+$string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
 $string['aisettings'] = 'AI assessment settings';
 $string['aisettings_help'] = 'Settings for assessing the response by AI, as part of automated grading.';
 $string['aiassessment'] = 'Use AI assessment';

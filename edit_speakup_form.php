@@ -157,9 +157,9 @@ class qtype_speakup_edit_form extends question_edit_form {
             'phrasecasesensitive' => ['type' => PARAM_INT],
         ];
 
-        // Show at least as many rows as the question already has phrases.
-        $repeats = max(1, count($this->question->options->expectedanswers ?? []));
-        $repeatno = $this->add_repeat_rows($mform, 'phrase', $elements, $options, $repeats);
+        $saved = count($this->question->options->expectedanswers ?? []);
+        $defaults = ['phrasepercent' => 0, 'phrasedivisor' => 1];
+        $repeatno = $this->add_repeat_rows($mform, 'phrase', $elements, $options, $saved, $defaults);
         for ($i = 0; $i < $repeatno; $i++) {
             $mform->hideIf('phrasegroup[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
             $mform->hideIf('phraseoptions[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
@@ -186,6 +186,47 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
         $mform->hideIf($name, 'aiassessment', 'checked');
+
+        // Target items, shown only for automated grading: "Proportionally
+        // award up to [percent] of the question grade for [min] to [max]
+        // [item]", e.g. words, unique words or speech rate.
+        $name = 'itemsheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setExpanded($name, true);
+
+        $itemmenu = [];
+        foreach (\qtype_speakup\text_stats::get_item_types() as $type) {
+            $itemmenu[$type] = get_string('item' . $type, $plugin);
+        }
+        $elements = [
+            $mform->createElement('group', 'itemgroup', get_string('itemgroup', $plugin), [
+                $mform->createElement('static', '', '', get_string('itemtext1', $plugin)),
+                $mform->createElement('select', 'itempercent', '', $percentmenu),
+                $mform->createElement('static', '', '', get_string('itemtext2', $plugin)),
+                $mform->createElement('text', 'itemmin', '', ['size' => 4]),
+                $mform->createElement('static', '', '', get_string('itemtext3', $plugin)),
+                $mform->createElement('text', 'itemmax', '', ['size' => 4]),
+                $mform->createElement('select', 'itemtype', '', $itemmenu),
+            ], ' ', false),
+        ];
+        // The default item depends on the response language: characters
+        // for languages written without spaces (e.g. Japanese), else words.
+        $lang = $this->question->options->sttlanguage ?? 'en-US';
+        $options = [
+            'itemgroup' => ['helpbutton' => ['itemgroup', $plugin]],
+            'itempercent' => ['type' => PARAM_INT],
+            'itemmin' => ['type' => PARAM_RAW_TRIMMED],
+            'itemmax' => ['type' => PARAM_RAW_TRIMMED],
+            'itemtype' => ['type' => PARAM_ALPHA],
+        ];
+        $saved = count($this->question->options->targetitems ?? []);
+        $defaults = ['itempercent' => 0, 'itemtype' => \qtype_speakup\text_stats::get_default_item_type($lang)];
+        $repeatno = $this->add_repeat_rows($mform, 'item', $elements, $options, $saved, $defaults);
+        for ($i = 0; $i < $repeatno; $i++) {
+            $mform->hideIf('itemgroup[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        }
+        $mform->hideIf('itemaddgroup', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
 
         // AI assessment settings, shown only for automated grading.
         $name = 'aisettings';
@@ -281,14 +322,21 @@ class qtype_speakup_edit_form extends question_edit_form {
      * "phraseaddcount", and both are in the group "phraseaddgroup". The
      * menu labels use the strings "addmore{$type}1" and "addmore{$type}s".
      *
+     * Defaults are only set on new rows, i.e. those after the saved ones.
+     * (repeat_elements()'s own "default" option would also overwrite the
+     * values of saved rows.)
+     *
      * @param MoodleQuickForm $mform
      * @param string $type e.g. "phrase"
      * @param array $elements the elements in each row.
      * @param array $options options for repeat_elements().
-     * @param int $repeats number of rows to start with.
+     * @param int $saved number of rows the question already has.
+     * @param array $defaults element name => default value, for new rows.
      * @return int the number of rows added.
      */
-    protected function add_repeat_rows($mform, string $type, array $elements, array $options, int $repeats): int {
+    protected function add_repeat_rows($mform, string $type, array $elements, array $options,
+            int $saved, array $defaults): int {
+        $repeats = max(1, $saved);
         $plugin = 'qtype_speakup';
         $addname = $type . 'add';
         $addcountname = $type . 'addcount';
@@ -312,6 +360,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->registerNoSubmitButton($addname);
         $mform->setDefault($addcountname, $addcount);
         $mform->setType($addcountname, PARAM_INT);
+
+        for ($i = $saved; $i < $repeatno; $i++) {
+            foreach ($defaults as $name => $value) {
+                $mform->setDefault($name . '[' . $i . ']', $value);
+            }
+        }
 
         return $repeatno;
     }
@@ -339,6 +393,19 @@ class qtype_speakup_edit_form extends question_edit_form {
             $question->phrasecasesensitive[] = (int) $row->casesensitive;
         }
 
+        // Target items. Numbers are shown without needless decimals, e.g.
+        // 50 rather than 50.00.
+        $question->itemtype = [];
+        $question->itempercent = [];
+        $question->itemmin = [];
+        $question->itemmax = [];
+        foreach ($question->options->targetitems ?? [] as $row) {
+            $question->itemtype[] = $row->itemtype;
+            $question->itempercent[] = (int) $row->percent;
+            $question->itemmin[] = format_float((float) $row->mincount, 2, false, true);
+            $question->itemmax[] = format_float((float) $row->maxcount, 2, false, true);
+        }
+
         return $question;
     }
 
@@ -352,6 +419,28 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         $isautomated = ($data['gradingmethod'] === SPEAKUP_GRADING_AUTO);
         $usesai = $isautomated && !empty($data['aiassessment']);
+
+        // Target items: a row is used if it awards a percent. It then needs
+        // an upper number, and a lower number that is not above it. Items
+        // that count sentences need a transcript with punctuation, which
+        // only AI makes: the browser's live transcript has none.
+        if ($isautomated && !empty($data['itemtype'])) {
+            $isupload = (($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD);
+            foreach ($data['itemtype'] as $key => $itemtype) {
+                if (empty($data['itempercent'][$key])) {
+                    continue;
+                }
+                $min = trim($data['itemmin'][$key] ?? '');
+                $max = trim($data['itemmax'][$key] ?? '');
+                if (($min !== '' && !is_numeric($min)) || !is_numeric($max) || (float) $max <= 0) {
+                    $errors["itemgroup[$key]"] = get_string('err_itemmax', 'qtype_speakup');
+                } else if ((float) $min > (float) $max) {
+                    $errors["itemgroup[$key]"] = get_string('err_itemrange', 'qtype_speakup');
+                } else if (\qtype_speakup\text_stats::needs_sentences($itemtype) && !$usesai && !$isupload) {
+                    $errors["itemgroup[$key]"] = get_string('err_itemneedsai', 'qtype_speakup');
+                }
+            }
+        }
 
         if ($isautomated && !empty($data['phrasematch'])) {
             foreach ($data['phrasematch'] as $key => $phrase) {

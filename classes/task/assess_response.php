@@ -106,9 +106,15 @@ class assess_response extends \core\task\adhoc_task {
                 }
             }
 
-            // The grade combines the target phrases with the AI's score.
+            // The grade combines the target phrases and items with the AI's score.
             [$phrasefraction, ] = $question->grade_transcript($transcript);
-            $fraction = $question->combine_fractions($phrasefraction, $aifraction);
+            $duration = null;
+            if ($question->needs_duration()) {
+                $files = $qa->get_last_qt_files('recording', $data->contextid);
+                $duration = \qtype_speakup\media_info::get_duration(reset($files) ?: null);
+            }
+            [$itemfraction, ] = $question->grade_by_items($transcript, $duration);
+            $fraction = $question->combine_fractions($phrasefraction, $itemfraction, $aifraction);
 
             $record->transcript = $transcript;
             $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';

@@ -87,6 +87,12 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     public $expectedanswers = [];
 
+    /**
+     * @var stdClass[] target items, each with ->itemtype, ->percent,
+     *      ->mincount and ->maxcount.
+     */
+    public $targetitems = [];
+
     /** The single recorded-audio filename used in the response file area. */
     const RESPONSE_FILE_AREA = 'response_audio';
 
@@ -154,25 +160,118 @@ class qtype_speakup_question extends question_graded_automatically {
     /**
      * Combine the parts of an automated grade into one fraction.
      *
-     * The grade is the target phrase score plus the AI's score multiplied
-     * by the AI weighting, capped at 1 (i.e. 100%).
+     * The grade is the target phrase score, plus the target item score,
+     * plus the AI's score multiplied by the AI weighting, capped at 1
+     * (i.e. 100%).
      *
      * @param float|null $phrasefraction score from target phrases (0..1),
      *      or null if there are none to check.
+     * @param float|null $itemfraction score from target items (0..1), or
+     *      null if there are none to check.
      * @param float|null $aifraction the AI's score (0..1), or null if the
      *      response was not assessed by AI.
      * @return float|null the grade (0..1), or null if there is nothing to
      *      grade from, in which case a teacher must grade it.
      */
-    public function combine_fractions(?float $phrasefraction, ?float $aifraction): ?float {
-        if ($phrasefraction === null && $aifraction === null) {
+    public function combine_fractions(?float $phrasefraction, ?float $itemfraction, ?float $aifraction): ?float {
+        if ($phrasefraction === null && $itemfraction === null && $aifraction === null) {
             return null;
         }
-        $fraction = (float) $phrasefraction;
+        $fraction = (float) $phrasefraction + (float) $itemfraction;
         if ($aifraction !== null) {
             $fraction += $aifraction * ((int) $this->aiweighting / 100);
         }
         return min(1.0, max(0.0, $fraction));
+    }
+
+    /**
+     * Get the target items that can award something: those with a percent
+     * and an upper number.
+     *
+     * @return stdClass[]
+     */
+    protected function get_active_items(): array {
+        return array_filter($this->targetitems, function ($item) {
+            return (int) $item->percent > 0 && (float) $item->maxcount > 0;
+        });
+    }
+
+    /**
+     * Do any of the target items need the length of the recording?
+     *
+     * @return bool
+     */
+    public function needs_duration(): bool {
+        foreach ($this->get_active_items() as $item) {
+            if ($item->itemtype === \qtype_speakup\text_stats::ITEM_SPEECHRATE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Score a transcript against the target items.
+     *
+     * Each item reads "Proportionally award up to [percent] of the question
+     * grade for [mincount] to [maxcount] [itemtype]". Below mincount, the
+     * item awards nothing. From mincount, it awards percent x value /
+     * maxcount, up to the full percent at maxcount. The items' scores add
+     * up, capped at 100%.
+     *
+     * @param string $transcript
+     * @param float|null $duration length of the recording in seconds, if known.
+     * @return array [fraction|null, feedback] - fraction is null if there
+     *      are no target items, or no transcript to check them in.
+     */
+    public function grade_by_items(string $transcript, ?float $duration): array {
+        $items = $this->get_active_items();
+        if (empty($items)) {
+            return [null, ''];
+        }
+        if (trim($transcript) === '') {
+            return [null, get_string('noitemtranscript', 'qtype_speakup')];
+        }
+
+        $percent = 0.0;
+        $lines = [];
+        foreach ($items as $item) {
+            $value = \qtype_speakup\text_stats::get_value($item->itemtype, $transcript, $duration);
+            $share = 0.0;
+            if ($value !== null && $value >= (float) $item->mincount) {
+                $max = (float) $item->maxcount;
+                $share = (int) $item->percent * min($value, $max) / $max;
+            }
+            $percent += $share;
+            $lines[] = get_string('itemscore', 'qtype_speakup', (object) [
+                'item' => get_string('item' . $item->itemtype, 'qtype_speakup'),
+                'value' => ($value === null) ? get_string('itemunknown', 'qtype_speakup') : round($value, 1),
+                'percent' => round($share, 1),
+            ]);
+        }
+        $percent = min(100.0, $percent);
+
+        return [$percent / 100, implode(' ', $lines)];
+    }
+
+    /**
+     * Get the length of the recording in a response, if the target items
+     * need it.
+     *
+     * @param array $response responses, as returned by
+     *      {@see question_attempt_step::get_qt_data()}.
+     * @return float|null the length in seconds, or null if it is unknown or
+     *      not needed.
+     */
+    protected function get_response_duration(array $response): ?float {
+        if (!$this->needs_duration() || empty($response['recording'])) {
+            return null;
+        }
+        if (!($response['recording'] instanceof question_response_files)) {
+            return null;
+        }
+        $files = $response['recording']->get_files();
+        return \qtype_speakup\media_info::get_duration(reset($files) ?: null);
     }
 
     #[\Override]
@@ -350,7 +449,8 @@ class qtype_speakup_question extends question_graded_automatically {
         if ($this->is_automated() && !$this->is_graded_later()) {
             $transcript = (string) ($response['browsertranscript'] ?? '');
             [$phrasefraction, ] = $this->grade_by_pattern($transcript);
-            $fraction = $this->combine_fractions($phrasefraction, null);
+            [$itemfraction, ] = $this->grade_by_items($transcript, $this->get_response_duration($response));
+            $fraction = $this->combine_fractions($phrasefraction, $itemfraction, null);
             if ($fraction !== null) {
                 return [$fraction, question_state::graded_state_for_fraction($fraction)];
             }

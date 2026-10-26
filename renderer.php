@@ -111,6 +111,12 @@ class qtype_speakup_renderer extends qtype_renderer {
                     $output .= html_writer::tag('div', s($matchfeedback),
                             ['class' => 'qtype_speakup-suggested-match']);
                 }
+                $duration = $question->needs_duration() ? \qtype_speakup\media_info::get_duration($existingfile) : null;
+                [, $itemfeedback] = $question->grade_by_items($browsertranscript, $duration);
+                if ($itemfeedback !== '') {
+                    $output .= html_writer::tag('div', s($itemfeedback),
+                            ['class' => 'qtype_speakup-item-scores']);
+                }
             } else if ($question->is_graded_later()) {
                 // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.

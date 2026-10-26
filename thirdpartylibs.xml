@@ -28,4 +28,17 @@
     <license>MIT</license>
     <repository>https://github.com/legokichi/ts-ebml</repository>
   </library>
+  <library>
+    <location>vendor/getID3</location>
+    <name>getID3</name>
+    <description>
+      PHP library that reads information, such as the duration, from audio and video files.
+      Used to find the length of a recording, e.g. for the speech rate target item.
+      Only the getid3 code folder and the licence files are included.
+    </description>
+    <version>1.9.24</version>
+    <license>GPL</license>
+    <licenseversion>3.0+</licenseversion>
+    <repository>https://github.com/JamesHeinrich/getID3</repository>
+  </library>
 </libraries>
