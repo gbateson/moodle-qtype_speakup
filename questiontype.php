@@ -31,10 +31,11 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/question/type/questiontypebase.php');
 
-/** Grade the transcript against expected answers / regular expressions. */
-define('SPEAKUP_GRADING_EXACT', 'exact');
-/** Send the transcript (and/or audio) to an AI assessment engine. */
-define('SPEAKUP_GRADING_AI', 'ai');
+/**
+ * Automated grading: a grade made up of matched target phrases, plus the
+ * AI assessment's score (if used) multiplied by its weighting.
+ */
+define('SPEAKUP_GRADING_AUTO', 'auto');
 /** No automatic grading; a teacher must grade manually. */
 define('SPEAKUP_GRADING_MANUAL', 'manual');
 
@@ -83,6 +84,8 @@ class qtype_speakup extends question_type {
             'airubric',
             'aiproviderid',
             'responsemethod',
+            'aiassessment',
+            'aiweighting',
         ];
     }
 
@@ -95,10 +98,11 @@ class qtype_speakup extends question_type {
     public function save_question_options($question) {
         global $DB;
 
-        // For pattern matching, aiproviderid holds the transcription
+        // Without AI assessment, aiproviderid holds the transcription
         // provider, which the question form has in a separate field (see
         // edit_speakup_form.php). It is only needed for uploaded files.
-        if ($question->gradingmethod === SPEAKUP_GRADING_EXACT && property_exists($question, 'transcriptionproviderid')) {
+        if ($question->gradingmethod === SPEAKUP_GRADING_AUTO && empty($question->aiassessment)
+                && property_exists($question, 'transcriptionproviderid')) {
             $isupload = ($question->responsemethod ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD;
             $question->aiproviderid = ($isupload && !empty($question->transcriptionproviderid))
                     ? (int) $question->transcriptionproviderid : null;

@@ -81,8 +81,8 @@ foreach ($quba->get_slots() as $slot) {
     }
     mtrace("Slot $slot: " . $question->name . ' (gradingmethod=' . $question->gradingmethod . ')');
 
-    if ($question->gradingmethod !== SPEAKUP_GRADING_AI) {
-        mtrace("  Skipping - not an AI-graded question.");
+    if (!$question->is_graded_later()) {
+        mtrace("  Skipping - not graded in the background (no AI assessment or upload).");
         continue;
     }
 

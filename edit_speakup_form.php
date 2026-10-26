@@ -70,6 +70,15 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Pausing only applies to live recording.
         $mform->hideIf('allowpause', 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
 
+        // The language the student is expected to speak. Used for live
+        // browser transcription, and as a hint to the AI when transcribing.
+        $name = 'sttlanguage';
+        $label = get_string($name, $plugin);
+        $mform->addElement('text', $name, $label, ['size' => 10]);
+        $mform->setType($name, PARAM_ALPHANUMEXT); // Restricts to e.g. en-US, ja-JP style tags.
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 'en-US');
+
         $name = 'audioprompt';
         $label = get_string($name, $plugin);
         $options = [
@@ -83,13 +92,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         $name = 'gradingmethod';
         $label = get_string($name, $plugin);
         $options = [
-            SPEAKUP_GRADING_EXACT  => get_string('gradingmethod_exact', $plugin),
-            SPEAKUP_GRADING_AI     => get_string('gradingmethod_ai', $plugin),
+            SPEAKUP_GRADING_AUTO => get_string('gradingmethod_auto', $plugin),
             SPEAKUP_GRADING_MANUAL => get_string('gradingmethod_manual', $plugin),
         ];
         $mform->addElement('select', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
-        $mform->setDefault($name, SPEAKUP_GRADING_EXACT);
+        $mform->setDefault($name, SPEAKUP_GRADING_AUTO);
 
         $name = 'feedbackmode';
         $label = get_string($name, $plugin);
@@ -100,7 +108,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addElement('select', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
 
-        // Pattern-matching phrases, shown only when gradingmethod = exact.
+        // Target phrases, shown only for automated grading.
         // Weighted-phrase model based on qtype_essayautograde's target
         // phrases: each phrase contributes up to its own weight% of the
         // grade if matched (case-insensitive substring match by default,
@@ -142,29 +150,20 @@ class qtype_speakup_edit_form extends question_edit_form {
         $repeatno = $this->repeat_elements($repeatarray, $repeatsatstart, $repeatedoptions,
                 'answercount', 'answeradd', 2, get_string('addmorephrases', $plugin), true);
         for ($i = 0; $i < $repeatno; $i++) {
-            $mform->hideIf('answertext[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
-            $mform->hideIf('weight[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
-            $mform->hideIf('casesensitive[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+            $mform->hideIf('answertext[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf('weight[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf('casesensitive[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         }
         // Hide the "Add 2 more phrases" button too, when phrases aren't in use.
-        $mform->hideIf('answeradd', 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+        $mform->hideIf('answeradd', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
 
-        $name = 'sttlanguage';
-        $label = get_string($name, $plugin);
-        $mform->addElement('text', $name, $label, ['size' => 10]);
-        $mform->setType($name, PARAM_ALPHANUMEXT); // Restricts to e.g. en-US, ja-JP style tags.
-        $mform->addHelpButton($name, $name, $plugin);
-        $mform->setDefault($name, 'en-US');
-        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
-        // Live transcription only happens while recording in the browser.
-        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
-
-        // Uploaded files have no live transcript, so pattern matching needs
-        // an AI provider to transcribe them first. This is saved in the same
-        // aiproviderid field as the AI provider below (see data_preprocessing()
+        // Uploaded files have no live transcript, so without AI assessment
+        // an AI provider must transcribe them first. (With AI assessment,
+        // the AI provider below does that.) This is saved in the same
+        // aiproviderid field as the AI provider (see data_preprocessing()
         // and qtype_speakup::save_question_options()). It is a separate form
-        // field because hideIf() can't show one field for "AI grading, or
-        // pattern matching with uploads".
+        // field because hideIf() can't show one field for "AI assessment,
+        // or uploads without AI assessment".
         $name = 'transcriptionproviderid';
         $label = get_string($name, $plugin);
         $providermenu = \qtype_speakup\ai_provider::get_menu(true);
@@ -175,10 +174,11 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->setType($name, PARAM_INT);
         }
         $mform->addHelpButton($name, $name, $plugin);
-        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_EXACT);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
+        $mform->hideIf($name, 'aiassessment', 'checked');
 
-        // AI rubric field, shown only when gradingmethod = ai.
+        // AI assessment settings, shown only for automated grading.
         $name = 'aisettings';
         $mform->addElement('header', $name, get_string($name, $plugin));
         $mform->addHelpButton($name, $name, $plugin);
@@ -186,12 +186,32 @@ class qtype_speakup_edit_form extends question_edit_form {
         // See styles.css for the CSS rule (#id_aisettings) that hides this
         // header when every field within it is hidden by hideIf() below.
 
+        $name = 'aiassessment';
+        $label = get_string($name, $plugin);
+        $mform->addElement('advcheckbox', $name, $label);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+
+        $name = 'aiweighting';
+        $label = get_string($name, $plugin);
+        $options = [];
+        for ($i = 100; $i >= 0; $i--) {
+            $options[$i] = $i . '%';
+        }
+        $mform->addElement('select', $name, $label, $options);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 100);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        $mform->hideIf($name, 'aiassessment', 'notchecked');
+
         $name = 'airubric';
         $label = get_string($name, $plugin);
         $options = ['rows' => 6];
         $mform->addElement('textarea', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
-        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AI);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        $mform->hideIf($name, 'aiassessment', 'notchecked');
 
         $name = 'aiproviderid';
         $label = get_string($name, $plugin);
@@ -207,7 +227,8 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->setType($name, PARAM_INT);
         }
         $mform->addHelpButton($name, $name, $plugin);
-        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AI);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        $mform->hideIf($name, 'aiassessment', 'notchecked');
     }
 
     /**
@@ -270,7 +291,10 @@ class qtype_speakup_edit_form extends question_edit_form {
             $errors['timelimitinseconds'] = get_string('errornotimelimit', 'qtype_speakup');
         }
 
-        if ($data['gradingmethod'] === SPEAKUP_GRADING_EXACT && !empty($data['answertext'])) {
+        $isautomated = ($data['gradingmethod'] === SPEAKUP_GRADING_AUTO);
+        $usesai = $isautomated && !empty($data['aiassessment']);
+
+        if ($isautomated && !empty($data['answertext'])) {
             foreach ($data['answertext'] as $key => $answertext) {
                 $answertext = trim($answertext);
                 if ($answertext === '') {
@@ -288,25 +312,20 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
         }
 
-        if ($data['gradingmethod'] === SPEAKUP_GRADING_AI) {
+        if ($usesai) {
             $providermenu = \qtype_speakup\ai_provider::get_menu(true);
             if (!empty($providermenu) && empty($data['aiproviderid'])) {
                 $errors['aiproviderid'] = get_string('err_aiproviderrequired', 'qtype_speakup');
             }
         }
 
-        // An uploaded file has no live browser transcript. So, unless it is
-        // graded manually, it needs an AI provider that receives the file
-        // itself and can transcribe it: for pattern matching, the
-        // transcription provider; for AI grading, the AI provider.
-        if (($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD) {
-            $field = '';
-            if ($data['gradingmethod'] === SPEAKUP_GRADING_EXACT) {
-                $field = 'transcriptionproviderid';
-            } else if ($data['gradingmethod'] === SPEAKUP_GRADING_AI) {
-                $field = 'aiproviderid';
-            }
-            if ($field) {
+        // An uploaded file has no live browser transcript. So, for
+        // automated grading, it needs an AI provider that receives the file
+        // itself and can transcribe it: with AI assessment, the AI
+        // provider; without, the transcription provider.
+        if ($isautomated && ($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD) {
+            $field = ($usesai ? 'aiproviderid' : 'transcriptionproviderid');
+            if (!isset($errors[$field])) {
                 $providerid = (int) ($data[$field] ?? 0);
                 if (empty(\qtype_speakup\ai_provider::get_menu(true))) {
                     $errors['responsemethod'] = get_string('err_uploadneedsprovider', 'qtype_speakup');

@@ -18,13 +18,12 @@
  * A SpeakUp question that is being attempted.
  *
  * Response is a single recorded audio file (expected data pattern based on
- * qtype_recordrtc, The Open University, GPL v3+). Grading is dispatched to
- * one of three strategies: exact/regex match against a transcript, an AI
- * assessment engine (via an adhoc task, since it is not instantaneous), or
- * manual grading only.
+ * qtype_recordrtc, The Open University, GPL v3+). Grading is either manual,
+ * or automated: target phrases matched in a transcript, plus an optional
+ * AI assessment (via an adhoc task, since it is not instantaneous).
  *
  * Extends question_graded_automatically (rather than question_with_responses
- * directly) so that SPEAKUP_GRADING_EXACT can produce a real automatic
+ * directly) so that automated grading can produce a real automatic
  * grade via grade_response() below - that base class already implements
  * question_automatically_gradable's get_hint()/get_right_answer_summary(),
  * and inherits classify_response()/un_summarise_response() from
@@ -55,8 +54,14 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int time limit in seconds for the recording. */
     public $timelimitinseconds;
 
-    /** @var string one of SPEAKUP_GRADING_EXACT / SPEAKUP_GRADING_AI / SPEAKUP_GRADING_MANUAL. */
+    /** @var string one of SPEAKUP_GRADING_AUTO / SPEAKUP_GRADING_MANUAL. */
     public $gradingmethod;
+
+    /** @var bool for automated grading: whether the response is also assessed by AI. */
+    public $aiassessment;
+
+    /** @var int for automated grading with AI: percentage of the question grade given by the AI's score. */
+    public $aiweighting;
 
     /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
     public $mediatype;
@@ -82,31 +87,89 @@ class qtype_speakup_question extends question_graded_automatically {
     /** The single recorded-audio filename used in the response file area. */
     const RESPONSE_FILE_AREA = 'response_audio';
 
+    /**
+     * Is this question graded automatically?
+     *
+     * @return bool
+     */
+    public function is_automated(): bool {
+        return $this->gradingmethod === SPEAKUP_GRADING_AUTO;
+    }
+
+    /**
+     * Is the response assessed by AI?
+     *
+     * @return bool
+     */
+    public function uses_ai(): bool {
+        return $this->is_automated() && !empty($this->aiassessment);
+    }
+
+    /**
+     * Are students asked to upload a file, rather than record live?
+     *
+     * @return bool
+     */
+    public function is_upload(): bool {
+        return $this->responsemethod === SPEAKUP_RESPONSE_UPLOAD;
+    }
+
+    /**
+     * Is this question graded later, in a background task, rather than
+     * straight away when the response is submitted?
+     *
+     * That is the case when the response is assessed by AI, or when it is
+     * an uploaded file, which must first be transcribed by an AI provider.
+     * Either way, the result arrives some time after the response is
+     * submitted.
+     *
+     * @return bool
+     */
+    public function is_graded_later(): bool {
+        return $this->is_automated() && ($this->uses_ai() || $this->is_upload());
+    }
+
     #[\Override]
     public function make_behaviour(question_attempt $qa, $preferredbehaviour) {
-        if ($this->gradingmethod === SPEAKUP_GRADING_EXACT) {
-            // Automatic grading via grade_response() below (weighted
-            // phrase matching against the live browser transcript).
-            // make_archetypal_behaviour() (rather than a hardcoded
-            // 'deferredfeedback') respects whatever behaviour the quiz is
-            // actually configured with - matching both
-            // qtype_essayautograde's own approach and core's own
-            // question_graded_automatically_with_countback::make_behaviour().
+        if ($this->is_automated() && !$this->is_graded_later()) {
+            // Graded straight away, by grade_response() below.
+            // make_archetypal_behaviour() respects whatever behaviour the
+            // quiz is set to use (as qtype_essayautograde does).
             return question_engine::make_archetypal_behaviour($preferredbehaviour, $qa);
         }
 
-        // SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI both stay on
-        // manualgraded. For AI mode this is deliberate, not a limitation:
-        // grade_response() only ever receives $response (the submitted
-        // qt_data), never the question_attempt itself or its database id,
-        // so it has no way to look up a per-attempt stored AI result at
-        // regrade time. Instead, once the async AI call completes (see
-        // classes/task/assess_response.php), the result is posted via
-        // question_attempt::manual_grade() - the exact same mechanism a
-        // human teacher's grading action uses - which needs no special
-        // support from grade_response() at all, and gives a teacher
-        // full, ordinary override capability on top of it for free.
+        // Manual grading, and grading done later in a background task,
+        // both use manualgraded. The background task posts its grade via
+        // question_attempt::manual_grade() (see
+        // classes/task/assess_response.php), the same way a teacher grades,
+        // so a teacher can still override it. grade_response() can't be
+        // used for that, because it only gets the response data, not the
+        // question attempt, so it can't find the background task's result.
         return question_engine::make_behaviour('manualgraded', $qa, $preferredbehaviour);
+    }
+
+    /**
+     * Combine the parts of an automated grade into one fraction.
+     *
+     * The grade is the target phrase score plus the AI's score multiplied
+     * by the AI weighting, capped at 1 (i.e. 100%).
+     *
+     * @param float|null $phrasefraction score from target phrases (0..1),
+     *      or null if there are none to check.
+     * @param float|null $aifraction the AI's score (0..1), or null if the
+     *      response was not assessed by AI.
+     * @return float|null the grade (0..1), or null if there is nothing to
+     *      grade from, in which case a teacher must grade it.
+     */
+    public function combine_fractions(?float $phrasefraction, ?float $aifraction): ?float {
+        if ($phrasefraction === null && $aifraction === null) {
+            return null;
+        }
+        $fraction = (float) $phrasefraction;
+        if ($aifraction !== null) {
+            $fraction += $aifraction * ((int) $this->aiweighting / 100);
+        }
+        return min(1.0, max(0.0, $fraction));
     }
 
     #[\Override]
@@ -270,32 +333,10 @@ class qtype_speakup_question extends question_graded_automatically {
      * question_automatically_gradable interface (inherited via
      * question_graded_automatically).
      *
-     * Only ever actually produces an automatic grade for
-     * SPEAKUP_GRADING_EXACT - see make_behaviour() above for why
-     * SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI never reach here via
-     * the normal grading flow (they stay on manualgraded behaviour), but
-     * this method still needs to handle being called for them defensively
-     * (e.g. if a regrade is attempted after a gradingmethod change), in
-     * which case it defers to manual grading rather than fabricating a
-     * grade for a mode that has none yet.
-     *
-     * @param array $response responses, as returned by
-     *      {@see question_attempt_step::get_qt_data()}.
-     * @return array (float|null $fraction, question_state $state).
-     */
-    /**
-     * Grade a response to the question. Required by the
-     * question_automatically_gradable interface (inherited via
-     * question_graded_automatically).
-     *
-     * Only ever actually produces an automatic grade for
-     * SPEAKUP_GRADING_EXACT - see make_behaviour() above for why
-     * SPEAKUP_GRADING_MANUAL and SPEAKUP_GRADING_AI never reach here via
-     * the normal grading flow (they stay on manualgraded behaviour), but
-     * this method still needs to handle being called for them defensively
-     * (e.g. if a regrade is attempted after a gradingmethod change), in
-     * which case it defers to manual grading rather than fabricating a
-     * grade for a mode that has none yet.
+     * Only produces a grade for automated questions that are graded
+     * straight away (see make_behaviour()), from the live browser
+     * transcript. Anything else is left for a teacher, or for the
+     * background task, to grade.
      *
      * @param array $response responses, as returned by
      *      {@see question_attempt_step::get_qt_data()}.
@@ -303,59 +344,36 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     #[\Override]
     public function grade_response(array $response): array {
-        if ($this->gradingmethod === SPEAKUP_GRADING_EXACT) {
+        if ($this->is_automated() && !$this->is_graded_later()) {
             $transcript = (string) ($response['browsertranscript'] ?? '');
-            [$fraction, ] = $this->grade_by_pattern($transcript);
+            [$phrasefraction, ] = $this->grade_by_pattern($transcript);
+            $fraction = $this->combine_fractions($phrasefraction, null);
             if ($fraction !== null) {
                 return [$fraction, question_state::graded_state_for_fraction($fraction)];
             }
-            // No live transcript was captured (unsupported browser/
-            // language) - nothing to auto-grade from, so fall through to
-            // manual grading below rather than fabricating a fraction.
+            // No live transcript was captured (unsupported browser or
+            // language), so there is nothing to grade from. Leave it for a
+            // teacher, rather than giving a grade of 0.
         }
 
         return [null, question_state::manually_graded_state_for_fraction(null)];
     }
 
     /**
-     * Entry point called (typically from the renderer, during review) once
-     * a transcript is available, to compute a suggested grade/feedback for
-     * display purposes.
+     * Get the target phrase score and feedback for a transcript.
      *
-     * For SPEAKUP_GRADING_EXACT, this now doubles as the actual official
-     * grading logic too, via grade_response() above - they deliberately
-     * share grade_by_pattern() so the number shown to a student/teacher as
-     * a "suggestion" is always identical to what the grade actually is.
-     *
-     * The transcript passed in is normally the student's browser-captured
-     * live transcript (qt_data field 'browsertranscript', from
-     * amd/src/speechrecognition.js) - instant, client-side, no server
-     * call. If the student's browser/language did not support live
-     * transcription, that field is simply empty and the caller should
-     * treat this as "no suggestion available", not an error.
-     *
-     * For SPEAKUP_GRADING_AI this would normally be invoked (from
-     * \qtype_speakup\task\assess_response) once the async AI call returns,
-     * using the server-side transcript instead.
+     * Used by grade_response() above, by the background task (with the
+     * transcript it has), and by the renderer to show which phrases
+     * matched, so all three always agree.
      *
      * @param string $transcript text transcript of the student's recording.
-     * @return array [fraction, feedback html]
+     * @return array [fraction|null, feedback] - see grade_by_pattern().
      */
     public function grade_transcript(string $transcript): array {
-        switch ($this->gradingmethod) {
-            case SPEAKUP_GRADING_EXACT:
-                return $this->grade_by_pattern($transcript);
-
-            case SPEAKUP_GRADING_AI:
-                // The actual AI call happens out-of-band (adhoc task); by the
-                // time this is called the result should already be stored.
-                // Placeholder: treat as not-yet-gradable.
-                return [null, get_string('awaitingaiassessment', 'qtype_speakup')];
-
-            case SPEAKUP_GRADING_MANUAL:
-            default:
-                return [null, ''];
+        if (!$this->is_automated()) {
+            return [null, ''];
         }
+        return $this->grade_by_pattern($transcript);
     }
 
     /**

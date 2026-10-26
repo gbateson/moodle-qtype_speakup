@@ -105,16 +105,16 @@ class qtype_speakup_renderer extends qtype_renderer {
                         s($browsertranscript),
                         ['class' => 'qtype_speakup-transcript']);
             }
-            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT) {
+            if ($question->is_automated() && !$question->is_graded_later()) {
                 [, $matchfeedback] = $question->grade_transcript($browsertranscript);
                 if ($matchfeedback !== '') {
                     $output .= html_writer::tag('div', s($matchfeedback),
                             ['class' => 'qtype_speakup-suggested-match']);
                 }
-            } else if ($question->gradingmethod === SPEAKUP_GRADING_AI) {
-                // AI assessment runs later, in an adhoc task. Until it is
+            } else if ($question->is_graded_later()) {
+                // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.
-                // Once it is done, show nothing here: the AI's feedback is
+                // Once it is done, show nothing here: the feedback is
                 // saved as the grading comment, which Moodle shows itself.
                 $airesponse = $qadatabaseid ? $DB->get_record('qtype_speakup_response',
                         ['questionattemptid' => $qadatabaseid]) : false;
@@ -126,7 +126,7 @@ class qtype_speakup_renderer extends qtype_renderer {
                 } else {
                     if (!$airesponse) {
                         // Previews never fire the quiz event that queues
-                        // AI assessment, so queue them here instead.
+                        // background grading, so queue them here instead.
                         \qtype_speakup\ai_queue::queue_preview($qa);
                     }
                     $output .= html_writer::tag('div', get_string('aiassessmentpending', 'qtype_speakup'),
@@ -144,14 +144,14 @@ class qtype_speakup_renderer extends qtype_renderer {
                             (bool) $question->allowpause, $recordingurl, $candownload);
             $output .= $this->render($widget);
 
-            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT || $question->gradingmethod === SPEAKUP_GRADING_AI) {
+            if ($question->is_automated() && !$question->is_upload()) {
                 // Visible live transcript, filled in (and shown/hidden) by
                 // amd/src/speechrecognition.js as the student speaks. Stays
                 // empty and invisible for browsers/languages where live
                 // transcription isn't available - it never blocks or
-                // affects the recording itself. Also used for AI mode when
-                // the chosen provider is text-only (e.g. core AI), which
-                // has no other way to get a transcript.
+                // affects the recording itself. Also used for AI
+                // assessment when the chosen provider is text-only (e.g.
+                // core AI), which has no other way to get a transcript.
                 $output .= html_writer::tag('div', '', [
                     'class' => 'qtype_speakup-live-transcript text-muted small mt-1',
                     'aria-live' => 'polite',
@@ -183,12 +183,12 @@ class qtype_speakup_renderer extends qtype_renderer {
                     [$qa->get_outer_question_div_unique_id(), $settings]);
 
             // Live client-side transcription (browser speech recognition),
-            // only meaningful for pattern-matching questions. It is always
-            // safe to call this even on unsupported browsers - the module
-            // simply does nothing in that case, leaving the hidden
+            // for automated grading of live recordings. It is always safe
+            // to call this even on unsupported browsers - the module simply
+            // does nothing in that case, leaving the hidden
             // 'browsertranscript' field empty and the recording/upload
             // path completely unaffected.
-            if ($question->gradingmethod === SPEAKUP_GRADING_EXACT || $question->gradingmethod === SPEAKUP_GRADING_AI) {
+            if ($question->is_automated() && !$question->is_upload()) {
                 $this->page->requires->js_call_amd('qtype_speakup/speechrecognition', 'init',
                         [$qa->get_outer_question_div_unique_id(), $question->sttlanguage]);
             }

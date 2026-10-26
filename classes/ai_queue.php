@@ -69,7 +69,7 @@ class ai_queue {
 
         /** @var \qtype_speakup_question $question */
         $question = $qa->get_question();
-        if ($question->gradingmethod !== SPEAKUP_GRADING_AI) {
+        if (!$question->is_graded_later()) {
             return;
         }
         if (!$question->is_complete_response($qa->get_last_qt_data())) {

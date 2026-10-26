@@ -11,7 +11,8 @@
         <FIELD NAME="timelimitinseconds" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="60" SEQUENCE="false"/>
         <FIELD NAME="mediatype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="audio" SEQUENCE="false"
             COMMENT="audio or video - see SPEAKUP_MEDIA_* constants"/>
-        <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"/>
+        <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
+            COMMENT="auto (automated) or manual - see SPEAKUP_GRADING_* constants"/>
         <FIELD NAME="sttlanguage" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="en-US" SEQUENCE="false"
             COMMENT="BCP-47 language tag used for live browser speech recognition, e.g. en-US, ja-JP"/>
         <FIELD NAME="allowpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
@@ -22,6 +23,10 @@
             COMMENT="FK to qtype_speakup_ai_providers.id - which admin-configured AI provider to use for AI assessment, if gradingmethod involves AI."/>
         <FIELD NAME="responsemethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="record" SEQUENCE="false"
             COMMENT="How the student gives their response: record (live in the browser) or upload (an audio or video file) - see SPEAKUP_RESPONSE_* constants"/>
+        <FIELD NAME="aiassessment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="For automated grading: whether the response is also assessed by AI."/>
+        <FIELD NAME="aiweighting" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="100" SEQUENCE="false"
+            COMMENT="For automated grading with AI assessment: the percentage of the question grade given by the AI's score (0-100)."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

@@ -55,11 +55,11 @@ class assess_response extends \core\task\adhoc_task {
         /** @var \qtype_speakup_question $question */
         $question = $quba->get_question($slot);
 
-        if (!($question instanceof \qtype_speakup_question) || $question->gradingmethod !== \SPEAKUP_GRADING_AI) {
-            // Question was changed (e.g. gradingmethod edited) since this
-            // task was queued - nothing to do.
+        if (!($question instanceof \qtype_speakup_question) || !$question->is_graded_later()) {
+            // Question was changed (e.g. its grading settings edited) since
+            // this task was queued - nothing to do.
             mtrace('qtype_speakup: question at usage ' . $usageid . ' slot ' . $slot .
-                    ' is no longer an AI-graded SpeakUp question, skipping.');
+                    ' is no longer graded in the background, skipping.');
             return;
         }
 
@@ -74,35 +74,46 @@ class assess_response extends \core\task\adhoc_task {
         }
 
         $success = false;
+        $fraction = null;
+        $feedback = '';
         try {
-            $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
-            if (!$provider) {
-                throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
-            }
-
             $transcript = (string) $qa->get_last_qt_var('browsertranscript', '');
-            $file = null;
-            if ($provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
-                $files = $qa->get_last_qt_files('recording', $data->contextid);
-                $file = reset($files) ?: null;
+            $aifraction = null;
+
+            if ($question->uses_ai()) {
+                $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
+                if (!$provider) {
+                    throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
+                }
+
+                $file = null;
+                if ($provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
+                    $files = $qa->get_last_qt_files('recording', $data->contextid);
+                    $file = reset($files) ?: null;
+                }
+
+                // Fill in any {{questiontext...}} placeholders.
+                $rubric = rubric_placeholders::expand((string) $question->airubric,
+                        (string) $question->questiontext);
+
+                [$aifraction, $feedback] = ai_caller::assess(
+                        $provider, (int) $data->contextid, (int) $data->userid,
+                        $rubric, $transcript, $file);
+
+                // The AI may reply in Markdown, even when told not to.
+                if (\qtype_speakup\feedback_format::detect($feedback) == FORMAT_MARKDOWN) {
+                    $feedback = \qtype_speakup\feedback_format::tidy_markdown($feedback);
+                }
             }
 
-            // Fill in any {{questiontext...}} placeholders.
-            $rubric = rubric_placeholders::expand((string) $question->airubric,
-                    (string) $question->questiontext);
-
-            [$fraction, $feedback] = ai_caller::assess(
-                    $provider, (int) $data->contextid, (int) $data->userid,
-                    $rubric, $transcript, $file);
+            // The grade combines the target phrases with the AI's score.
+            [$phrasefraction, ] = $question->grade_transcript($transcript);
+            $fraction = $question->combine_fractions($phrasefraction, $aifraction);
 
             $record->transcript = $transcript;
             $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';
-            // The AI may reply in Markdown, even when told not to.
-            if (\qtype_speakup\feedback_format::detect($feedback) == FORMAT_MARKDOWN) {
-                $feedback = \qtype_speakup\feedback_format::tidy_markdown($feedback);
-            }
             $record->aifeedback = $feedback;
-            $record->aiscore = $fraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
+            $record->aiscore = $aifraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';
             $success = true;
 
@@ -120,7 +131,8 @@ class assess_response extends \core\task\adhoc_task {
         $record->timemodified = time();
         $DB->update_record('qtype_speakup_response', $record);
 
-        if ($success) {
+        // Post the result, unless there is neither a grade nor a comment.
+        if ($success && ($fraction !== null || $feedback !== '')) {
             // Post the AI's result the same way a human teacher's grading
             // action would - manual_grade() works via process_action(),
             // the same mechanism the grading UI itself uses, so a teacher
@@ -131,8 +143,11 @@ class assess_response extends \core\task\adhoc_task {
             // no way to look up a per-attempt stored AI result - posting
             // via manual_grade() here, where $qa is directly available,
             // avoids needing that at all.
-            $qa->manual_grade($record->aifeedback, $fraction * $qa->get_max_mark(),
-                    \qtype_speakup\feedback_format::detect((string) $record->aifeedback), time());
+            // If there is nothing to grade from (e.g. AI weighting 0% and no
+            // target phrases), only the comment is posted, and a teacher
+            // gives the grade.
+            $mark = ($fraction === null) ? null : $fraction * $qa->get_max_mark();
+            $qa->manual_grade($feedback, $mark, \qtype_speakup\feedback_format::detect($feedback), time());
             \question_engine::save_questions_usage_by_activity($quba);
 
             // manual_grade() only updates the question engine's own data

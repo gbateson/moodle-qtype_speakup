@@ -29,7 +29,7 @@ $string['pluginname_help'] = 'Students record a spoken response, within a time l
 $string['pluginname_link'] = 'question/type/speakup';
 $string['pluginnameadding'] = 'Adding a SpeakUp spoken response question';
 $string['pluginnameediting'] = 'Editing a SpeakUp spoken response question';
-$string['pluginnamesummary'] = 'Students give a timed spoken response, assessed by exact/pattern matching, AI, or a teacher.';
+$string['pluginnamesummary'] = 'Students give a timed spoken response, graded automatically (target phrases and AI) or by a teacher.';
 
 // Editing form.
 $string['timelimitinseconds'] = 'Response time limit';
@@ -46,25 +46,23 @@ $string['responsemethod_help'] = 'How students give their response:
 * **Record** - students record their response live, in the browser.
 * **Upload** - students upload an audio or video file. On a smartphone, choosing a file usually also offers to record one there and then.
 
-Uploaded files have no live transcript. So, unless they are graded manually, they are first transcribed by an AI provider that receives the audio or video file itself, and then graded by pattern matching or AI. This happens in the background, after the response is submitted. The time limit still applies to uploads: files that are longer than the time limit are flagged when the response is reviewed.';
+Uploaded files have no live transcript. So, unless they are graded manually, they are first transcribed by an AI provider that receives the audio or video file itself, and then graded by target phrases and/or AI. This happens in the background, after the response is submitted. The time limit still applies to uploads: files that are longer than the time limit are flagged when the response is reviewed.';
 $string['responsemethod_record'] = 'Record';
 $string['responsemethod_upload'] = 'Upload';
 $string['transcriptionproviderid'] = 'Transcription provider';
-$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so this AI provider transcribes them first, and the transcript is then graded by pattern matching. The provider must be one that receives the audio or video file itself.';
+$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so without AI assessment, this AI provider transcribes them first, and the transcript is then graded by the target phrases. The provider must be one that receives the audio or video file itself.';
 $string['err_transcriptionproviderrequired'] = 'Uploaded files need an AI provider to transcribe them. Please choose one.';
-$string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider to transcribe them, but none are configured yet. Choose "Record", or "Manual grading only", or ask an administrator to add an AI provider.';
+$string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider to transcribe them, but none are configured yet. Choose "Record", or "Manual" grading, or ask an administrator to add an AI provider.';
 $string['err_uploadneedsmultimodal'] = 'Uploaded files have no live transcript, so they need an AI provider that receives the audio or video file itself. Choose a different provider, or "Record".';
 $string['audioprompt'] = 'Audio prompt (optional)';
 $string['audioprompt_help'] = 'An optional audio file the student hears instead of, or as well as, the written question text.';
 $string['gradingmethod'] = 'Grading method';
-$string['gradingmethod_help'] = 'How the recorded response is assessed:
+$string['gradingmethod_help'] = 'How the response is graded:
 
-* Pattern matching - the transcript is compared against one or more expected answers or regular expressions.
-* AI holistic assessment - the transcript and/or audio is sent to an AI assessment engine along with a rubric.
-* Manual only - a teacher listens and grades by hand; no automatic grading is attempted.';
-$string['gradingmethod_exact'] = 'Pattern matching (exact / regular expression)';
-$string['gradingmethod_ai'] = 'AI holistic assessment';
-$string['gradingmethod_manual'] = 'Manual grading only';
+* **Automated** - the grade is made up of the target phrases found in a transcript of the response, plus (if used) the AI assessment\'s score multiplied by its weighting. The total is capped at 100%. A teacher can still change the grade afterwards.
+* **Manual** - a teacher listens and grades by hand; no automatic grading is attempted.';
+$string['gradingmethod_auto'] = 'Automated';
+$string['gradingmethod_manual'] = 'Manual';
 $string['feedbackmode'] = 'Feedback mode';
 $string['feedbackmode_help'] = 'Formative feedback is shown to the student to help them improve, without necessarily contributing to a final grade. Summative feedback is shown together with a final grade for the attempt.';
 $string['feedbackmode_formative'] = 'Formative (practice)';
@@ -76,10 +74,18 @@ $string['weight'] = 'Weight (%)';
 $string['casesensitive'] = 'Case sensitive';
 $string['addmorephrases'] = 'Add {no} more phrases';
 $string['err_invalidweight'] = 'Weight must be between 0 and 100.';
-$string['sttlanguage'] = 'Live transcription language';
-$string['sttlanguage_help'] = 'The language the student is expected to speak, used by the browser\'s built-in live speech recognition (if available) to produce an instant transcript for pattern matching, e.g. `en-US`, `en-GB`, `ja-JP`. If the student\'s browser does not support speech recognition, or does not support this language, live transcription is silently skipped and the response is still recorded normally for manual grading.';
+$string['sttlanguage'] = 'Response language';
+$string['sttlanguage_help'] = 'The language the student is expected to speak, as a language tag, e.g. `en-US`, `en-GB`, `ja-JP`.
+
+For live recordings, the browser\'s built-in speech recognition (if available) uses it to make an instant transcript. If the student\'s browser does not support speech recognition, or this language, live transcription is skipped, and the response is still recorded normally.
+
+For uploaded files, it is given to the AI provider as a hint when transcribing.';
 $string['aisettings'] = 'AI assessment settings';
-$string['aisettings_help'] = 'Settings used when this question is assessed (in full or in part) by AI.';
+$string['aisettings_help'] = 'Settings for assessing the response by AI, as part of automated grading.';
+$string['aiassessment'] = 'Use AI assessment';
+$string['aiassessment_help'] = 'If checked, the response is also assessed by AI, using the rubric and provider below. This happens in the background, after the response is submitted. The AI\'s feedback is shown as the grading comment, and its score counts towards the grade according to the weighting below.';
+$string['aiweighting'] = 'AI weighting';
+$string['aiweighting_help'] = 'The percentage of the question grade given by the AI assessment. For example, with a weighting of 50%, an AI score of 80 adds 40% to the grade. With a weighting of 0%, the AI\'s feedback is shown, but it does not affect the grade.';
 $string['airubric'] = 'AI assessment rubric / instructions';
 $string['airubric_help'] = 'Instructions sent to the AI assessment engine together with the transcript, e.g. what aspects of fluency, grammar, vocabulary or pronunciation to evaluate, and how to score them.
 

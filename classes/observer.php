@@ -49,7 +49,7 @@ class observer {
             if (!($question instanceof \qtype_speakup_question)) {
                 continue;
             }
-            if ($question->gradingmethod !== SPEAKUP_GRADING_AI) {
+            if (!$question->is_graded_later()) {
                 continue;
             }
 

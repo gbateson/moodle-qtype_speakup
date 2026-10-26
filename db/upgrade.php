@@ -199,5 +199,36 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091148, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091149) {
+        // The grading method is now simply "auto" (automated) or "manual".
+        // Automated grading combines target phrases with an optional AI
+        // assessment, which has its own on/off setting and weighting.
+        $table = new xmldb_table('qtype_speakup_options');
+
+        $field = new xmldb_field('aiassessment', XMLDB_TYPE_INTEGER, '1',
+                null, XMLDB_NOTNULL, null, '0', 'responsemethod');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field('aiweighting', XMLDB_TYPE_INTEGER, '3',
+                null, XMLDB_NOTNULL, null, '100', 'aiassessment');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Pattern matching becomes automated grading without AI.
+        $DB->execute("UPDATE {qtype_speakup_options}
+                         SET gradingmethod = 'auto', aiassessment = 0
+                       WHERE gradingmethod = 'exact'");
+
+        // AI grading becomes automated grading with AI, weighted at 100%.
+        $DB->execute("UPDATE {qtype_speakup_options}
+                         SET gradingmethod = 'auto', aiassessment = 1, aiweighting = 100
+                       WHERE gradingmethod = 'ai'");
+
+        upgrade_plugin_savepoint(true, 2026091149, 'qtype', 'speakup');
+    }
+
     return true;
 }
