@@ -96,3 +96,45 @@
 .que.speakup details[open] > summary .show-if-closed {
     display: none;
 }
+
+/*
+ * Zebra stripes on the target phrases in the question form, as in
+ * qtype_essayautograde. Each phrase has two rows: "Target phrase [n]"
+ * (phrasegroup) and its options (phraseoptions), so the stripes
+ * alternate every two rows. The id selectors leave the "Add" row and
+ * the "Transcription provider" row unstriped.
+ */
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+1)[id^=fgroup_id_phrasegroup_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+2)[id^=fgroup_id_phraseoptions_] {
+    background-color: #f8f8f8;
+}
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+3)[id^=fgroup_id_phrasegroup_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n)[id^=fgroup_id_phraseoptions_] {
+    background-color: #f0f0f0;
+}
+
+/* Keep each phrase's two rows together. */
+#speakup_edit_form [id^=fgroup_id_phrasegroup_] {
+    margin-bottom: 0 !important;
+}
+#speakup_edit_form [id^=fgroup_id_phraseoptions_] {
+    padding-top: 3px !important;
+}
+
+/*
+ * On medium and larger screens, the options row sits beside the phrase
+ * row's label, so its own label ("Target phrase [n] options") is hidden.
+ */
+@media (min-width: 768px) {
+    #speakup_edit_form [id^=fgroup_id_phraseoptions_] [id$=_label] {
+        visibility: hidden;
+    }
+}
+
+/* Zebra stripes on the target items: one row per item. */
+#speakup_edit_form #id_itemsheader .fitem:nth-of-type(odd)[id^=fgroup_id_itemgroup_] {
+    background-color: #f8f8f8;
+}
+#speakup_edit_form #id_itemsheader .fitem:nth-of-type(even)[id^=fgroup_id_itemgroup_] {
+    background-color: #f0f0f0;
+}
