@@ -35,6 +35,12 @@
             COMMENT="Who sees the target item values - see SPEAKUP_SHOW_* constants"/>
         <FIELD NAME="showcomment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
             COMMENT="Who sees the grading comment (e.g. the AI's feedback) - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showtranscript" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees the transcript of the response - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showstats" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Whether statistics about the transcript are shown when the response is reviewed: 0 no, 1 yes."/>
+        <FIELD NAME="statsitems" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Comma-separated list of the statistics to show, e.g. words,uniquewords - see text_stats::get_stat_types()"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -68,12 +74,12 @@
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="itemtype" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"
             COMMENT="What is counted, e.g. words, uniquewords or speechrate - see the ITEM_ constants in classes/text_stats.php"/>
+        <FIELD NAME="itemcount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="The target value. At or above it, the full award is given; below it, award x value / itemcount."/>
         <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Up to this percent (0-100) of the question grade is awarded for this item."/>
-        <FIELD NAME="mincount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Below this value, nothing is awarded."/>
-        <FIELD NAME="maxcount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="At or above this value, the full percent is awarded. In between, percent x value / maxcount."/>
+            COMMENT="Percent (0-100) of the question grade awarded at the target, before multiplying by multiplier."/>
+        <FIELD NAME="multiplier" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="The percent is multiplied by this (1-10), e.g. 20% multiplied by 2 = 40%."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -85,7 +91,10 @@
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="questionattemptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="transcript" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="transcript" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="The live transcript from the browser's speech recognition, if any."/>
+        <FIELD NAME="aitranscript" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="The transcript made by the AI provider, if any. Used for grading in place of the live transcript."/>
         <FIELD NAME="transcriptstatus" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"
             COMMENT="pending, done, failed"/>
         <FIELD NAME="aifeedback" TYPE="text" NOTNULL="false" SEQUENCE="false"/>

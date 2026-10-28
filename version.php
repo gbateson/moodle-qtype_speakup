@@ -28,7 +28,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026091152;
+$plugin->version   = 2026091155;
 $plugin->requires  = 2024042200; // Moodle 4.4+ / 5.0 branch, matching recordrtc's minimum.
 $plugin->component = 'qtype_speakup';
 $plugin->maturity  = MATURITY_ALPHA;

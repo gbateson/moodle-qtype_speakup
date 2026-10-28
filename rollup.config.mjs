@@ -16,6 +16,18 @@ export default [
         },
     },
     {
+        input: 'amd/src/fileupload.js',
+        external,
+        output: {
+            file: 'amd/build/fileupload.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/fileupload'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
         input: 'amd/src/speechrecognition.js',
         external,
         output: {

@@ -321,5 +321,79 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091152, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091153) {
+        // Who sees the transcript of the response (as now: everyone).
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('showtranscript', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '3', 'showcomment');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The transcript made by the AI provider, kept apart from the live
+        // transcript from the browser.
+        $table = new xmldb_table('qtype_speakup_response');
+        $field = new xmldb_field('aitranscript', XMLDB_TYPE_TEXT, null, null, null, null, null, 'transcript');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091153, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026091154) {
+        // Target items now read "Target for [item] is [itemcount]. Award up
+        // to [percent] [multiplied by n] of the question grade." The old
+        // upper number becomes the target, and the lower number is dropped.
+        $table = new xmldb_table('qtype_speakup_items');
+
+        $field = new xmldb_field('itemcount', XMLDB_TYPE_NUMBER, '10, 2', null, XMLDB_NOTNULL, null, '0', 'itemtype');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            $maxcount = new xmldb_field('maxcount');
+            if ($dbman->field_exists($table, $maxcount)) {
+                $DB->execute('UPDATE {qtype_speakup_items} SET itemcount = maxcount');
+            }
+        }
+
+        $field = new xmldb_field('multiplier', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'percent');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        foreach (['mincount', 'maxcount'] as $name) {
+            $field = new xmldb_field($name);
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->drop_field($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026091154, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026091155) {
+        // Statistics about the transcript, shown when the response is
+        // reviewed: whether to show them, and which ones.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('showstats', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'showtranscript');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        // Nullable, with no default: Moodle does not allow a NOT NULL text
+        // column with an empty default. An earlier version of this step
+        // created it as NOT NULL, so make sure it can be null.
+        $field = new xmldb_field('statsitems', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'showstats');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->change_field_notnull($table, $field);
+            // Null means "never chosen" (so all statistics start ticked),
+            // whereas "" means "none ticked". Existing questions have never
+            // chosen, whatever that earlier version of this step stored.
+            $DB->execute("UPDATE {qtype_speakup_options} SET statsitems = NULL WHERE statsitems = ''");
+        } else {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091155, 'qtype', 'speakup');
+    }
+
     return true;
 }

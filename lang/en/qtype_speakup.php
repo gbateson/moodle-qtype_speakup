@@ -96,23 +96,24 @@ For uploaded files, it is given to the AI provider as a hint when transcribing.'
 $string['itemsheader'] = 'Target items';
 $string['itemsheader_help'] = 'Target items award part of the question grade for how much the student says, e.g. the number of words, or the speech rate. They are counted in a transcript of the response.';
 $string['itemgroup'] = 'Target item [{no}]';
-$string['itemgroup_help'] = 'Below the first number, this item awards nothing. From the first number, it awards a share of the percent in proportion to the value, up to the full percent at the second number. For example, "up to 20% for 50 to 100 Words" awards nothing for 40 words, 10% for 50 words, 15% for 75 words, and 20% for 100 words or more.
+$string['itemgroup_help'] = 'The award for this item is the percent multiplied by the multiplier. It is given in full when the response reaches the target. Below the target, the award is in proportion to the value. For example, "Target for Words is 100. Award up to 20% exactly" awards 10% for 50 words, 15% for 75 words, and 20% for 100 words or more. "Multiplied by 2" would double each of these.
 
-The scores of all the target items add up, together with the target phrases and the AI assessment (if used), and the total is capped at 100%.
+The awards of all the target items add up, together with the target phrases and the AI assessment (if used), and the total is capped at 100%.
 
 * **Characters** - letters and digits, not counting spaces or punctuation.
 * **Words** - separated by spaces.
-* **Sentences** - ended by a full stop, question mark or exclamation mark.
-* **Unique words** - different words, ignoring capital letters.
 * **Long words** - words with three or more syllables.
-* **Characters / Words / Long words per sentence** - divided by the number of sentences.
+* **Unique words** - different words, ignoring capital letters.
 * **Lexical density** - unique words as a percentage of words.
-* **Speech rate** - words per minute of recording.
-
-Items that count sentences need a transcript with punctuation, which only an AI provider makes. So they can only be used with AI assessment, or with uploaded files.';
-$string['itemtext1'] = 'Proportionally award up to';
-$string['itemtext2'] = 'of the question grade for';
-$string['itemtext3'] = 'to';
+* **Speech rate** - words per minute of recording.';
+$string['itemaward'] = 'Target item [{no}] award';
+$string['itemtext1'] = 'Target for';
+$string['itemtext2'] = 'is';
+$string['itemtext3'] = '.';
+$string['itemtext4'] = 'Award up to';
+$string['itemtext5'] = 'of the question grade.';
+$string['itemmultiplier1'] = 'exactly';
+$string['itemmultipliern'] = 'multiplied by {$a}';
 $string['itemchars'] = 'Characters';
 $string['itemwords'] = 'Words';
 $string['itemsentences'] = 'Sentences';
@@ -128,19 +129,35 @@ $string['addmoreitems'] = '{$a} more target items';
 $string['itemscore'] = '{$a->item}: {$a->value} ({$a->percent}% of the question grade).';
 $string['itemunknown'] = 'unknown';
 $string['noitemtranscript'] = 'No transcript is available for this response, so the target items could not be counted.';
-$string['err_itemmax'] = 'Enter numbers for this item, and a second number greater than 0.';
-$string['err_itemrange'] = 'The first number must not be greater than the second number.';
+$string['err_itempercent'] = 'Choose a percent for this item.';
+$string['err_phrasepercent'] = 'Choose a percent for this phrase.';
+$string['err_itemcount'] = 'Enter a target greater than 0 for this item.';
 $string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
 $string['showheader'] = 'Grading details';
 $string['showheader_help'] = 'Choose who sees each detail of an automated grade, when the response is reviewed. Viewers who can grade quizzes count as teachers; everyone else counts as a student.';
+$string['showtranscript'] = 'Show transcript';
+$string['showtranscript_help'] = 'Show the transcript of the response: the transcript made by the AI provider, if there is one, or else the live transcript from the browser\'s speech recognition.';
 $string['showphrases'] = 'Show target phrases';
 $string['showphrases_help'] = 'Show which target phrases were used in the response, and the share of the question grade each one awards.';
 $string['showitems'] = 'Show target items';
 $string['showitems_help'] = 'Show the value of each target item for the response (e.g. the number of words), and the share of the question grade it awards.';
 $string['showcalculation'] = 'Show grade calculation';
 $string['showcalculation_help'] = 'Show how the grade was calculated: the target phrases, the target items and the holistic (AI) assessment, and the total.';
-$string['showcomment'] = 'Show grading comment';
-$string['showcomment_help'] = 'Show the grading comment, e.g. the feedback from the AI assessment, or a comment added by a teacher.';
+$string['showcomment'] = 'Show AI feedback';
+$string['showcomment_help'] = 'Show the feedback from the AI assessment. It is saved as the grading comment, so this setting also applies to a comment added by a teacher.';
+$string['showstats'] = 'Show statistics';
+$string['showstats_help'] = 'Show statistics about the transcript of the response, e.g. the number of words, when the response is reviewed. Choose which statistics to show below.';
+$string['statsgroup'] = 'Statistics';
+$string['statsgroup_help'] = 'The statistics to show, counted in the transcript of the response.';
+$string['statsaigroup'] = 'If an AI transcript is available';
+$string['statsaigroup_help'] = 'These statistics need sentences, which can only be counted in a transcript with punctuation. Only a transcript made by the AI provider has punctuation, so these statistics are only shown when there is one.
+
+The fog index estimates how hard the language is to follow: 0.4 x (words per sentence + 100 x long words / words).';
+$string['statistics'] = 'Statistics';
+$string['statvalue'] = '{$a->label}: {$a->value}';
+$string['itemparagraphs'] = 'Paragraphs';
+$string['itemsentencesperparagraph'] = 'Sentences per paragraph';
+$string['itemfogindex'] = 'Fog index';
 $string['showtostudentsonly'] = 'Yes, show to students only';
 $string['showtoteachersonly'] = 'Yes, show to teachers only';
 $string['showtoteachersandstudents'] = 'Yes, show to teachers and students';
@@ -201,6 +218,15 @@ $string['startsharescreen'] = 'Start screen recording';
 $string['recordagainx'] = 'Re-record {$a}';
 $string['uploadpreparing'] = 'Preparing upload ...';
 $string['uploadpreparingpercent'] = 'Preparing upload ({$a}%)';
+$string['durationtoolong'] = 'This recording is {$a->duration} seconds long. The time limit is {$a->limit} seconds.';
+$string['uploadfile'] = 'Upload a file';
+$string['uploaddifferentfile'] = 'Upload a different file';
+$string['nofileuploaded'] = 'No file uploaded.';
+$string['fileuploaded'] = 'File uploaded.';
+$string['uploadwrongtype'] = 'Please choose an audio or video file.';
+$string['uploadtoobig'] = 'This file is too big. The largest file you can upload is {$a}.';
+$string['uploadtoolong'] = 'This file is {$a->duration} seconds long, but the time limit is {$a->limit} seconds. It has been uploaded, but it will be marked as too long.';
+$string['notmediafile'] = 'The uploaded file is not an audio or video file. Please upload a different file.';
 $string['uploadprogress'] = 'Uploading ({$a})';
 $string['uploadcomplete'] = 'Recording uploaded';
 $string['uploadfailed'] = 'Upload failed';
@@ -287,6 +313,9 @@ $string['err_requesttemplaterequired'] = 'A request body template is required fo
 
 // AI calling (classes/ai_caller.php).
 $string['aipromptinstructions'] = 'Assess the response according to the instructions above, out of 100. If the recording or transcript does not actually attempt the task (e.g. it is silent, off-topic, or the student is asking about the task itself rather than doing it), still give a score reflecting that (typically 0, or low if a partial genuine attempt is present) and explain why in the feedback - never omit the score. End your reply with a line reading exactly "SCORE: N" where N is a whole number from 0 to 100, after any explanatory feedback. This line is mandatory in every response, with no exceptions.';
+$string['aiprompttranscribe'] = 'First, transcribe exactly what the student says in the recording (or in the audio track of the video). The student is expected to speak {$a}. Do not correct any mistakes in grammar, vocabulary or pronunciation: write what the student actually says, with punctuation. Begin your reply with a line reading exactly "TRANSCRIPT:", followed by the transcript. Then write a line reading exactly "FEEDBACK:", followed by your feedback.';
+$string['aiprompttranscribeonly'] = 'Transcribe exactly what the speaker says in this recording (or in the audio track of this video). The speaker is expected to speak {$a}. Do not correct any mistakes in grammar, vocabulary or pronunciation: write what is actually said, with punctuation. Reply with the transcript only.';
+$string['aipromptoverlong'] = 'Note: the recording is {$a->duration} seconds long, but the time limit for this task was {$a->limit} seconds.';
 $string['aiprompttranscriptlabel'] = 'Transcript of the student\'s spoken response:';
 $string['errorcoreaiunavailable'] = 'Moodle\'s core AI subsystem is not available on this site.';
 $string['errornotranscript'] = 'No transcript is available to assess (the student\'s browser may not have supported live transcription).';

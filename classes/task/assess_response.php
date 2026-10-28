@@ -78,46 +78,70 @@ class assess_response extends \core\task\adhoc_task {
         $feedback = '';
         try {
             $transcript = (string) $qa->get_last_qt_var('browsertranscript', '');
+            $files = $qa->get_last_qt_files('recording', $data->contextid);
+            $file = reset($files) ?: null;
+            $duration = \qtype_speakup_question::best_duration($file, $qa->get_last_qt_var('browserduration'));
             $aifraction = null;
+            $aitranscript = null;
 
             if ($question->uses_ai()) {
                 $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
                 if (!$provider) {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
+                // Only a multimodal provider receives the recording itself,
+                // and so can transcribe it.
+                $multimodal = ($file && $provider->capability === ai_provider::CAPABILITY_MULTIMODAL);
 
-                $file = null;
-                if ($provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
-                    $files = $qa->get_last_qt_files('recording', $data->contextid);
-                    $file = reset($files) ?: null;
-                }
-
-                // Fill in any {{questiontext...}} placeholders.
+                // Fill in any {{questiontext...}} placeholders, and add any
+                // notes and instructions the AI needs.
                 $rubric = rubric_placeholders::expand((string) $question->airubric,
                         (string) $question->questiontext);
+                if ($question->is_too_long($duration)) {
+                    $rubric .= "\n\n" . get_string('aipromptoverlong', 'qtype_speakup', (object) [
+                        'duration' => round($duration),
+                        'limit' => (int) $question->timelimitinseconds,
+                    ]);
+                }
+                if ($multimodal) {
+                    $rubric .= "\n\n" . get_string('aiprompttranscribe', 'qtype_speakup', $question->get_language_name());
+                }
 
                 [$aifraction, $feedback] = ai_caller::assess(
                         $provider, (int) $data->contextid, (int) $data->userid,
-                        $rubric, $transcript, $file);
+                        $rubric, $transcript, $multimodal ? $file : null);
+
+                if ($multimodal) {
+                    [$aitranscript, $feedback] = ai_caller::split_transcript($feedback);
+                }
 
                 // The AI may reply in Markdown, even when told not to.
                 if (\qtype_speakup\feedback_format::detect($feedback) == FORMAT_MARKDOWN) {
                     $feedback = \qtype_speakup\feedback_format::tidy_markdown($feedback);
                 }
+            } else if ($question->is_upload() && $file) {
+                // Without AI assessment, an uploaded file still needs a
+                // transcript, for the target phrases and items. The
+                // transcription provider is stored in aiproviderid.
+                $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
+                if (!$provider) {
+                    throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
+                }
+                $aitranscript = ai_caller::transcribe($provider, $file, $question->get_language_name());
             }
 
-            // The grade combines the target phrases and items with the AI's score.
-            [$phrasefraction, ] = $question->grade_transcript($transcript);
-            $duration = null;
-            if ($question->needs_duration()) {
-                $files = $qa->get_last_qt_files('recording', $data->contextid);
-                $duration = \qtype_speakup\media_info::get_duration(reset($files) ?: null);
-            }
-            [$itemfraction, ] = $question->grade_by_items($transcript, $duration);
+            // The grade combines the target phrases and items with the AI's
+            // score. Phrases and items are checked in the AI's transcript if
+            // there is one, since it is usually more accurate than the live
+            // transcript, and has punctuation for counting sentences.
+            $gradingtranscript = ($aitranscript !== null && $aitranscript !== '') ? $aitranscript : $transcript;
+            [$phrasefraction, ] = $question->grade_transcript($gradingtranscript);
+            [$itemfraction, ] = $question->grade_by_items($gradingtranscript, $duration);
             $fraction = $question->combine_fractions($phrasefraction, $itemfraction, $aifraction);
 
             $record->transcript = $transcript;
-            $record->transcriptstatus = $transcript !== '' ? 'done' : 'failed';
+            $record->aitranscript = $aitranscript;
+            $record->transcriptstatus = ($gradingtranscript !== '') ? 'done' : 'failed';
             $record->aifeedback = $feedback;
             $record->aiscore = $aifraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';

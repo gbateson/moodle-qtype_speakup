@@ -48,6 +48,12 @@ class text_stats {
     const ITEM_LEXICALDENSITY = 'lexicaldensity';
     /** (Words / seconds of recording) x 60, i.e. words per minute. */
     const ITEM_SPEECHRATE = 'speechrate';
+    /** Paragraphs, separated by line breaks. */
+    const ITEM_PARAGRAPHS = 'paragraphs';
+    /** Sentences divided by paragraphs. */
+    const ITEM_SENTENCESPERPARAGRAPH = 'sentencesperparagraph';
+    /** Gunning fog index: 0.4 x (words per sentence + 100 x long words / words). */
+    const ITEM_FOGINDEX = 'fogindex';
 
     /**
      * Languages written without spaces between words, for which the default
@@ -56,7 +62,11 @@ class text_stats {
     const NON_SPACE_LANGUAGES = ['ja', 'zh', 'ko', 'th', 'lo', 'km', 'my'];
 
     /**
-     * Get the target item types, in the order they appear in menus.
+     * Get the target item types that teachers can choose, in the order
+     * they appear in menus.
+     *
+     * The sentence items (ITEM_SENTENCES and the "per sentence" items) can
+     * be counted too, but are not offered for now.
      *
      * @return string[]
      */
@@ -64,14 +74,39 @@ class text_stats {
         return [
             self::ITEM_CHARS,
             self::ITEM_WORDS,
-            self::ITEM_SENTENCES,
-            self::ITEM_UNIQUEWORDS,
             self::ITEM_LONGWORDS,
-            self::ITEM_CHARSPERSENTENCE,
-            self::ITEM_WORDSPERSENTENCE,
-            self::ITEM_LONGWORDSPERSENTENCE,
+            self::ITEM_UNIQUEWORDS,
             self::ITEM_LEXICALDENSITY,
             self::ITEM_SPEECHRATE,
+        ];
+    }
+
+    /**
+     * Get the statistics that can be shown on the review page, in the
+     * order they appear on the question form.
+     *
+     * @param bool $needsai true for the statistics that need sentences (and
+     *      so a transcript with punctuation, made by AI), false for the rest.
+     * @return string[]
+     */
+    public static function get_stat_types(bool $needsai): array {
+        if ($needsai) {
+            return [
+                self::ITEM_SENTENCES,
+                self::ITEM_PARAGRAPHS,
+                self::ITEM_CHARSPERSENTENCE,
+                self::ITEM_WORDSPERSENTENCE,
+                self::ITEM_LONGWORDSPERSENTENCE,
+                self::ITEM_SENTENCESPERPARAGRAPH,
+                self::ITEM_FOGINDEX,
+            ];
+        }
+        return [
+            self::ITEM_CHARS,
+            self::ITEM_WORDS,
+            self::ITEM_LONGWORDS,
+            self::ITEM_UNIQUEWORDS,
+            self::ITEM_LEXICALDENSITY,
         ];
     }
 
@@ -84,12 +119,7 @@ class text_stats {
      * @return bool
      */
     public static function needs_sentences(string $type): bool {
-        return in_array($type, [
-            self::ITEM_SENTENCES,
-            self::ITEM_CHARSPERSENTENCE,
-            self::ITEM_WORDSPERSENTENCE,
-            self::ITEM_LONGWORDSPERSENTENCE,
-        ]);
+        return in_array($type, self::get_stat_types(true));
     }
 
     /**
@@ -100,8 +130,41 @@ class text_stats {
      * @return string
      */
     public static function get_default_item_type(string $lang): string {
+        return self::uses_spaces($lang) ? self::ITEM_WORDS : self::ITEM_CHARS;
+    }
+
+    /**
+     * Is a language written with spaces between words? Japanese, Chinese,
+     * Thai and some others are not (see NON_SPACE_LANGUAGES), so for them,
+     * characters are counted rather than words.
+     *
+     * Moodle's language packs have no setting for this, and the language
+     * pack for the response language may not even be installed, so the
+     * list is kept here.
+     *
+     * @param string $lang a language tag, e.g. "en-US" or "ja-JP".
+     * @return bool
+     */
+    public static function uses_spaces(string $lang): bool {
         $lang = strtolower(strtok(str_replace('_', '-', $lang), '-'));
-        return in_array($lang, self::NON_SPACE_LANGUAGES) ? self::ITEM_CHARS : self::ITEM_WORDS;
+        return !in_array($lang, self::NON_SPACE_LANGUAGES);
+    }
+
+    /**
+     * Get the statistics that are ticked by default on the question form.
+     *
+     * For a language written without spaces, just characters; otherwise,
+     * everything except characters. None of the statistics that need an
+     * AI transcript are ticked by default.
+     *
+     * @param string $lang the response language, e.g. "en-US" or "ja-JP".
+     * @return string[]
+     */
+    public static function get_default_stat_types(string $lang): array {
+        if (!self::uses_spaces($lang)) {
+            return [self::ITEM_CHARS];
+        }
+        return array_values(array_diff(self::get_stat_types(false), [self::ITEM_CHARS]));
     }
 
     /**
@@ -136,6 +199,16 @@ class text_stats {
             case self::ITEM_LEXICALDENSITY:
                 $density = self::divide(count(self::get_unique_words($words)), $countwords);
                 return ($density === null) ? null : $density * 100;
+            case self::ITEM_PARAGRAPHS:
+                return (float) self::count_paragraphs($transcript);
+            case self::ITEM_SENTENCESPERPARAGRAPH:
+                return self::divide(self::count_sentences($transcript), self::count_paragraphs($transcript));
+            case self::ITEM_FOGINDEX:
+                $sentences = self::count_sentences($transcript);
+                if (!$sentences || !$countwords) {
+                    return null;
+                }
+                return 0.4 * (($countwords / $sentences) + (100 * self::count_long_words($words) / $countwords));
             case self::ITEM_SPEECHRATE:
                 if (empty($duration) || $duration <= 0) {
                     return null;
@@ -206,6 +279,22 @@ class text_stats {
         $count = 0;
         foreach (preg_split('/[.!?。！？]+(?![0-9])/u', $text) as $sentence) {
             if (preg_match('/[\p{L}\p{N}]/u', $sentence)) {
+                $count++;
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Count the paragraphs: blocks of text separated by line breaks.
+     *
+     * @param string $text
+     * @return int
+     */
+    protected static function count_paragraphs(string $text): int {
+        $count = 0;
+        foreach (preg_split('/\R+/u', $text) as $paragraph) {
+            if (preg_match('/[\p{L}\p{N}]/u', $paragraph)) {
                 $count++;
             }
         }

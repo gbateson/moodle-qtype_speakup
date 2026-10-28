@@ -71,13 +71,23 @@ class qtype_speakup_renderer extends qtype_renderer {
                     'class' => 'qtype_speakup-browsertranscript-field',
                     'name' => $qa->get_qt_field_name('browsertranscript'), 'value' => '']);
 
-            // Warning for browsers that won't work.
-            $output .= $this->cannot_work_warnings();
+            if ($question->is_upload()) {
+                // Add a hidden form field to receive the length of the
+                // uploaded file, as measured by the browser (see
+                // amd/src/fileupload.js). Used if the server can't read it.
+                $output .= html_writer::empty_tag('input', ['type' => 'hidden',
+                        'class' => 'qtype_speakup-browserduration-field',
+                        'name' => $qa->get_qt_field_name('browserduration'),
+                        'value' => (string) $qa->get_last_qt_var('browserduration', '')]);
+            } else {
+                // Warning for browsers that can't record.
+                $output .= $this->cannot_work_warnings();
+            }
         }
 
         if ($qa->get_state() == question_state::$invalid) {
             $output .= html_writer::nonempty_tag('div',
-                    $question->get_validation_error([]), ['class' => 'validationerror']);
+                    $question->get_validation_error($qa->get_last_qt_data()), ['class' => 'validationerror']);
         }
 
         $questiontext = $question->format_text($question->questiontext, $question->questiontextformat,
@@ -89,39 +99,67 @@ class qtype_speakup_renderer extends qtype_renderer {
             // Note: get_response_file_url() already returns a plain string
             // URL, not a moodle_url object - do not call ->out() on it.
             $recordingurl = $existingfile ? $qa->get_response_file_url($existingfile) : null;
-            $widget = ($question->mediatype === SPEAKUP_MEDIA_VIDEO)
+            // An uploaded file may be audio or video, whatever the question's
+            // media type, so use a player that suits the file itself.
+            $isvideo = ($question->mediatype === SPEAKUP_MEDIA_VIDEO);
+            if ($question->is_upload() && $existingfile) {
+                $isvideo = (strpos($existingfile->get_mimetype(), 'video/') === 0);
+            }
+            $widget = $isvideo
                     ? new video_playback($filename, $recordingurl, $candownload)
                     : new audio_playback($filename, $recordingurl, $candownload);
             $output .= $this->render($widget);
 
-            // Show the live browser transcript (if any was captured) and,
-            // for pattern-matching questions, a suggested match result -
-            // this is only ever a suggestion for whoever is grading; it
-            // never sets a grade itself (see make_behaviour() above).
+            // The transcript the response is graded from: the AI's transcript,
+            // if the background task made one, or else the live transcript
+            // from the browser's speech recognition.
             $browsertranscript = (string) $qa->get_last_qt_var('browsertranscript', '');
-            if ($browsertranscript !== '') {
+            $transcript = $browsertranscript;
+            $isaitranscript = false;
+            $transcriptlabel = get_string('browsertranscript', 'qtype_speakup');
+            $airesponse = false;
+            if ($question->is_graded_later() && $qadatabaseid) {
+                $airesponse = $DB->get_record('qtype_speakup_response', ['questionattemptid' => $qadatabaseid]);
+                if ($airesponse && $airesponse->aistatus === 'done' && !empty($airesponse->aitranscript)) {
+                    $transcript = (string) $airesponse->aitranscript;
+                    $isaitranscript = true;
+                    $transcriptlabel = get_string('transcript', 'qtype_speakup');
+                }
+            }
+
+            // The length of the recording, if it is needed: getID3 reads it
+            // from the file if it can, or else the browser measured it.
+            $duration = null;
+            if ($question->needs_duration() || $question->is_upload()) {
+                $duration = qtype_speakup_question::best_duration($existingfile, $qa->get_last_qt_var('browserduration'));
+            }
+
+            // An uploaded file may be longer than the time limit allows.
+            // (Live recordings stop at the time limit.)
+            if ($question->is_upload() && $question->is_too_long($duration)) {
+                $output .= html_writer::div(get_string('durationtoolong', 'qtype_speakup', (object) [
+                    'duration' => round($duration),
+                    'limit' => (int) $question->timelimitinseconds,
+                ]), 'qtype_speakup-duration-warning alert alert-warning py-1 my-1');
+            }
+
+            if ($transcript !== '' && $this->can_show((int) $question->showtranscript, $options)) {
                 $output .= html_writer::tag('div',
-                        html_writer::tag('strong', get_string('browsertranscript', 'qtype_speakup') . ': ') .
-                        s($browsertranscript),
+                        html_writer::tag('strong', $transcriptlabel . ': ') . s($transcript),
                         ['class' => 'qtype_speakup-transcript']);
             }
+
             if ($question->is_automated() && !$question->is_graded_later()) {
                 // Graded straight away, from the live transcript.
-                $output .= $this->grading_details($question, $options, $browsertranscript, $existingfile, null);
+                $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, null);
             } else if ($question->is_graded_later()) {
                 // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.
                 // Once it is done, show the grading details. The feedback
                 // is saved as the grading comment, which Moodle shows itself.
-                $airesponse = $qadatabaseid ? $DB->get_record('qtype_speakup_response',
-                        ['questionattemptid' => $qadatabaseid]) : false;
                 if ($airesponse && $airesponse->aistatus === 'done') {
-                    $transcript = (string) ($airesponse->transcript ?? '');
-                    if ($transcript === '') {
-                        $transcript = $browsertranscript;
-                    }
                     $aifraction = ($question->uses_ai() && $airesponse->aiscore !== null) ? (float) $airesponse->aiscore : null;
-                    $output .= $this->grading_details($question, $options, $transcript, $existingfile, $aifraction);
+                    $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, $aifraction);
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
                     $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-danger']);
@@ -137,7 +175,24 @@ class qtype_speakup_renderer extends qtype_renderer {
             }
 
         } else {
-            // Being attempted: active recorder widget.
+            // Being attempted.
+            $repositories = repository::get_instances(
+                    ['type' => 'upload', 'currentcontext' => $options->context]);
+            if (empty($repositories)) {
+                throw new moodle_exception('errornouploadrepo', 'moodle');
+            }
+            $uploadrepository = reset($repositories); // Get the first (and only) upload repo.
+
+            if ($question->is_upload()) {
+                // File upload widget, instead of the recorder.
+                $output .= $this->upload_widget($qa, $question, $options, $existingfile,
+                        $draftitemid, (int) $uploadrepository->id, $candownload);
+                $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'addPlaybackErrorHandlingToVideoElements',
+                        [$qa->get_outer_question_div_unique_id()]);
+                return $output;
+            }
+
+            // Active recorder widget.
             $recordingurl = $existingfile ? moodle_url::make_draftfile_url($draftitemid, '/', $filename) : null;
             $widget = ($question->mediatype === SPEAKUP_MEDIA_VIDEO)
                     ? new video_recorder($filename, $question->timelimitinseconds,
@@ -161,12 +216,6 @@ class qtype_speakup_renderer extends qtype_renderer {
             }
 
             // Initialise the JavaScript.
-            $repositories = repository::get_instances(
-                    ['type' => 'upload', 'currentcontext' => $options->context]);
-            if (empty($repositories)) {
-                throw new moodle_exception('errornouploadrepo', 'moodle');
-            }
-            $uploadrepository = reset($repositories); // Get the first (and only) upload repo.
             $settings = [
                 'audioBitRate' => SPEAKUP_AUDIO_BITRATE,
                 'videoBitRate' => SPEAKUP_VIDEO_BITRATE,
@@ -200,6 +249,55 @@ class qtype_speakup_renderer extends qtype_renderer {
                 [$qa->get_outer_question_div_unique_id()]);
 
         return $output;
+    }
+
+    /**
+     * Show the file upload widget, used instead of the recorder when the
+     * question's response method is "Upload", and set up its JavaScript.
+     *
+     * @param question_attempt $qa
+     * @param qtype_speakup_question $question
+     * @param question_display_options $options
+     * @param stored_file|null $existingfile the file already uploaded, if any.
+     * @param int $draftitemid the draft file area to upload to.
+     * @param int $repositoryid id of the "upload" repository.
+     * @param bool $candownload whether the current user may download the file.
+     * @return string HTML
+     */
+    protected function upload_widget(question_attempt $qa, qtype_speakup_question $question,
+            question_display_options $options, ?stored_file $existingfile, int $draftitemid,
+            int $repositoryid, bool $candownload): string {
+        // Accept any file that Moodle recognises as audio or video,
+        // whatever the question's media type: some students prefer not
+        // to upload video.
+        $extensions = array_values(array_unique(file_get_typegroup('extension', ['audio', 'video'])));
+
+        $fileurl = null;
+        $mimetype = '';
+        if ($existingfile) {
+            $fileurl = moodle_url::make_draftfile_url($draftitemid, '/', $existingfile->get_filename())->out(false);
+            $mimetype = $existingfile->get_mimetype();
+        }
+        $widget = new \qtype_speakup\output\file_uploader($fileurl, $mimetype,
+                implode(',', array_merge(['audio/*', 'video/*'], $extensions)), $candownload);
+
+        $settings = [
+            'uploadRepositoryId' => $repositoryid,
+            'contextId' => $options->context->id,
+            'draftItemId' => $draftitemid,
+            'maxUploadSize' => $question->get_upload_size_limit($options->context),
+            'acceptedTypes' => $extensions,
+            'timeLimit' => (int) $question->timelimitinseconds,
+            'leeway' => qtype_speakup_question::DURATION_LEEWAY_SECONDS,
+        ];
+        $this->page->requires->strings_for_js([
+            'fileuploaded', 'uploaddifferentfile', 'uploadfailed', 'uploadprogress',
+            'uploadtoobig', 'uploadtoolong', 'uploadwrongtype',
+        ], 'qtype_speakup');
+        $this->page->requires->js_call_amd('qtype_speakup/fileupload', 'init',
+                [$qa->get_outer_question_div_unique_id(), $settings]);
+
+        return $this->render($widget);
     }
 
     /**
@@ -253,32 +351,29 @@ class qtype_speakup_renderer extends qtype_renderer {
 
     /**
      * Show the details of an automated grade, according to the question's
-     * "Show ..." settings: which target phrases were used, the target item
-     * values, and how the grade was calculated.
+     * "Show ..." settings: statistics about the transcript, the target item
+     * values, which target phrases were used, and how the grade was
+     * calculated.
      *
      * @param qtype_speakup_question $question
      * @param question_display_options $options
      * @param string $transcript the transcript the response was graded from.
-     * @param stored_file|null $file the recording, for its length.
+     * @param bool $isaitranscript whether the transcript was made by AI (and
+     *      so has punctuation, for counting sentences).
+     * @param float|null $duration length of the recording in seconds, if known.
      * @param float|null $aifraction the AI's score (0..1), if assessed by AI.
      * @return string HTML
      */
     protected function grading_details(qtype_speakup_question $question, question_display_options $options,
-            string $transcript, ?stored_file $file, ?float $aifraction): string {
+            string $transcript, bool $isaitranscript, ?float $duration, ?float $aifraction): string {
         $plugin = 'qtype_speakup';
         $output = '';
 
         $phrases = $question->phrase_results($transcript);
-        $duration = $question->needs_duration() ? \qtype_speakup\media_info::get_duration($file) : null;
         $items = $question->item_results($transcript, $duration);
 
-        if ($phrases && $this->can_show((int) $question->showphrases, $options)) {
-            $list = [];
-            foreach ($phrases as $result) {
-                $a = (object) ['phrase' => s($result->phrase), 'percent' => round($result->percent, 1)];
-                $list[] = get_string($result->used ? 'phraseresultused' : 'phraseresultnotused', $plugin, $a);
-            }
-            $output .= $this->details_section(get_string('expectedanswers', $plugin), $list, 'qtype_speakup-phrases');
+        if (!empty($question->showstats) && trim($transcript) !== '') {
+            $output .= $this->statistics($question, $transcript, $isaitranscript);
         }
 
         if ($items && $this->can_show((int) $question->showitems, $options)) {
@@ -293,18 +388,18 @@ class qtype_speakup_renderer extends qtype_renderer {
             $output .= $this->details_section(get_string('itemsheader', $plugin), $list, 'qtype_speakup-items');
         }
 
+        if ($phrases && $this->can_show((int) $question->showphrases, $options)) {
+            $list = [];
+            foreach ($phrases as $result) {
+                $a = (object) ['phrase' => s($result->phrase), 'percent' => round($result->percent, 1)];
+                $list[] = get_string($result->used ? 'phraseresultused' : 'phraseresultnotused', $plugin, $a);
+            }
+            $output .= $this->details_section(get_string('expectedanswers', $plugin), $list, 'qtype_speakup-phrases');
+        }
+
         if (($phrases || $items || $aifraction !== null) && $this->can_show((int) $question->showcalculation, $options)) {
             $list = [];
             $total = 0.0;
-            if ($phrases) {
-                $percent = 0.0;
-                foreach ($phrases as $result) {
-                    $percent += $result->used ? $result->percent : 0;
-                }
-                $percent = min(100.0, $percent);
-                $total += $percent;
-                $list[] = get_string('calcphrases', $plugin, round($percent, 1));
-            }
             if ($items) {
                 $percent = 0.0;
                 foreach ($items as $result) {
@@ -313,6 +408,15 @@ class qtype_speakup_renderer extends qtype_renderer {
                 $percent = min(100.0, $percent);
                 $total += $percent;
                 $list[] = get_string('calcitems', $plugin, round($percent, 1));
+            }
+            if ($phrases) {
+                $percent = 0.0;
+                foreach ($phrases as $result) {
+                    $percent += $result->used ? $result->percent : 0;
+                }
+                $percent = min(100.0, $percent);
+                $total += $percent;
+                $list[] = get_string('calcphrases', $plugin, round($percent, 1));
             }
             if ($aifraction !== null) {
                 $percent = $aifraction * (int) $question->aiweighting;
@@ -330,6 +434,41 @@ class qtype_speakup_renderer extends qtype_renderer {
         }
 
         return $output;
+    }
+
+    /**
+     * Show the statistics about the transcript that the question is set to
+     * show. Those that need sentences are only shown if the transcript was
+     * made by AI, since the live transcript from the browser has no
+     * punctuation.
+     *
+     * @param qtype_speakup_question $question
+     * @param string $transcript
+     * @param bool $isaitranscript whether the transcript was made by AI.
+     * @return string HTML
+     */
+    protected function statistics(qtype_speakup_question $question, string $transcript, bool $isaitranscript): string {
+        $plugin = 'qtype_speakup';
+        $selected = explode(',', (string) $question->statsitems);
+        $types = \qtype_speakup\text_stats::get_stat_types(false);
+        if ($isaitranscript) {
+            $types = array_merge($types, \qtype_speakup\text_stats::get_stat_types(true));
+        }
+        $list = [];
+        foreach ($types as $type) {
+            if (!in_array($type, $selected)) {
+                continue;
+            }
+            $value = \qtype_speakup\text_stats::get_value($type, $transcript);
+            $list[] = get_string('statvalue', $plugin, (object) [
+                'label' => get_string('item' . $type, $plugin),
+                'value' => ($value === null) ? get_string('itemunknown', $plugin) : round($value, 1),
+            ]);
+        }
+        if (empty($list)) {
+            return '';
+        }
+        return $this->details_section(get_string('statistics', $plugin), $list, 'qtype_speakup-statistics');
     }
 
     /**

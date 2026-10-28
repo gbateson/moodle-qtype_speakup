@@ -99,6 +99,9 @@ class qtype_speakup extends question_type {
             'showphrases',
             'showitems',
             'showcomment',
+            'showtranscript',
+            'showstats',
+            'statsitems',
         ];
     }
 
@@ -121,6 +124,15 @@ class qtype_speakup extends question_type {
                     ? (int) $question->transcriptionproviderid : null;
         }
 
+        // The form sends the statistics to show as checkboxes,
+        // statsitems[name] => 0 or 1. They are stored as a list, e.g.
+        // "words,uniquewords", keeping only the statistics that exist.
+        if (isset($question->statsitems) && is_array($question->statsitems)) {
+            $allowed = array_merge(\qtype_speakup\text_stats::get_stat_types(false),
+                    \qtype_speakup\text_stats::get_stat_types(true));
+            $question->statsitems = implode(',', array_intersect($allowed, array_keys(array_filter($question->statsitems))));
+        }
+
         parent::save_question_options($question);
 
         // Save one row per target phrase, from the repeated phrase fields
@@ -140,6 +152,10 @@ class qtype_speakup extends question_type {
                 $record->answertext = $phrase;
                 $record->isregex = (int) preg_match('#^/.*/[a-zA-Z]*$#', $phrase);
                 $record->percent = min(100, max(0, (int) ($question->phrasepercent[$key] ?? 0)));
+                if ($record->percent == 0) {
+                    // A phrase that awards nothing is ignored, like an empty one.
+                    continue;
+                }
                 $record->divisor = min(20, max(1, (int) ($question->phrasedivisor[$key] ?? 1)));
                 $record->fullmatch = empty($question->phrasefullmatch[$key]) ? 0 : 1;
                 $record->casesensitive = empty($question->phrasecasesensitive[$key]) ? 0 : 1;
@@ -147,24 +163,25 @@ class qtype_speakup extends question_type {
             }
         }
 
-        // Save one row per target item: "Proportionally award up to
-        // [itempercent] of the question grade for [itemmin] to [itemmax]
-        // [itemtype]". Rows with no percent or no upper number are skipped.
+        // Save one row per target item: "Target for [itemtype] is
+        // [itemcount]. Award up to [itempercent] [multiplied by
+        // itemmultiplier] of the question grade". Rows with no percent or
+        // no target are skipped.
         $DB->delete_records('qtype_speakup_items', ['questionid' => $question->id]);
 
         if (!empty($question->itemtype)) {
             foreach ($question->itemtype as $key => $itemtype) {
                 $percent = min(100, max(0, (int) ($question->itempercent[$key] ?? 0)));
-                $maxcount = max(0, (float) ($question->itemmax[$key] ?? 0));
-                if ($percent == 0 || $maxcount == 0 || !in_array($itemtype, \qtype_speakup\text_stats::get_item_types())) {
+                $itemcount = max(0, (float) ($question->itemcount[$key] ?? 0));
+                if ($percent == 0 || $itemcount == 0 || !in_array($itemtype, \qtype_speakup\text_stats::get_item_types())) {
                     continue;
                 }
                 $record = new stdClass();
                 $record->questionid = $question->id;
                 $record->itemtype = $itemtype;
+                $record->itemcount = $itemcount;
                 $record->percent = $percent;
-                $record->mincount = min($maxcount, max(0, (float) ($question->itemmin[$key] ?? 0)));
-                $record->maxcount = $maxcount;
+                $record->multiplier = min(10, max(1, (int) ($question->itemmultiplier[$key] ?? 1)));
                 $DB->insert_record('qtype_speakup_items', $record);
             }
         }

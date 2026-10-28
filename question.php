@@ -75,6 +75,15 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int who sees the grading comment: one of the SPEAKUP_SHOW_* constants. */
     public $showcomment;
 
+    /** @var int who sees the transcript: one of the SPEAKUP_SHOW_* constants. */
+    public $showtranscript;
+
+    /** @var bool whether statistics about the transcript are shown. */
+    public $showstats;
+
+    /** @var string comma-separated list of the statistics to show, e.g. "words,uniquewords". */
+    public $statsitems;
+
     /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
     public $mediatype;
 
@@ -100,8 +109,8 @@ class qtype_speakup_question extends question_graded_automatically {
     public $expectedanswers = [];
 
     /**
-     * @var stdClass[] target items, each with ->itemtype, ->percent,
-     *      ->mincount and ->maxcount.
+     * @var stdClass[] target items, each with ->itemtype, ->itemcount,
+     *      ->percent and ->multiplier.
      */
     public $targetitems = [];
 
@@ -198,13 +207,13 @@ class qtype_speakup_question extends question_graded_automatically {
 
     /**
      * Get the target items that can award something: those with a percent
-     * and an upper number.
+     * and a target.
      *
      * @return stdClass[]
      */
     protected function get_active_items(): array {
         return array_filter($this->targetitems, function ($item) {
-            return (int) $item->percent > 0 && (float) $item->maxcount > 0;
+            return (int) $item->percent > 0 && (float) $item->itemcount > 0;
         });
     }
 
@@ -225,11 +234,9 @@ class qtype_speakup_question extends question_graded_automatically {
     /**
      * Score a transcript against the target items.
      *
-     * Each item reads "Proportionally award up to [percent] of the question
-     * grade for [mincount] to [maxcount] [itemtype]". Below mincount, the
-     * item awards nothing. From mincount, it awards percent x value /
-     * maxcount, up to the full percent at maxcount. The items' scores add
-     * up, capped at 100%.
+     * Each item reads "Target for [itemtype] is [itemcount]. Award up to
+     * [percent] [multiplied by multiplier] of the question grade". See
+     * item_percent(). The items' scores add up, capped at 100%.
      *
      * @param string $transcript
      * @param float|null $duration length of the recording in seconds, if known.
@@ -261,6 +268,29 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
+     * Get the share of the question grade (0..100) a target item awards for
+     * a value.
+     *
+     * The full award is the percent multiplied by the multiplier. It is
+     * given at or above the target (itemcount). Below the target, the award
+     * is in proportion to the value, e.g. half the target earns half the
+     * award.
+     *
+     * @param stdClass $item a target item.
+     * @param float|null $value the item's value for the response, or null
+     *      if unknown.
+     * @return float
+     */
+    public static function item_percent(stdClass $item, ?float $value): float {
+        $target = (float) $item->itemcount;
+        if ($value === null || $value <= 0 || $target <= 0) {
+            return 0.0;
+        }
+        $award = (int) $item->percent * max(1, (int) ($item->multiplier ?? 1));
+        return $award * min($value / $target, 1.0);
+    }
+
+    /**
      * Get the result of each target item for a transcript.
      *
      * @param string $transcript
@@ -276,10 +306,7 @@ class qtype_speakup_question extends question_graded_automatically {
             $percent = 0.0;
             if (trim($transcript) !== '') {
                 $value = \qtype_speakup\text_stats::get_value($item->itemtype, $transcript, $duration);
-                if ($value !== null && $value >= (float) $item->mincount) {
-                    $max = (float) $item->maxcount;
-                    $percent = (int) $item->percent * min($value, $max) / $max;
-                }
+                $percent = self::item_percent($item, $value);
             }
             $results[] = (object) [
                 'label' => get_string('item' . $item->itemtype, 'qtype_speakup'),
@@ -303,11 +330,55 @@ class qtype_speakup_question extends question_graded_automatically {
         if (!$this->needs_duration() || empty($response['recording'])) {
             return null;
         }
-        if (!($response['recording'] instanceof question_response_files)) {
-            return null;
+        $file = null;
+        if ($response['recording'] instanceof question_response_files) {
+            $files = $response['recording']->get_files();
+            $file = reset($files) ?: null;
         }
-        $files = $response['recording']->get_files();
-        return \qtype_speakup\media_info::get_duration(reset($files) ?: null);
+        return self::best_duration($file, $response['browserduration'] ?? null);
+    }
+
+    /**
+     * Get the length of a recording: as read from the file by getID3 if
+     * possible, or else as measured by the browser.
+     *
+     * @param stored_file|null $file
+     * @param mixed $browserduration the length measured by the browser, if any.
+     * @return float|null the length in seconds, or null if unknown.
+     */
+    public static function best_duration(?stored_file $file, $browserduration): ?float {
+        $duration = \qtype_speakup\media_info::get_duration($file);
+        if ($duration === null && is_numeric($browserduration) && $browserduration > 0) {
+            $duration = round((float) $browserduration, 1);
+        }
+        return $duration;
+    }
+
+    /**
+     * Get the response language, for the AI, e.g. "English (en-US)".
+     *
+     * @return string
+     */
+    public function get_language_name(): string {
+        $tag = trim((string) $this->sttlanguage);
+        if ($tag === '') {
+            $tag = 'en-US';
+        }
+        $code = strtolower(strtok(str_replace('_', '-', $tag), '-'));
+        $languages = get_string_manager()->get_list_of_languages('en');
+        return isset($languages[$code]) ? $languages[$code] . ' (' . $tag . ')' : $tag;
+    }
+
+    /**
+     * Is a recording longer than the time limit allows, including the
+     * leeway (see DURATION_LEEWAY_SECONDS)?
+     *
+     * @param float|null $duration length of the recording in seconds.
+     * @return bool
+     */
+    public function is_too_long(?float $duration): bool {
+        $limit = (int) $this->timelimitinseconds;
+        return $duration !== null && $limit > 0 && $duration > $limit + self::DURATION_LEEWAY_SECONDS;
     }
 
     #[\Override]
@@ -321,6 +392,10 @@ class qtype_speakup_question extends question_graded_automatically {
             // pattern-matching suggestion can be computed (see
             // grade_transcript() below).
             'browsertranscript' => PARAM_RAW,
+            // Length of an uploaded file in seconds, as measured by the
+            // browser (see amd/src/fileupload.js). Only used if the server
+            // can't read the length from the file itself.
+            'browserduration' => PARAM_RAW_TRIMMED,
         ];
     }
 
@@ -400,8 +475,46 @@ class qtype_speakup_question extends question_graded_automatically {
         return get_string('recordingsubmitted', 'qtype_speakup');
     }
 
+    /**
+     * Does the response include a file that is not audio or video?
+     *
+     * Students can only choose audio or video files, and Moodle's upload
+     * script checks the type too, but a tampered request could get round
+     * both, so the response is checked here as well.
+     *
+     * This can only be checked when the response's files are available,
+     * i.e. when the response is saved, not when the attempt is finished.
+     *
+     * @param array $response
+     * @return bool
+     */
+    protected function has_non_media_file(array $response): bool {
+        if (empty($response['recording']) || !($response['recording'] instanceof question_response_files)) {
+            return false;
+        }
+        foreach ($response['recording']->get_files() as $file) {
+            if (!file_mimetype_in_typegroup($file->get_mimetype(), ['audio', 'video'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     #[\Override]
     public function is_complete_response(array $response): bool {
+        if ($this->has_non_media_file($response)) {
+            return false;
+        }
+        return $this->has_response_file($response);
+    }
+
+    /**
+     * Does the response include a file (of any type)?
+     *
+     * @param array $response
+     * @return bool
+     */
+    protected function has_response_file(array $response): bool {
         // Note: $response['recording'] is not reliably an object with a
         // get_files() method. In particular, qbehaviour_manualgraded's
         // process_finish() builds $response from
@@ -430,7 +543,11 @@ class qtype_speakup_question extends question_graded_automatically {
 
     #[\Override]
     public function is_gradable_response(array $response): bool {
-        return $this->is_complete_response($response);
+        // A response with a file that is not audio or video is still
+        // gradable, but not complete. So, when it is saved, the manualgraded
+        // behaviour marks it as invalid, and get_validation_error() below
+        // asks for a different file.
+        return $this->has_response_file($response);
     }
 
     /**
@@ -448,6 +565,9 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     #[\Override]
     public function get_validation_error(array $response) {
+        if ($this->has_non_media_file($response)) {
+            return get_string('notmediafile', 'qtype_speakup');
+        }
         if (!$this->is_complete_response($response)) {
             return get_string('norecording', 'qtype_speakup');
         }

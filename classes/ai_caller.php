@@ -127,19 +127,79 @@ class ai_caller {
      */
     protected static function assess_via_external(\stdClass $provider, string $rubric,
             string $transcript, ?\stored_file $file = null): array {
-        if (empty($provider->url) || empty($provider->requesttemplate)) {
-            throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
-        }
-
         // The {{RUBRIC}} token must carry the same "always end with SCORE: N"
         // instruction the core-AI path gets via build_prompt() below -
         // otherwise an external provider is never actually told what format
         // to reply in, and every response fails to parse regardless of how
-        // well the student answered. This was a real gap: it worked
-        // correctly for core AI (which always went through build_prompt())
-        // but silently never worked for any external provider until fixed
-        // here.
+        // well the student answered.
         $fullrubric = self::build_rubric_with_instructions($rubric);
+        $content = self::request_external($provider, $fullrubric, $transcript, $file);
+        return self::parse_score_and_feedback($content);
+    }
+
+    /**
+     * Ask an external provider to transcribe a recording, word for word.
+     *
+     * Used for uploaded files without AI assessment, so that the target
+     * phrases and items can be checked in the transcript.
+     *
+     * @param \stdClass $provider a row from qtype_speakup_ai_providers. It
+     *      must be an external provider that receives the file itself.
+     * @param \stored_file $file the audio or video file.
+     * @param string $language the language the speaker is expected to
+     *      speak, e.g. "English (en-US)".
+     * @return string the transcript.
+     * @throws \moodle_exception on any failure.
+     */
+    public static function transcribe(\stdClass $provider, \stored_file $file, string $language): string {
+        if ($provider->providertype === ai_provider::TYPE_CORE
+                || $provider->capability !== ai_provider::CAPABILITY_MULTIMODAL) {
+            throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
+        }
+        $prompt = get_string('aiprompttranscribeonly', 'qtype_speakup', $language);
+        $content = trim(self::request_external($provider, $prompt, '', $file));
+        // Remove a "TRANSCRIPT:" label, if the AI added one anyway.
+        return trim((string) preg_replace('/^[\s*#]*TRANSCRIPT\s*:[\s*]*/i', '', $content));
+    }
+
+    /**
+     * Separate the transcript from the feedback in an AI reply that was
+     * asked for both (see the aiprompttranscribe string): "TRANSCRIPT:"
+     * followed by the transcript, then "FEEDBACK:" followed by the feedback.
+     *
+     * @param string $content the AI's reply, without its SCORE line.
+     * @return array [string|null $transcript, string $feedback] - the
+     *      transcript is null if the reply did not include one.
+     */
+    public static function split_transcript(string $content): array {
+        // Allow for Markdown around the labels, e.g. "**TRANSCRIPT:**".
+        // After each colon, only the closing "**" of a bold label is removed,
+        // so that a bullet ("* ") at the start of the feedback is kept.
+        $pattern = '/^[\s*#]*TRANSCRIPT\s*:\**(.*?)[\s*#]*FEEDBACK\s*:\**(.*)$/is';
+        if (preg_match($pattern, $content, $matches)) {
+            $transcript = trim($matches[1]);
+            return [($transcript === '') ? null : $transcript, trim($matches[2])];
+        }
+        return [null, $content];
+    }
+
+    /**
+     * Send a prompt (and, for a multimodal provider, the recording) to an
+     * admin-configured external REST API, and return the text it replies.
+     *
+     * @param \stdClass $provider a row from qtype_speakup_ai_providers.
+     * @param string $prompt substituted for the {{RUBRIC}} token.
+     * @param string $transcript substituted for the {{TRANSCRIPT}} token.
+     * @param \stored_file|null $file the recording, for multimodal providers.
+     * @return string the text of the reply.
+     * @throws \moodle_exception on any failure.
+     */
+    protected static function request_external(\stdClass $provider, string $prompt,
+            string $transcript, ?\stored_file $file = null): string {
+        if (empty($provider->url) || empty($provider->requesttemplate)) {
+            throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
+        }
+        $fullrubric = $prompt;
 
         $audiobase64 = '';
         $audiomimetype = '';
@@ -262,7 +322,7 @@ class ai_caller {
             throw new \moodle_exception('erroraiproviderresponse', 'qtype_speakup');
         }
 
-        return self::parse_score_and_feedback((string) $content);
+        return (string) $content;
     }
 
     /**
