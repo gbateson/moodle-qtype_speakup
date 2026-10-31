@@ -28,6 +28,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import {deleteAllFiles, getExtension, uploadFile} from 'qtype_speakup/draftfiles';
+
 /**
  * Initialise the upload widget in one question.
  *
@@ -91,8 +93,10 @@ export const init = (questionId, settings) => {
                 });
             }
 
-            await deleteExistingFiles();
-            await uploadFile(file);
+            await deleteAllFiles(settings.draftItemId);
+            await uploadFile(file, file.name, settings, (percent) => {
+                button.textContent = getString('uploadprogress', percent + '%');
+            });
 
             showPlayer(file, isVideo);
             if (durationField) {
@@ -100,6 +104,8 @@ export const init = (questionId, settings) => {
             }
             widget.dataset.state = 'uploaded';
             button.textContent = getString('uploaddifferentfile');
+            // Tell anything that counts responses (see qtype_speakup/promptcontrol).
+            widget.dispatchEvent(new CustomEvent('qtype_speakup:responsesaved', {bubbles: true}));
             if (warning) {
                 showMessage(warning, 'text-warning');
             } else {
@@ -120,10 +126,7 @@ export const init = (questionId, settings) => {
      * @return {boolean}
      */
     function isMediaFile(file) {
-        const name = file.name.toLowerCase();
-        const dot = name.lastIndexOf('.');
-        const extension = (dot >= 0) ? name.substring(dot) : '';
-        return settings.acceptedTypes.indexOf(extension) >= 0;
+        return settings.acceptedTypes.indexOf(getExtension(file.name)) >= 0;
     }
 
     /**
@@ -162,89 +165,6 @@ export const init = (questionId, settings) => {
             setTimeout(() => finish(null), 10000);
             element.src = url;
         });
-    }
-
-    /**
-     * Remove any earlier file (a recording or an upload) from the draft
-     * file area, so the new file is the only one there.
-     *
-     * @return {Promise}
-     */
-    async function deleteExistingFiles() {
-        const list = await postForm('/repository/draftfiles_ajax.php?action=list', {
-            itemid: settings.draftItemId,
-            filepath: '/',
-        });
-        const files = (list && list.list) ? list.list : [];
-        for (const file of files) {
-            if (file.type === 'folder') {
-                continue;
-            }
-            await postForm('/repository/draftfiles_ajax.php?action=delete', {
-                itemid: settings.draftItemId,
-                filepath: file.filepath || '/',
-                filename: file.filename,
-            });
-        }
-    }
-
-    /**
-     * Upload the file to the draft file area, showing the progress.
-     *
-     * @param {File} file
-     * @return {Promise}
-     */
-    function uploadFile(file) {
-        return new Promise((resolve, reject) => {
-            const formData = new FormData();
-            formData.append('repo_upload_file', file, file.name);
-            formData.append('sesskey', M.cfg.sesskey);
-            formData.append('repo_id', settings.uploadRepositoryId);
-            formData.append('itemid', settings.draftItemId);
-            formData.append('savepath', '/');
-            formData.append('ctx_id', settings.contextId);
-            formData.append('title', file.name);
-            formData.append('overwrite', '1');
-            settings.acceptedTypes.forEach((type) => formData.append('accepted_types[]', type));
-
-            const request = new XMLHttpRequest();
-            request.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    button.textContent = getString('uploadprogress', Math.round(e.loaded / e.total * 100) + '%');
-                }
-            });
-            request.addEventListener('load', () => {
-                let response = null;
-                try {
-                    response = JSON.parse(request.responseText);
-                } catch (e) {
-                    response = null;
-                }
-                // Moodle sends back errors with a 200 status code.
-                if (request.status === 200 && response && !response.error && !response.errorcode) {
-                    resolve(response);
-                } else {
-                    reject(new Error('Upload failed'));
-                }
-            });
-            request.addEventListener('error', () => reject(new Error('Upload failed')));
-            request.addEventListener('abort', () => reject(new Error('Upload aborted')));
-            request.open('POST', M.cfg.wwwroot + '/repository/repository_ajax.php?action=upload');
-            request.send(formData);
-        });
-    }
-
-    /**
-     * POST some fields (and the sesskey) to a Moodle script, and return the JSON reply.
-     *
-     * @param {string} path e.g. "/repository/draftfiles_ajax.php?action=list"
-     * @param {Object} fields
-     * @return {Promise<Object>}
-     */
-    async function postForm(path, fields) {
-        const body = new URLSearchParams(Object.assign({sesskey: M.cfg.sesskey}, fields));
-        const response = await fetch(M.cfg.wwwroot + path, {method: 'POST', body: body, credentials: 'same-origin'});
-        return response.json();
     }
 
     /**

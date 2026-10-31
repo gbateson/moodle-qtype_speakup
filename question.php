@@ -84,6 +84,30 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var string comma-separated list of the statistics to show, e.g. "words,uniquewords". */
     public $statsitems;
 
+    /** @var string transcript of the audio prompt, e.g. for students who cannot hear it. */
+    public $audioprompttranscript;
+
+    /** @var int how the audio prompt transcript is shown: one of the SPEAKUP_PROMPTTRANSCRIPT_* constants. */
+    public $prompttranscriptdisplay;
+
+    /** @var int percent of the question grade taken off for showing the collapsed transcript. */
+    public $transcriptpenalty;
+
+    /** @var bool whether recording starts as soon as the prompt finishes. */
+    public $recordafterprompt;
+
+    /** @var int how many times the prompt can be played: 0 for no limit. */
+    public $maxpromptplays;
+
+    /** @var int how many responses (recordings or uploads) can be given: 0 for no limit. */
+    public $maxresponses;
+
+    /** @var int stop recording after this many seconds of silence: 0 for never. */
+    public $silencestop;
+
+    /** The capability that lets a student show the transcript without the penalty. */
+    const TRANSCRIPT_PENALTY_EXEMPT = 'qtype/speakup:viewtranscriptwithoutpenalty';
+
     /** @var string one of SPEAKUP_MEDIA_AUDIO / SPEAKUP_MEDIA_VIDEO. */
     public $mediatype;
 
@@ -156,7 +180,59 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return bool
      */
     public function is_graded_later(): bool {
-        return $this->is_automated() && ($this->uses_ai() || $this->is_upload());
+        return $this->is_automated() && ($this->uses_ai() || $this->is_upload() || $this->has_transcript_penalty());
+    }
+
+    /**
+     * Is there a penalty for showing the audio prompt transcript?
+     *
+     * Only the collapsed transcript has a penalty: students choose to show
+     * it. Such questions are graded later, by the background task, because
+     * whether a student is exempt from the penalty depends on who they are
+     * (see is_exempt_from_transcript_penalty()), and grade_response() is not
+     * told who the student is.
+     *
+     * @return bool
+     */
+    public function has_transcript_penalty(): bool {
+        return $this->is_automated() && (int) $this->transcriptpenalty > 0
+                && (int) $this->prompttranscriptdisplay === SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED
+                && trim((string) $this->audioprompttranscript) !== '';
+    }
+
+    /**
+     * Is a student exempt from the penalty for showing the transcript?
+     *
+     * @param int $userid the student.
+     * @param context $context the context the question is attempted in.
+     * @return bool
+     */
+    public static function is_exempt_from_transcript_penalty(int $userid, context $context): bool {
+        return has_capability(self::TRANSCRIPT_PENALTY_EXEMPT, $context, $userid);
+    }
+
+    /**
+     * Does the penalty for showing the transcript apply to a response?
+     *
+     * @param bool $viewed whether the student showed the transcript.
+     * @param bool $exempt whether the student is exempt from the penalty.
+     * @return bool
+     */
+    public function transcript_penalty_applies(bool $viewed, bool $exempt): bool {
+        return $viewed && !$exempt && $this->has_transcript_penalty();
+    }
+
+    /**
+     * Take the penalty for showing the transcript off a grade.
+     *
+     * @param float|null $fraction the grade (0..1), or null if there is none.
+     * @return float|null
+     */
+    public function apply_transcript_penalty(?float $fraction): ?float {
+        if ($fraction === null) {
+            return null;
+        }
+        return max(0.0, $fraction - ((int) $this->transcriptpenalty / 100));
     }
 
     #[\Override]
@@ -396,6 +472,13 @@ class qtype_speakup_question extends question_graded_automatically {
             // browser (see amd/src/fileupload.js). Only used if the server
             // can't read the length from the file itself.
             'browserduration' => PARAM_RAW_TRIMMED,
+            // 1 if the student showed the audio prompt transcript (see
+            // amd/src/prompttranscript.js), for the transcript penalty.
+            'prompttranscriptviewed' => PARAM_INT,
+            // How many times the student has played the prompt, and given a
+            // response, so far (see amd/src/promptcontrol.js).
+            'promptplays' => PARAM_INT,
+            'responsecount' => PARAM_INT,
         ];
     }
 

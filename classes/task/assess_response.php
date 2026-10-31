@@ -139,6 +139,15 @@ class assess_response extends \core\task\adhoc_task {
             [$itemfraction, ] = $question->grade_by_items($gradingtranscript, $duration);
             $fraction = $question->combine_fractions($phrasefraction, $itemfraction, $aifraction);
 
+            // Take off the penalty for showing the audio prompt transcript,
+            // unless the student is exempt (e.g. they cannot hear the prompt).
+            $viewed = !empty($qa->get_last_qt_var('prompttranscriptviewed'));
+            $exempt = \qtype_speakup_question::is_exempt_from_transcript_penalty((int) $data->userid,
+                    \context::instance_by_id((int) $data->contextid));
+            if ($question->transcript_penalty_applies($viewed, $exempt)) {
+                $fraction = $question->apply_transcript_penalty($fraction);
+            }
+
             $record->transcript = $transcript;
             $record->aitranscript = $aitranscript;
             $record->transcriptstatus = ($gradingtranscript !== '') ? 'done' : 'failed';

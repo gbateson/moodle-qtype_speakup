@@ -55,7 +55,47 @@ $string['err_transcriptionproviderrequired'] = 'Uploaded files need an AI provid
 $string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider to transcribe them, but none are configured yet. Choose "Record", or "Manual" grading, or ask an administrator to add an AI provider.';
 $string['err_uploadneedsmultimodal'] = 'Uploaded files have no live transcript, so they need an AI provider that receives the audio or video file itself. Choose a different provider, or "Record".';
 $string['audioprompt'] = 'Audio prompt (optional)';
-$string['audioprompt_help'] = 'An optional audio file the student hears instead of, or as well as, the written question text.';
+$string['audioprompt_help'] = 'An optional audio prompt the student hears instead of, or as well as, the written question text. Record it here, or upload an audio file. It is shown as an audio player under the question text.';
+$string['audioprompttranscript'] = 'Transcript of the audio prompt';
+$string['audioprompttranscript_help'] = 'A transcript of the audio prompt, e.g. for students who cannot hear it. While you record the prompt, the browser\'s speech recognition (if available) writes the transcript here. Please check it, and correct any mistakes.';
+$string['prompttranscriptdisplay'] = 'Show audio prompt transcript';
+$string['prompttranscriptdisplay_help'] = 'How the transcript of the audio prompt is shown to students:
+
+* **No** - the transcript is not shown.
+* **Yes, collapsed** - students see a "Show transcript" link, and can choose to show it.
+* **Yes, expanded** - the transcript is always shown under the audio prompt.';
+$string['prompttranscriptcollapsed'] = 'Yes, collapsed';
+$string['prompttranscriptexpanded'] = 'Yes, expanded';
+$string['transcriptpenalty'] = 'Penalty for showing the transcript';
+$string['transcriptpenalty_help'] = 'The percentage of the question grade taken off if a student shows the collapsed transcript of the audio prompt.
+
+Students who need the transcript, e.g. because they cannot hear the prompt, can be exempted from the penalty: give them the capability "qtype/speakup:viewtranscriptwithoutpenalty", e.g. with a role for those students in the course. Teachers can see whether a student showed the transcript.
+
+Questions with a penalty are graded after the response is submitted, in the background.';
+$string['showtranscriptpenalty'] = '(penalty -{$a}%)';
+$string['confirmtranscripttitle'] = 'Show the transcript?';
+$string['confirmtranscript'] = 'Viewing the transcript will reduce your grade by {$a}%. Are you sure you want to see it?';
+$string['calctranscriptpenalty'] = 'Penalty for showing the transcript: -{$a}%';
+$string['transcriptviewed'] = 'Transcript viewed.';
+$string['transcriptviewedexempt'] = 'Transcript viewed (exempt: no penalty).';
+$string['speakup:viewtranscriptwithoutpenalty'] = 'Show the audio prompt transcript without the penalty';
+$string['recordafterprompt'] = 'Start recording when the prompt finishes';
+$string['recordafterprompt_help'] = 'If checked, recording starts as soon as the prompt has finished playing, so the student must respond straight away. The prompt is the audio prompt above, if there is one, or else the first audio player in the question text. Students can still start recording themselves before the prompt finishes.';
+$string['silencestop'] = 'Stop recording after a silence of';
+$string['silencestop_help'] = 'Recording stops automatically when the student has been silent for this long. Silence only counts once the student has started speaking, so they are not cut off while they think. Pausing the recording (if allowed) does not count as silence.';
+$string['silencestopped'] = 'Recording stopped after {$a} seconds of silence.';
+$string['maxpromptplays'] = 'Number of times the prompt can be played';
+$string['maxpromptplays_help'] = 'How many times students can play the prompt (the audio prompt above, or else the first audio player in the question text). Pausing and resuming counts as one play.';
+$string['maxresponses'] = 'Number of responses allowed';
+$string['maxresponses_help'] = 'How many times students can record (or upload) a response. Once they have used them all, they can no longer record again.';
+$string['recordafterpromptnote'] = 'Recording starts as soon as the prompt finishes.';
+$string['maxpromptplaysnote'] = 'You can play the prompt {$a} time(s).';
+$string['maxresponsesnote'] = 'You can give {$a} response(s).';
+$string['promptplaysused'] = 'You have played the prompt as many times as allowed.';
+$string['responsesused'] = 'You have given as many responses as allowed.';
+$string['recordaudioprompt'] = 'Record the audio prompt';
+$string['audiopromptdeleted'] = 'Audio prompt deleted.';
+$string['uploadwrongtypeaudio'] = 'Please choose an audio file.';
 $string['gradingmethod'] = 'Grading method';
 $string['gradingmethod_help'] = 'How the response is graded:
 

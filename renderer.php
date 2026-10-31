@@ -93,6 +93,8 @@ class qtype_speakup_renderer extends qtype_renderer {
         $questiontext = $question->format_text($question->questiontext, $question->questiontextformat,
                 $qa, 'question', 'questiontext', $question->id);
         $output .= html_writer::tag('div', $questiontext, ['class' => 'qtext']);
+        $output .= $this->audio_prompt($qa, $options);
+        $output .= $this->prompt_controls($qa, $options);
 
         if ($options->readonly) {
             // Review: read-only playback widget, no recorder controls.
@@ -151,7 +153,7 @@ class qtype_speakup_renderer extends qtype_renderer {
 
             if ($question->is_automated() && !$question->is_graded_later()) {
                 // Graded straight away, from the live transcript.
-                $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, null);
+                $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, null, $qa);
             } else if ($question->is_graded_later()) {
                 // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.
@@ -159,10 +161,16 @@ class qtype_speakup_renderer extends qtype_renderer {
                 // is saved as the grading comment, which Moodle shows itself.
                 if ($airesponse && $airesponse->aistatus === 'done') {
                     $aifraction = ($question->uses_ai() && $airesponse->aiscore !== null) ? (float) $airesponse->aiscore : null;
-                    $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, $aifraction);
+                    $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, $aifraction, $qa);
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
                     $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-danger']);
+                } else if (!$airesponse && $qa->get_state()->is_graded()) {
+                    // Already graded, but with no record of the background
+                    // grading, e.g. an attempt restored from a backup (which
+                    // keeps the grade and comment, but not that record), or
+                    // graded by hand. Nothing is pending.
+                    $output .= '';
                 } else {
                     if (!$airesponse) {
                         // Previews never fire the quiz event that queues
@@ -228,6 +236,8 @@ class qtype_speakup_renderer extends qtype_renderer {
                 'videoHeight' => SPEAKUP_VIDEO_HEIGHT,
                 'screenWidth' => SPEAKUP_VIDEO_WIDTH,
                 'screenHeight' => SPEAKUP_VIDEO_HEIGHT,
+                // Stop recording after this many seconds of silence (0 = never).
+                'silenceStop' => (int) $question->silencestop,
             ];
             $this->page->requires->strings_for_js($this->strings_for_js(), 'qtype_speakup');
             $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'init',
@@ -248,6 +258,146 @@ class qtype_speakup_renderer extends qtype_renderer {
         $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'addPlaybackErrorHandlingToVideoElements',
                 [$qa->get_outer_question_div_unique_id()]);
 
+        return $output;
+    }
+
+    /**
+     * Show the audio prompt (recorded or uploaded on the question form), if
+     * there is one, as an audio player, with its transcript (if any) below.
+     *
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @return string HTML, or an empty string if there is no audio prompt.
+     */
+    protected function audio_prompt(question_attempt $qa, question_display_options $options): string {
+        /** @var qtype_speakup_question $question */
+        $question = $qa->get_question();
+        $files = get_file_storage()->get_area_files($question->contextid, 'qtype_speakup', 'audioprompt',
+                $question->id, 'filename', false);
+        $file = reset($files);
+        if (!$file) {
+            return '';
+        }
+        // A question file URL, served by question_pluginfile() (see lib.php),
+        // which checks access with qtype_speakup_question::check_file_access().
+        $url = $qa->rewrite_pluginfile_urls('@@PLUGINFILE@@/' . rawurlencode($file->get_filename()),
+                'qtype_speakup', 'audioprompt', $question->id);
+        return html_writer::div(
+                html_writer::tag('audio', '', ['controls' => 'controls', 'src' => $url, 'class' => 'w-100']) .
+                $this->prompt_transcript($qa, $options),
+                'qtype_speakup-audio-prompt my-2');
+    }
+
+    /**
+     * Set up the controls for the prompt and the responses, while the
+     * question is being attempted (see amd/src/promptcontrol.js): starting
+     * the recording when the prompt finishes, and the limits on how many
+     * times the prompt can be played and how many responses can be given.
+     *
+     * The counts so far are kept in hidden fields, saved with the response.
+     *
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @return string HTML
+     */
+    protected function prompt_controls(question_attempt $qa, question_display_options $options): string {
+        /** @var qtype_speakup_question $question */
+        $question = $qa->get_question();
+        $recordafterprompt = !empty($question->recordafterprompt) && !$question->is_upload();
+        $maxplays = (int) $question->maxpromptplays;
+        $maxresponses = (int) $question->maxresponses;
+        if ($options->readonly || (!$recordafterprompt && !$maxplays && !$maxresponses)) {
+            return '';
+        }
+        $plugin = 'qtype_speakup';
+
+        $output = '';
+        foreach (['promptplays', 'responsecount'] as $name) {
+            $output .= html_writer::empty_tag('input', ['type' => 'hidden',
+                    'class' => 'qtype_speakup-' . $name . '-field',
+                    'name' => $qa->get_qt_field_name($name),
+                    'value' => (int) $qa->get_last_qt_var($name, 0)]);
+        }
+        $notes = [];
+        if ($recordafterprompt) {
+            $notes[] = get_string('recordafterpromptnote', $plugin);
+        }
+        if ($maxplays) {
+            $notes[] = get_string('maxpromptplaysnote', $plugin, $maxplays);
+        }
+        if ($maxresponses) {
+            $notes[] = get_string('maxresponsesnote', $plugin, $maxresponses);
+        }
+        $output .= html_writer::div(implode(' ', $notes), 'qtype_speakup-prompt-notes small text-muted mb-1');
+        $output .= html_writer::div('', 'qtype_speakup-prompt-message small text-warning mb-1 hide',
+                ['role' => 'status', 'aria-live' => 'polite']);
+
+        $this->page->requires->strings_for_js(['promptplaysused', 'responsesused'], $plugin);
+        $this->page->requires->js_call_amd('qtype_speakup/promptcontrol', 'init', [
+            $qa->get_outer_question_div_unique_id(),
+            [
+                'recordAfterPrompt' => $recordafterprompt,
+                'maxPromptPlays' => $maxplays,
+                'maxResponses' => $maxresponses,
+            ],
+        ]);
+        return $output;
+    }
+
+    /**
+     * Show the transcript of the audio prompt, as the question is set to:
+     * not at all, collapsed ("Show transcript"), or expanded.
+     *
+     * When it is collapsed, and showing it has a penalty, students are told
+     * so (unless they are exempt), and a hidden field records whether they
+     * showed it (see amd/src/prompttranscript.js).
+     *
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @return string HTML
+     */
+    protected function prompt_transcript(question_attempt $qa, question_display_options $options): string {
+        /** @var qtype_speakup_question $question */
+        $question = $qa->get_question();
+        $plugin = 'qtype_speakup';
+        $transcript = trim((string) $question->audioprompttranscript);
+        $display = (int) $question->prompttranscriptdisplay;
+        if ($transcript === '' || $display === SPEAKUP_PROMPTTRANSCRIPT_HIDE) {
+            return '';
+        }
+        $text = html_writer::div(nl2br(s($transcript)), 'qtype_speakup-prompt-transcript-text mt-1');
+
+        if ($display === SPEAKUP_PROMPTTRANSCRIPT_EXPANDED) {
+            return html_writer::div(
+                    html_writer::tag('strong', get_string('transcript', $plugin)) . $text,
+                    'qtype_speakup-prompt-transcript mt-1');
+        }
+
+        $summary = get_string('showtranscript', $plugin);
+        $userid = (int) $qa->get_step(0)->get_user_id();
+        $exempt = qtype_speakup_question::is_exempt_from_transcript_penalty($userid, $options->context);
+        $penalty = ($question->has_transcript_penalty() && !$exempt) ? (int) $question->transcriptpenalty : 0;
+        if ($penalty) {
+            $summary .= ' ' . html_writer::span(get_string('showtranscriptpenalty', $plugin, $penalty), 'small');
+        }
+        $viewed = !empty($qa->get_last_qt_var('prompttranscriptviewed'));
+
+        $output = '';
+        if (!$options->readonly) {
+            $output .= html_writer::empty_tag('input', ['type' => 'hidden',
+                    'class' => 'qtype_speakup-prompttranscriptviewed-field',
+                    'name' => $qa->get_qt_field_name('prompttranscriptviewed'),
+                    'value' => $viewed ? 1 : 0]);
+            // Before showing it the first time, students the penalty applies
+            // to are asked to confirm (see amd/src/prompttranscript.js).
+            $this->page->requires->strings_for_js(['confirmtranscript', 'confirmtranscripttitle', 'showtranscript'],
+                    $plugin);
+            $this->page->requires->js_call_amd('qtype_speakup/prompttranscript', 'init',
+                    [$qa->get_outer_question_div_unique_id(), $viewed ? 0 : $penalty]);
+        }
+        $output .= html_writer::tag('details',
+                html_writer::tag('summary', $summary) . $text,
+                ['class' => 'qtype_speakup-prompt-transcript mt-1']);
         return $output;
     }
 
@@ -362,12 +512,22 @@ class qtype_speakup_renderer extends qtype_renderer {
      *      so has punctuation, for counting sentences).
      * @param float|null $duration length of the recording in seconds, if known.
      * @param float|null $aifraction the AI's score (0..1), if assessed by AI.
+     * @param question_attempt $qa the attempt, for whether (and by whom) the
+     *      audio prompt transcript was shown.
      * @return string HTML
      */
     protected function grading_details(qtype_speakup_question $question, question_display_options $options,
-            string $transcript, bool $isaitranscript, ?float $duration, ?float $aifraction): string {
+            string $transcript, bool $isaitranscript, ?float $duration, ?float $aifraction,
+            question_attempt $qa): string {
         $plugin = 'qtype_speakup';
         $output = '';
+
+        // Did the student show the audio prompt transcript, and if so, does
+        // the penalty for that apply to them?
+        $viewed = !empty($qa->get_last_qt_var('prompttranscriptviewed'));
+        $exempt = $viewed && qtype_speakup_question::is_exempt_from_transcript_penalty(
+                (int) $qa->get_step(0)->get_user_id(), $options->context);
+        $penalty = $question->transcript_penalty_applies($viewed, $exempt);
 
         $phrases = $question->phrase_results($transcript);
         $items = $question->item_results($transcript, $duration);
@@ -429,8 +589,19 @@ class qtype_speakup_renderer extends qtype_renderer {
             }
             $capped = ($total > 100);
             $total = min(100.0, $total);
+            if ($penalty) {
+                // Taken off after the cap, as in apply_transcript_penalty().
+                $list[] = get_string('calctranscriptpenalty', $plugin, (int) $question->transcriptpenalty);
+                $total = max(0.0, $total - (int) $question->transcriptpenalty);
+            }
             $list[] = html_writer::tag('strong', get_string($capped ? 'calctotalcapped' : 'calctotal', $plugin, round($total, 1)));
             $output .= $this->details_section(get_string('calculation', $plugin), $list, 'qtype_speakup-calculation');
+        }
+
+        // Teachers see whether the student showed the transcript.
+        if ($viewed && $this->can_show(SPEAKUP_SHOW_TEACHERS_ONLY, $options)) {
+            $output .= html_writer::div(get_string($exempt ? 'transcriptviewedexempt' : 'transcriptviewed', $plugin),
+                    'qtype_speakup-transcript-viewed small text-muted mt-1');
         }
 
         return $output;
@@ -537,6 +708,7 @@ class qtype_speakup_renderer extends qtype_renderer {
             'recordagainx',
             'recordingfailed',
             'resume',
+            'silencestopped',
             'startrecording',
             'stoprecording',
             'startsharescreen',

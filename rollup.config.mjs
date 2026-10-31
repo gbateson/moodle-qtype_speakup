@@ -1,6 +1,11 @@
 import terser from '@rollup/plugin-terser';
 
-const external = ['core/log', 'core/modal_factory', 'core/templates'];
+// Moodle modules, and this plugin's own modules (loaded separately by
+// Moodle's RequireJS, so not bundled into each other).
+const external = [
+    'core/log', 'core/modal_factory', 'core/notification', 'core/templates',
+    'qtype_speakup/avrecording', 'qtype_speakup/draftfiles',
+];
 
 export default [
     {
@@ -10,6 +15,54 @@ export default [
             file: 'amd/build/avrecording.min.js',
             format: 'amd',
             amd: {id: 'qtype_speakup/avrecording'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
+        input: 'amd/src/draftfiles.js',
+        external,
+        output: {
+            file: 'amd/build/draftfiles.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/draftfiles'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
+        input: 'amd/src/audioprompt.js',
+        external,
+        output: {
+            file: 'amd/build/audioprompt.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/audioprompt'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
+        input: 'amd/src/prompttranscript.js',
+        external,
+        output: {
+            file: 'amd/build/prompttranscript.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/prompttranscript'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
+        input: 'amd/src/promptcontrol.js',
+        external,
+        output: {
+            file: 'amd/build/promptcontrol.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/promptcontrol'},
             sourcemap: true,
             exports: 'named',
             plugins: [terser()],

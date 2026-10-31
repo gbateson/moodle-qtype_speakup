@@ -128,6 +128,13 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
      */
     let progressBarAnimation;
 
+    /**
+     * @type {Object|null} while recording, the silence detector (see
+     * startSilenceDetection()), if the question stops recording after a
+     * silence.
+     */
+    let silenceDetector = null;
+
     const button = widget.querySelector('button.qtype_speakup-main-button');
     const pauseButton = widget.querySelector('.qtype_speakup-pause-button button');
     const controlRow = widget.querySelector('.qtype_speakup-control-row');
@@ -346,6 +353,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
         mediaRecorder.start(1000); // Capture in one-second chunks. Firefox requires that.
 
         widget.dataset.state = 'recording';
+        startSilenceDetection();
         // Initialize and start the animation.
         initProgressBarAnimation();
         progressBarAnimation.play();
@@ -461,6 +469,8 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
         // Disable the button while things change.
         button.disabled = true;
 
+        stopSilenceDetection();
+
         // Stop the count-down timer.
         stopCountdownTimer();
 
@@ -483,6 +493,88 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
         for (let i = 0; i < tracks.length; i++) {
             tracks[i].stop();
         }
+    }
+
+    /**
+     * If the question stops recording after a silence (uploadInfo.silenceStop
+     * seconds), watch the loudness of the microphone while recording, and
+     * stop once it has been quiet for that long.
+     *
+     * Silence only counts after the student has started speaking, so that
+     * they are not cut off while thinking what to say. Background noise
+     * varies, so "silence" is anything not clearly louder than the quietest
+     * moment heard so far. A pause (with the pause button) does not count.
+     */
+    function startSilenceDetection() {
+        // Clear the message from an earlier recording, if any.
+        widget.parentElement.querySelector('.qtype_speakup-silence-message')?.remove();
+
+        const seconds = parseFloat(uploadInfo.silenceStop || 0);
+        const AudioContextApi = window.AudioContext || window.webkitAudioContext;
+        if (!(seconds > 0) || !AudioContextApi || !mediaStream || !mediaStream.getAudioTracks().length) {
+            return;
+        }
+        const context = new AudioContextApi();
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 2048;
+        context.createMediaStreamSource(mediaStream).connect(analyser);
+        const samples = new Float32Array(analyser.fftSize);
+
+        let noiseFloor = Infinity;
+        let hasSpoken = false;
+        let silentSince = null;
+        const interval = setInterval(() => {
+            if (widget.dataset.state !== 'recording') {
+                silentSince = null; // Paused.
+                return;
+            }
+            analyser.getFloatTimeDomainData(samples);
+            let sum = 0;
+            for (let i = 0; i < samples.length; i++) {
+                sum += samples[i] * samples[i];
+            }
+            const level = Math.sqrt(sum / samples.length);
+            noiseFloor = Math.min(noiseFloor, level);
+            const threshold = Math.max(noiseFloor * 3, 0.01);
+            if (level > threshold) {
+                hasSpoken = true;
+                silentSince = null;
+            } else if (hasSpoken) {
+                silentSince = silentSince || Date.now();
+                if (Date.now() - silentSince >= seconds * 1000) {
+                    stopRecording();
+                    showSilenceMessage(seconds);
+                }
+            }
+        }, 100);
+        silenceDetector = {context: context, interval: interval};
+    }
+
+    /**
+     * Stop watching for silence.
+     */
+    function stopSilenceDetection() {
+        if (silenceDetector) {
+            clearInterval(silenceDetector.interval);
+            silenceDetector.context.close();
+            silenceDetector = null;
+        }
+    }
+
+    /**
+     * Tell the student that recording stopped after a silence.
+     *
+     * @param {number} seconds
+     */
+    function showSilenceMessage(seconds) {
+        let message = widget.parentElement.querySelector('.qtype_speakup-silence-message');
+        if (!message) {
+            message = document.createElement('div');
+            message.className = 'qtype_speakup-silence-message small text-muted mt-1';
+            message.setAttribute('role', 'status');
+            widget.after(message);
+        }
+        message.textContent = M.util.get_string('silencestopped', 'qtype_speakup', seconds);
     }
 
     /**
@@ -887,6 +979,8 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
             setButtonLabel('recordagainx');
             button.classList.remove('btn-outline-danger');
             enableAllButtons();
+            // Tell anything that counts responses (see qtype_speakup/promptcontrol).
+            widget.dispatchEvent(new CustomEvent('qtype_speakup:responsesaved', {bubbles: true}));
         } else if (uploadRequest.status === 404) {
             setPlaceholderMessage('uploadfailed404');
             enableAllButtons();
@@ -1180,23 +1274,6 @@ function RecordRtcQuestion(questionId, settings) {
     }
 
     /**
-     * Show a modal alert.
-     *
-     * @param {string} subject Subject is the content of the alert (which error the alert is for).
-     * @return {Promise}
-     */
-    function showAlert(subject) {
-        return ModalFactory.create({
-            type: ModalFactory.types.ALERT,
-            title: M.util.get_string(subject + '_title', 'qtype_speakup'),
-            body: M.util.get_string(subject, 'qtype_speakup'),
-        }).then(function(modal) {
-            modal.show();
-            return modal;
-        });
-    }
-
-    /**
      * Callback called when the recording is completed.
      *
      * @param {Recorder} recorder the recorder.
@@ -1204,6 +1281,61 @@ function RecordRtcQuestion(questionId, settings) {
     function notifyRecordingComplete(recorder) {
         recorder.uploadMediaToServer();
     }
+}
+
+/**
+ * Show a modal alert.
+ *
+ * @param {string} subject Subject is the content of the alert (which error the alert is for).
+ * @return {Promise}
+ */
+function showAlert(subject) {
+    return ModalFactory.create({
+        type: ModalFactory.types.ALERT,
+        title: M.util.get_string(subject + '_title', 'qtype_speakup'),
+        body: M.util.get_string(subject, 'qtype_speakup'),
+    }).then(function(modal) {
+        modal.show();
+        return modal;
+    });
+}
+
+/**
+ * Set up one audio recorder widget outside a question attempt, e.g. the
+ * audio prompt on the question form (see qtype_speakup/audioprompt).
+ *
+ * @param {HTMLElement} widget the .qtype_speakup-audio-widget element.
+ * @param {Object} settings with audioBitRate, and the upload information:
+ *      uploadRepositoryId, contextId, draftItemId and maxUploadSize.
+ * @param {Object} [callbacks] optional functions: beforeUpload (awaited
+ *      before the recording is uploaded, e.g. to remove an earlier file),
+ *      and onButtonStatesChanged (called when the buttons are re-enabled,
+ *      e.g. after an upload).
+ * @return {Recorder|null} the recorder, or null if this browser can't record.
+ */
+function initRecorder(widget, settings, callbacks = {}) {
+    if (checkCanWork() !== 'ok') {
+        const button = widget.querySelector('button.qtype_speakup-main-button');
+        if (button) {
+            button.disabled = true;
+        }
+        return null;
+    }
+    const owner = {
+        showAlert: showAlert,
+        notifyRecordingComplete: async function(recorder) {
+            if (callbacks.beforeUpload) {
+                await callbacks.beforeUpload();
+            }
+            recorder.uploadMediaToServer();
+        },
+        notifyButtonStatesChanged: function() {
+            if (callbacks.onButtonStatesChanged) {
+                callbacks.onButtonStatesChanged();
+            }
+        },
+    };
+    return new Recorder(widget, new AudioSettings(settings.audioBitRate), owner, settings);
 }
 
 /**
@@ -1281,5 +1413,6 @@ function init(questionId, settings) {
 
 export {
     init,
+    initRecorder,
     addPlaybackErrorHandlingToVideoElements
 };

@@ -41,6 +41,20 @@
             COMMENT="Whether statistics about the transcript are shown when the response is reviewed: 0 no, 1 yes."/>
         <FIELD NAME="statsitems" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
             COMMENT="Comma-separated list of the statistics to show, e.g. words,uniquewords - see text_stats::get_stat_types()"/>
+        <FIELD NAME="audioprompttranscript" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Transcript of the audio prompt, e.g. for students who cannot hear it."/>
+        <FIELD NAME="prompttranscriptdisplay" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="How the audio prompt transcript is shown to students: 0 not shown, 1 collapsed, 2 expanded - see SPEAKUP_PROMPTTRANSCRIPT_* constants"/>
+        <FIELD NAME="transcriptpenalty" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Percent (0-100) of the question grade taken off if a student shows the collapsed transcript, unless they have qtype/speakup:viewtranscriptwithoutpenalty."/>
+        <FIELD NAME="recordafterprompt" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="1 = start recording as soon as the prompt (the audio prompt, or else the first audio in the question text) finishes."/>
+        <FIELD NAME="maxpromptplays" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="How many times the prompt can be played: 0 for no limit."/>
+        <FIELD NAME="maxresponses" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="How many responses (recordings or uploads) can be given: 0 for no limit."/>
+        <FIELD NAME="silencestop" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Stop recording after this many seconds of silence, once the student has started speaking: 0 for never."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

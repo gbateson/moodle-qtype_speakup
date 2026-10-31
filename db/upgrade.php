@@ -395,5 +395,55 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091155, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091156) {
+        // A transcript of the audio prompt, how it is shown to students, and
+        // the penalty for showing it. Also adds the capability
+        // qtype/speakup:viewtranscriptwithoutpenalty (see db/access.php).
+        $table = new xmldb_table('qtype_speakup_options');
+        $fields = [
+            new xmldb_field('audioprompttranscript', XMLDB_TYPE_TEXT, null, null, null, null, null, 'statsitems'),
+            new xmldb_field('prompttranscriptdisplay', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1',
+                    'audioprompttranscript'),
+            new xmldb_field('transcriptpenalty', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '0',
+                    'prompttranscriptdisplay'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026091156, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026091157) {
+        // Start recording when the prompt finishes, and limits on how many
+        // times the prompt can be played and how many responses can be given.
+        $table = new xmldb_table('qtype_speakup_options');
+        $fields = [
+            new xmldb_field('recordafterprompt', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'transcriptpenalty'),
+            new xmldb_field('maxpromptplays', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'recordafterprompt'),
+            new xmldb_field('maxresponses', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'maxpromptplays'),
+        ];
+        foreach ($fields as $field) {
+            if (!$dbman->field_exists($table, $field)) {
+                $dbman->add_field($table, $field);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026091157, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026091158) {
+        // Stop recording after a silence of this many seconds (0 = never).
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('silencestop', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'maxresponses');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091158, 'qtype', 'speakup');
+    }
+
     return true;
 }

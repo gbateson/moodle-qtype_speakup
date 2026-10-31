@@ -53,6 +53,13 @@ define('SPEAKUP_SHOW_TEACHERS_ONLY', 2);
 /** Show this grading detail to teachers and students. */
 define('SPEAKUP_SHOW_TEACHERS_AND_STUDENTS', 3);
 
+/** The audio prompt transcript is not shown to students. */
+define('SPEAKUP_PROMPTTRANSCRIPT_HIDE', 0);
+/** The audio prompt transcript is collapsed: students can choose to show it. */
+define('SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED', 1);
+/** The audio prompt transcript is shown to students. */
+define('SPEAKUP_PROMPTTRANSCRIPT_EXPANDED', 2);
+
 /** Student records audio only. */
 define('SPEAKUP_MEDIA_AUDIO', 'audio');
 /** Student records audio + webcam video, e.g. for assessing non-verbal communication too. */
@@ -102,6 +109,13 @@ class qtype_speakup extends question_type {
             'showtranscript',
             'showstats',
             'statsitems',
+            'audioprompttranscript',
+            'prompttranscriptdisplay',
+            'transcriptpenalty',
+            'recordafterprompt',
+            'maxpromptplays',
+            'maxresponses',
+            'silencestop',
         ];
     }
 
@@ -134,6 +148,13 @@ class qtype_speakup extends question_type {
         }
 
         parent::save_question_options($question);
+
+        // Save the audio prompt (recorded or uploaded on the form) from its
+        // draft file area. At most one file is kept.
+        if (isset($question->audioprompt) && isset($question->context)) {
+            file_save_draft_area_files($question->audioprompt, $question->context->id,
+                    'qtype_speakup', 'audioprompt', $question->id, ['subdirs' => 0, 'maxfiles' => 1]);
+        }
 
         // Save one row per target phrase, from the repeated phrase fields
         // (see edit_speakup_form.php): "If [phrasematch] is used, award
@@ -226,6 +247,164 @@ class qtype_speakup extends question_type {
         parent::initialise_question_instance($question, $questiondata);
         $question->expectedanswers = $questiondata->options->expectedanswers ?? [];
         $question->targetitems = $questiondata->options->targetitems ?? [];
+    }
+
+    /**
+     * Export a question to Moodle XML.
+     *
+     * Writes the question's settings, its AI provider (by name, since
+     * provider ids differ between sites), the audio prompt file, and the
+     * target items and phrases.
+     *
+     * @param stdClass $question the question data, with ->options.
+     * @param qformat_xml $format
+     * @param mixed $extra
+     * @return string the XML for this question type's own data.
+     */
+    #[\Override]
+    public function export_to_xml($question, qformat_xml $format, $extra = null) {
+        global $DB;
+
+        $output = '';
+        $fields = $this->extra_question_fields();
+        array_shift($fields); // Omit the table name.
+        foreach ($fields as $field) {
+            // Not set (null) is left out, so that importing it gives the
+            // default, e.g. statsitems: null means "never chosen", whereas
+            // an empty value means "none ticked".
+            if ($field === 'aiproviderid' || !isset($question->options->$field)) {
+                continue;
+            }
+            $value = $format->xml_escape((string) $question->options->$field);
+            $output .= "    <{$field}>{$value}</{$field}>\n";
+        }
+
+        if (!empty($question->options->aiproviderid)) {
+            $name = $DB->get_field('qtype_speakup_ai_providers', 'name', ['id' => $question->options->aiproviderid]);
+            if ($name !== false) {
+                $output .= '    <aiprovider>' . $format->xml_escape($name) . "</aiprovider>\n";
+            }
+        }
+
+        $files = get_file_storage()->get_area_files($question->contextid, 'qtype_speakup', 'audioprompt',
+                $question->id, 'filename', false);
+        if ($files) {
+            $output .= "    <audioprompt>\n" . $format->write_files($files) . "\n    </audioprompt>\n";
+        }
+
+        foreach ($question->options->targetitems ?? [] as $item) {
+            $output .= "    <targetitem>\n";
+            foreach (['itemtype', 'itemcount', 'percent', 'multiplier'] as $field) {
+                $output .= "      <{$field}>" . $format->xml_escape((string) $item->$field) . "</{$field}>\n";
+            }
+            $output .= "    </targetitem>\n";
+        }
+
+        foreach ($question->options->expectedanswers ?? [] as $phrase) {
+            $output .= "    <targetphrase>\n";
+            $output .= '      <text>' . $format->xml_escape($phrase->answertext) . "</text>\n";
+            foreach (['percent', 'divisor', 'fullmatch', 'casesensitive'] as $field) {
+                $output .= "      <{$field}>" . $format->xml_escape((string) $phrase->$field) . "</{$field}>\n";
+            }
+            $output .= "    </targetphrase>\n";
+        }
+
+        return $output;
+    }
+
+    /**
+     * Import a question from Moodle XML (see export_to_xml()).
+     *
+     * The target items and phrases, and the audio prompt, are turned into
+     * the same data the question form sends, so save_question_options()
+     * saves them in the usual way. The AI provider is matched by name; if
+     * this site has no provider with that name, none is set.
+     *
+     * @param array $data the XML for one question, as parsed by qformat_xml.
+     * @param stdClass|null $question
+     * @param qformat_xml $format
+     * @param mixed $extra
+     * @return stdClass|false the question data, or false if not a SpeakUp question.
+     */
+    #[\Override]
+    public function import_from_xml($data, $question, qformat_xml $format, $extra = null) {
+        global $DB;
+
+        if (($data['@']['type'] ?? '') !== $this->name()) {
+            return false;
+        }
+
+        $qo = $format->import_headers($data);
+        $qo->qtype = $this->name();
+
+        $fields = $this->extra_question_fields();
+        array_shift($fields); // Omit the table name.
+        foreach ($fields as $field) {
+            if ($field === 'aiproviderid') {
+                continue;
+            }
+            $default = $this->get_field_default($field);
+            $qo->$field = $format->getpath($data, ['#', $field, 0, '#'], $default);
+        }
+
+        $qo->aiproviderid = null;
+        $providername = trim($format->getpath($data, ['#', 'aiprovider', 0, '#'], ''));
+        if ($providername !== '') {
+            $providerid = $DB->get_field('qtype_speakup_ai_providers', 'id', ['name' => $providername], IGNORE_MULTIPLE);
+            if ($providerid) {
+                $qo->aiproviderid = (int) $providerid;
+            }
+        }
+
+        $files = $format->getpath($data, ['#', 'audioprompt', 0, '#', 'file'], []);
+        if ($files) {
+            $qo->audioprompt = $format->import_files_as_draft($files);
+        }
+
+        $qo->itemtype = [];
+        $qo->itemcount = [];
+        $qo->itempercent = [];
+        $qo->itemmultiplier = [];
+        foreach ($format->getpath($data, ['#', 'targetitem'], []) as $item) {
+            $qo->itemtype[] = $format->getpath($item, ['#', 'itemtype', 0, '#'], '');
+            $qo->itemcount[] = $format->getpath($item, ['#', 'itemcount', 0, '#'], 0);
+            $qo->itempercent[] = $format->getpath($item, ['#', 'percent', 0, '#'], 0);
+            $qo->itemmultiplier[] = $format->getpath($item, ['#', 'multiplier', 0, '#'], 1);
+        }
+
+        $qo->phrasematch = [];
+        $qo->phrasepercent = [];
+        $qo->phrasedivisor = [];
+        $qo->phrasefullmatch = [];
+        $qo->phrasecasesensitive = [];
+        foreach ($format->getpath($data, ['#', 'targetphrase'], []) as $phrase) {
+            $qo->phrasematch[] = $format->getpath($phrase, ['#', 'text', 0, '#'], '');
+            $qo->phrasepercent[] = $format->getpath($phrase, ['#', 'percent', 0, '#'], 0);
+            $qo->phrasedivisor[] = $format->getpath($phrase, ['#', 'divisor', 0, '#'], 1);
+            $qo->phrasefullmatch[] = $format->getpath($phrase, ['#', 'fullmatch', 0, '#'], 0);
+            $qo->phrasecasesensitive[] = $format->getpath($phrase, ['#', 'casesensitive', 0, '#'], 0);
+        }
+
+        return $qo;
+    }
+
+    /**
+     * Get the default value of a field in qtype_speakup_options, for
+     * importing a question that was exported before the field existed.
+     *
+     * @param string $field
+     * @return mixed the default, or '' if it has none.
+     */
+    protected function get_field_default(string $field) {
+        global $DB;
+        static $columns = null;
+        if ($columns === null) {
+            $columns = $DB->get_columns('qtype_speakup_options');
+        }
+        if (isset($columns[$field]) && $columns[$field]->has_default) {
+            return $columns[$field]->default_value;
+        }
+        return isset($columns[$field]) && !$columns[$field]->not_null ? null : '';
     }
 
     #[\Override]

@@ -24,7 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once($CFG->dirroot . '/repository/lib.php');
+
 class qtype_speakup_edit_form extends question_edit_form {
+
+    /** Longest audio prompt a teacher can record on this form, in seconds. */
+    const AUDIO_PROMPT_MAX_SECONDS = 300;
 
     #[\Override]
     protected function definition_inner($mform) {
@@ -79,15 +84,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 'en-US');
 
-        $name = 'audioprompt';
-        $label = get_string($name, $plugin);
-        $options = [
-            'subdirs' => 0,
-            'maxfiles' => 1,
-            'accepted_types' => ['audio'],
-        ];
-        $mform->addElement('filemanager', $name, $label, null, $options);
-        $mform->addHelpButton($name, $name, $plugin);
+        $this->add_audio_prompt($mform, $plugin);
 
         $name = 'gradingmethod';
         $label = get_string($name, $plugin);
@@ -366,6 +363,115 @@ class qtype_speakup_edit_form extends question_edit_form {
     }
 
     /**
+     * Add the audio prompt: a widget to record the prompt, upload an audio
+     * file, or delete the prompt (see amd/src/audioprompt.js).
+     *
+     * Like a file picker, it works on a draft file area, whose id is in the
+     * hidden "audioprompt" field (see data_preprocessing()), and which is
+     * saved by qtype_speakup::save_question_options().
+     *
+     * @param MoodleQuickForm $mform
+     * @param string $plugin
+     */
+    protected function add_audio_prompt($mform, string $plugin) {
+        global $CFG, $OUTPUT, $PAGE;
+
+        $name = 'audioprompt';
+        $mform->addElement('hidden', $name);
+        $mform->setType($name, PARAM_INT);
+
+        $id = 'qtype_speakup-audioprompt';
+        $extensions = array_values(array_unique(file_get_typegroup('extension', ['audio'])));
+        $html = $OUTPUT->render_from_template('qtype_speakup/audioprompt_editor', [
+            'id' => $id,
+            'accept' => implode(',', array_merge(['audio/*'], $extensions)),
+            'recorder' => [
+                'filename' => 'audioprompt.ogg', // Converted to audioprompt.mp3 before it is uploaded.
+                'widgetname' => get_string('recordaudioprompt', $plugin),
+                'maxrecordingduration' => self::AUDIO_PROMPT_MAX_SECONDS,
+                'allowpausing' => true,
+                'hasrecording' => false, // The JavaScript shows any existing prompt.
+                'recordingurl' => '',
+                'candownload' => true,
+            ],
+        ]);
+        $mform->addElement('static', 'audiopromptwidget', get_string($name, $plugin), $html);
+        $mform->addHelpButton('audiopromptwidget', $name, $plugin);
+
+        // A transcript of the prompt, e.g. for students who cannot hear it.
+        // While the teacher records, the browser's speech recognition fills
+        // it in (see amd/src/audioprompt.js), and the teacher can correct it.
+        $name = 'audioprompttranscript';
+        $mform->addElement('textarea', $name, get_string($name, $plugin), ['rows' => 3, 'cols' => 60]);
+        $mform->setType($name, PARAM_TEXT);
+        $mform->addHelpButton($name, $name, $plugin);
+
+        $name = 'prompttranscriptdisplay';
+        $mform->addElement('select', $name, get_string($name, $plugin), [
+            SPEAKUP_PROMPTTRANSCRIPT_HIDE => get_string('no'),
+            SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED => get_string('prompttranscriptcollapsed', $plugin),
+            SPEAKUP_PROMPTTRANSCRIPT_EXPANDED => get_string('prompttranscriptexpanded', $plugin),
+        ]);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED);
+
+        // The penalty only applies to the collapsed transcript (students
+        // choose to show it), and only to automated grading.
+        $name = 'transcriptpenalty';
+        $mform->addElement('select', $name, get_string($name, $plugin), $this->get_percent_menu());
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'prompttranscriptdisplay', 'neq', SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+
+        // The prompt is the audio prompt, or else the first audio player in
+        // the question text (see amd/src/promptcontrol.js).
+        $name = 'recordafterprompt';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        // Stop recording after a silence (see startSilenceDetection() in
+        // amd/src/avrecording.js).
+        $name = 'silencestop';
+        $menu = [0 => get_string('never')];
+        foreach ([2, 3, 4, 5, 7, 10, 15] as $seconds) {
+            $menu[$seconds] = get_string('numseconds', 'moodle', $seconds);
+        }
+        $mform->addElement('select', $name, get_string($name, $plugin), $menu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        $limitmenu = [0 => get_string('unlimited')];
+        for ($i = 1; $i <= 10; $i++) {
+            $limitmenu[$i] = $i;
+        }
+        foreach (['maxpromptplays', 'maxresponses'] as $name) {
+            $mform->addElement('select', $name, get_string($name, $plugin), $limitmenu);
+            $mform->addHelpButton($name, $name, $plugin);
+            $mform->setDefault($name, 0);
+        }
+
+        $repositories = repository::get_instances(['type' => 'upload', 'currentcontext' => $this->context]);
+        if (empty($repositories)) {
+            return;
+        }
+        $settings = [
+            'audioBitRate' => SPEAKUP_AUDIO_BITRATE,
+            'uploadRepositoryId' => (int) reset($repositories)->id,
+            'contextId' => $this->context->id,
+            'maxUploadSize' => (int) get_user_max_upload_file_size($this->context, $CFG->maxbytes),
+            'acceptedTypes' => $extensions,
+        ];
+        $strings = array_merge($PAGE->get_renderer('qtype_speakup')->strings_for_js(),
+                ['audiopromptdeleted', 'fileuploaded', 'uploadfile', 'uploadwrongtypeaudio', 'uploadtoobig']);
+        $PAGE->requires->strings_for_js(array_unique($strings), 'qtype_speakup');
+        $PAGE->requires->js_call_amd('qtype_speakup/audioprompt', 'init', [$id, $settings]);
+    }
+
+    /**
      * Get a menu of percentages, 100% down to 0%.
      *
      * @return array percent => label
@@ -442,6 +548,13 @@ class qtype_speakup_edit_form extends question_edit_form {
     #[\Override]
     public function data_preprocessing($question) {
         $question = parent::data_preprocessing($question);
+
+        // Copy the saved audio prompt (if any) into a draft file area, for
+        // the audio prompt widget (see add_audio_prompt()).
+        $draftitemid = file_get_submitted_draft_itemid('audioprompt');
+        file_prepare_draft_area($draftitemid, $this->context->id, 'qtype_speakup', 'audioprompt',
+                empty($question->id) ? null : (int) $question->id, ['subdirs' => 0, 'maxfiles' => 1]);
+        $question->audioprompt = $draftitemid;
 
         // The transcription provider is stored in aiproviderid.
         if (isset($question->options->aiproviderid)) {

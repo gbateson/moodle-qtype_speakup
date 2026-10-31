@@ -41,6 +41,16 @@ $capabilities = [
         ],
     ],
 
+    // See the transcript of the audio prompt without the penalty for showing
+    // it, e.g. a student who cannot hear the prompt. No role has this by
+    // default: teachers give it to the students who need it, e.g. with a
+    // small "Hearing support" role in the course.
+    'qtype/speakup:viewtranscriptwithoutpenalty' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [],
+    ],
+
     // Manage the site-wide AI provider list (URLs, API keys, etc). Deliberately
     // restricted - this page handles credentials, not just question content.
     'qtype/speakup:manageaiproviders' => [
