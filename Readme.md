@@ -112,7 +112,38 @@ called. From Moodle's root directory:
     vendor/bin/phpunit --testsuite qtype_speakup_testsuite
 
 Behat features are in `tests/behat/`. AI providers can be created with
-`Given the following "qtype_speakup > providers" exist:`.
+`Given the following "qtype_speakup > providers" exist:`, and a question
+can be given an audio prompt (a 1.5-second tone) with
+`Given the following "qtype_speakup > audio prompts" exist:`.
+
+The scenarios in `media.feature` record audio, so Firefox needs a fake
+microphone, allowed without asking, even on the test site's http address,
+and audio that plays without a click. Add this to the Behat profile in
+Moodle's `config.php`, then run `php admin/tool/behat/cli/util.php --enable`:
+
+    $CFG->behat_profiles = [
+        'default' => [
+            'browser' => 'firefox',
+            'wd_host' => 'http://selenium:4444/wd/hub',
+            'capabilities' => [
+                'extra_capabilities' => [
+                    'moz:firefoxOptions' => [
+                        'prefs' => [
+                            'media.navigator.streams.fake' => true,
+                            'media.navigator.permission.disabled' => true,
+                            'media.devices.insecure.enabled' => true,
+                            'media.getusermedia.insecure.enabled' => true,
+                            'media.autoplay.default' => 0,
+                            'media.autoplay.blocking_policy' => 0,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+Steps such as "I mute the SpeakUp microphone" and "the SpeakUp recorder
+should be "recording"" are in `tests/behat/behat_qtype_speakup.php`.
 
     php admin/tool/behat/cli/init.php
     vendor/bin/behat --config <behat_dataroot>/behatrun/behat/behat.yml --tags=@qtype_speakup

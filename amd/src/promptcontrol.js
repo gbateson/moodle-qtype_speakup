@@ -140,7 +140,7 @@ export const init = (questionId, settings) => {
      */
     function lockResponses() {
         questionDiv.querySelectorAll('button.qtype_speakup-main-button, .qtype_speakup-upload-button')
-            .forEach((button) => button.classList.add('hide'));
+            .forEach((button) => button.classList.add('d-none'));
         showMessage(getString('responsesused'));
     }
 

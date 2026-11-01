@@ -46,18 +46,13 @@ import Templates from 'core/templates';
  * @return {string} 'ok' if it looks OK, else 'nowebrtc' or 'nothttps' if there is a problem.
  */
 function checkCanWork() {
-    // Check APIs are known.
-    if (!(navigator.mediaDevices && window.MediaRecorder)) {
-        return 'nowebrtc';
+    // Browsers only offer the microphone and camera on secure pages
+    // (https, or localhost), unless they are set up to allow it elsewhere,
+    // e.g. for automated tests.
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) {
+        return (window.isSecureContext === false) ? 'nothttps' : 'nowebrtc';
     }
-
-    // Check protocol (localhost).
-    if (location.protocol === 'https:' ||
-            location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-        return 'ok';
-    } else {
-        return 'nothttps';
-    }
+    return 'ok';
 }
 
 /**
@@ -1094,8 +1089,13 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
      * @param {boolean} enabled true if the button should be enabled.
      */
     function disableOrEnableButtons(enabled = false) {
-        document.querySelectorAll('.que.speakup').forEach(record => {
-            record.querySelectorAll('button, input[type=submit], input[type=button]').forEach(button => {
+        // The buttons in every SpeakUp question on the page, and in this
+        // recorder itself, which may not be in a question (e.g. the audio
+        // prompt recorder on the question form).
+        const areas = new Set(document.querySelectorAll('.que.speakup'));
+        areas.add(widget);
+        areas.forEach(area => {
+            area.querySelectorAll('button, input[type=submit], input[type=button]').forEach(button => {
                 button.disabled = !enabled;
             });
         });
@@ -1325,7 +1325,13 @@ function initRecorder(widget, settings, callbacks = {}) {
         showAlert: showAlert,
         notifyRecordingComplete: async function(recorder) {
             if (callbacks.beforeUpload) {
-                await callbacks.beforeUpload();
+                try {
+                    await callbacks.beforeUpload();
+                } catch (e) {
+                    // Upload the recording anyway, rather than leave the
+                    // recorder waiting for ever.
+                    window.console.error(e);
+                }
             }
             recorder.uploadMediaToServer();
         },

@@ -20,7 +20,7 @@ global $CFG;
 require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
 
 /**
- * Data generator for qtype_speakup: AI providers.
+ * Data generator for qtype_speakup: AI providers, and audio prompt files.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -49,5 +49,35 @@ class qtype_speakup_generator extends component_generator_base {
             return $provider;
         }
         return qtype_speakup_test_helper::create_provider($data);
+    }
+
+    /**
+     * Give a question an audio prompt file.
+     *
+     * @param array $data with "questionid", and optionally "filepath": the
+     *      file to use, relative to Moodle's root directory. The default is a
+     *      1.5-second tone.
+     * @return stored_file
+     */
+    public function create_audio_prompt(array $data): stored_file {
+        global $CFG, $DB;
+        $filepath = $data['filepath'] ?? 'question/type/speakup/tests/fixtures/audioprompt.wav';
+        $question = $DB->get_record_sql('
+                SELECT q.id, qc.contextid
+                  FROM {question} q
+                  JOIN {question_versions} qv ON qv.questionid = q.id
+                  JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                  JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid
+                 WHERE q.id = ?', [$data['questionid']], MUST_EXIST);
+        $fs = get_file_storage();
+        $fs->delete_area_files($question->contextid, 'qtype_speakup', 'audioprompt', $question->id);
+        return $fs->create_file_from_pathname([
+            'contextid' => $question->contextid,
+            'component' => 'qtype_speakup',
+            'filearea' => 'audioprompt',
+            'itemid' => $question->id,
+            'filepath' => '/',
+            'filename' => basename($filepath),
+        ], $CFG->dirroot . '/' . $filepath);
     }
 }

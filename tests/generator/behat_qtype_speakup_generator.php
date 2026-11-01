@@ -22,6 +22,10 @@
  *       | Gemini | text       | 0   |
  *       | Voices | speech     | 1   |
  *
+ *     And the following "qtype_speakup > audio prompts" exist:
+ *       | question    |
+ *       | speakup-001 |
+ *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -36,6 +40,27 @@ class behat_qtype_speakup_generator extends behat_generator_base {
                 'datagenerator' => 'provider',
                 'required' => ['name'],
             ],
+            'audio prompts' => [
+                'singular' => 'audio prompt',
+                'datagenerator' => 'audio_prompt',
+                'required' => ['question'],
+                'switchids' => ['question' => 'questionid'],
+            ],
         ];
+    }
+
+    /**
+     * Get the id of the latest version of a question, from its name.
+     *
+     * @param string $name
+     * @return int
+     */
+    protected function get_question_id(string $name): int {
+        global $DB;
+        $ids = $DB->get_fieldset_sql('SELECT id FROM {question} WHERE name = ? ORDER BY id DESC', [$name]);
+        if (!$ids) {
+            throw new Exception('There is no question called "' . $name . '".');
+        }
+        return (int) reset($ids);
     }
 }
