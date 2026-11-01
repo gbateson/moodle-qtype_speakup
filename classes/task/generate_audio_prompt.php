@@ -75,17 +75,12 @@ class generate_audio_prompt extends \core\task\adhoc_task {
      * @return bool
      */
     public static function is_pending(int $questionid): bool {
-        static $pending = null;
-        if ($pending === null) {
-            $pending = [];
-            foreach (\core\task\manager::get_adhoc_tasks(self::class) as $task) {
-                $data = $task->get_custom_data();
-                if (!empty($data->questionid)) {
-                    $pending[(int) $data->questionid] = true;
-                }
+        foreach (\core\task\manager::get_adhoc_tasks(self::class) as $task) {
+            if ((int) ($task->get_custom_data()->questionid ?? 0) === $questionid) {
+                return true;
             }
         }
-        return isset($pending[$questionid]);
+        return false;
     }
 
     /**

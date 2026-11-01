@@ -101,6 +101,22 @@ that are left out get their usual defaults.
   speech provider set in the plugin's settings (Site administration >
   Plugins > Question types > SpeakUp).
 
+## Running the tests
+
+PHPUnit tests are in `tests/`, one file for each class in `classes/`, plus
+the question definition, question type, walkthroughs, backup and restore.
+Requests to AI and speech providers get mocked responses, so no real API is
+called. From Moodle's root directory:
+
+    php admin/tool/phpunit/cli/init.php
+    vendor/bin/phpunit --testsuite qtype_speakup_testsuite
+
+Behat features are in `tests/behat/`. AI providers can be created with
+`Given the following "qtype_speakup > providers" exist:`.
+
+    php admin/tool/behat/cli/init.php
+    vendor/bin/behat --config <behat_dataroot>/behatrun/behat/behat.yml --tags=@qtype_speakup
+
 ## Roadmap
 
 1. Port recordrtc's `avrecording.js` + templates for the single-response case.

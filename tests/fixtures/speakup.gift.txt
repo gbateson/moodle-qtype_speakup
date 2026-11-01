@@ -1,0 +1,24 @@
+// SpeakUp questions for testing GIFT import.
+
+::speakup-gift-001::Listen and answer.{AUDIO: What did you do last weekend?}
+
+::speakup-gift-002::[html]<p>Listen to the prompt and record your answer.</p>{
+AUDIO(voice=Kore): Talk about a string instrument that you can play.
+TIMELIMIT=90
+LANGUAGE=en-GB
+RECORDAFTERPROMPT=yes
+MAXPROMPTPLAYS=2
+MAXRESPONSES=1
+PROMPTTRANSCRIPT=collapsed
+TRANSCRIPTPENALTY=30%
+GRADING=auto
+TARGETITEM=(words, 50, 40%, x1)
+TARGETPHRASE=("I have played", 10%, /1, partial, nocase)
+COLOUR=blue
+#### Thank you for your answer.
+}
+
+::speakup-gift-003::Say something.{
+SPEAKUP
+GRADING=manual
+}

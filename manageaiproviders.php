@@ -85,7 +85,9 @@ if ($form->is_cancelled()) {
 
 echo $OUTPUT->header();
 
-if ($id || optional_param('new', 0, PARAM_BOOL)) {
+// Show the form for a new provider, an existing one, or one that was
+// submitted but not valid (so the errors are shown).
+if ($id || optional_param('new', 0, PARAM_BOOL) || $form->is_submitted()) {
     echo $OUTPUT->heading($id ? get_string('editprovider', 'qtype_speakup') : get_string('addprovider', 'qtype_speakup'));
     $form->display();
 } else {

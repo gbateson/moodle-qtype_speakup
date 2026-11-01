@@ -386,7 +386,7 @@ class ai_caller {
     protected static function parse_score_and_feedback(string $content): array {
         if (preg_match('/SCORE:\s*(\d{1,3})/i', $content, $matches)) {
             $score = max(0, min(100, (int) $matches[1]));
-            $fraction = $score / 100;
+            $fraction = $score / 100.0;
             $feedback = trim((string) preg_replace('/SCORE:\s*\d{1,3}\s*$/i', '', $content));
             return [$fraction, $feedback];
         }
