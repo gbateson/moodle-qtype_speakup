@@ -42,6 +42,38 @@ if ($hassiteconfig) {
                     ['class' => 'btn btn-secondary'])
     ));
 
+    // Text-to-speech, for generating audio prompts from their transcripts.
+    $settings->add(new admin_setting_heading(
+        'qtype_speakup/ttsheading',
+        get_string('ttsheading', 'qtype_speakup'),
+        get_string('ttsheading_desc', 'qtype_speakup')
+    ));
+    $speechmenu = [0 => get_string('none')];
+    if (during_initial_install() === false && $DB->get_manager()->table_exists('qtype_speakup_ai_providers')) {
+        $speechmenu += \qtype_speakup\ai_provider::get_speech_menu(true);
+    }
+    $settings->add(new admin_setting_configselect(
+        'qtype_speakup/ttsproviderid',
+        get_string('ttsproviderid', 'qtype_speakup'),
+        get_string('ttsproviderid_desc', 'qtype_speakup'),
+        0,
+        $speechmenu
+    ));
+    $settings->add(new admin_setting_configtext(
+        'qtype_speakup/ttsvoice',
+        get_string('ttsvoice', 'qtype_speakup'),
+        get_string('ttsvoice_desc', 'qtype_speakup'),
+        '',
+        PARAM_TEXT
+    ));
+    $settings->add(new admin_setting_configtextarea(
+        'qtype_speakup/ttsvoices',
+        get_string('ttsvoices', 'qtype_speakup'),
+        get_string('ttsvoices_desc', 'qtype_speakup'),
+        '',
+        PARAM_TEXT
+    ));
+
     $ADMIN->add('qtypesettings', new admin_externalpage(
         'qtype_speakup_manageaiproviders',
         get_string('manageaiproviders', 'qtype_speakup'),

@@ -43,6 +43,8 @@
             COMMENT="Comma-separated list of the statistics to show, e.g. words,uniquewords - see text_stats::get_stat_types()"/>
         <FIELD NAME="audioprompttranscript" TYPE="text" NOTNULL="false" SEQUENCE="false"
             COMMENT="Transcript of the audio prompt, e.g. for students who cannot hear it."/>
+        <FIELD NAME="audiopromptvoice" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="The voice for generating the audio prompt from its transcript, or empty for the site default."/>
         <FIELD NAME="prompttranscriptdisplay" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
             COMMENT="How the audio prompt transcript is shown to students: 0 not shown, 1 collapsed, 2 expanded - see SPEAKUP_PROMPTTRANSCRIPT_* constants"/>
         <FIELD NAME="transcriptpenalty" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"

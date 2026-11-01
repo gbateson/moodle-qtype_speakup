@@ -60,6 +60,7 @@ class provider_form extends \moodleform {
         $options = [
             ai_provider::CAPABILITY_TEXT       => get_string('aicapability_text', $plugin),
             ai_provider::CAPABILITY_MULTIMODAL => get_string('aicapability_multimodal', $plugin),
+            ai_provider::CAPABILITY_SPEECH     => get_string('aicapability_speech', $plugin),
         ];
         $mform->addElement('select', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
@@ -179,7 +180,8 @@ class provider_form extends \moodleform {
                 // {{MODEL}}/{{APIKEY}}, since PARAM_URL cleaning (which
                 // would otherwise do this check) can't be used here - see
                 // the comment on the url field's setType() call above.
-                $sampleurl = str_replace(['{{MODEL}}', '{{APIKEY}}'], ['sample-model', 'sample-key'], $data['url']);
+                $sampleurl = str_replace(['{{MODEL}}', '{{APIKEY}}', '{{VOICE}}', '{{LANGUAGE}}'],
+                        ['sample-model', 'sample-key', 'sample-voice', 'en-US'], $data['url']);
                 if (clean_param($sampleurl, PARAM_URL) === '') {
                     $errors['url'] = get_string('err_invalidurl', 'qtype_speakup');
                 }
@@ -199,13 +201,16 @@ class provider_form extends \moodleform {
                 // JSON by itself.
                 $sample = str_replace(
                         ['{{RUBRIC}}', '{{TRANSCRIPT}}', '{{MODEL}}', '{{APIKEY}}', '{{AUDIO_BASE64}}', '{{AUDIO_MIMETYPE}}',
-                                '{{AUDIO_FILE_URI}}'],
+                                '{{AUDIO_FILE_URI}}', '{{TEXT}}', '{{VOICE}}', '{{LANGUAGE}}'],
                         ['sample rubric', 'sample transcript', 'sample-model', 'sample-key', 'AAAA', 'audio/webm',
-                                'https://example.com/sample-file'],
+                                'https://example.com/sample-file', 'sample text', 'sample-voice', 'en-US'],
                         $data['requesttemplate']);
                 json_decode($sample);
                 if (json_last_error() !== JSON_ERROR_NONE) {
                     $errors['requesttemplate'] = get_string('err_invalidjson', 'qtype_speakup');
+                } else if ($data['capability'] === ai_provider::CAPABILITY_SPEECH
+                        && strpos($data['requesttemplate'], '{{TEXT}}') === false) {
+                    $errors['requesttemplate'] = get_string('err_templateneedstext', 'qtype_speakup');
                 }
             }
             // Upload settings only matter for multimodal providers. The

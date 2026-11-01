@@ -406,6 +406,24 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->setType($name, PARAM_TEXT);
         $mform->addHelpButton($name, $name, $plugin);
 
+        // Without an audio prompt, one is generated from the transcript when
+        // the question is saved, if a speech provider is set up (see
+        // classes/task/generate_audio_prompt.php).
+        if (\qtype_speakup\ai_provider::get_tts_provider()) {
+            $questionid = (int) ($this->question->id ?? 0);
+            if ($questionid && \qtype_speakup\task\generate_audio_prompt::is_pending($questionid)) {
+                $note = get_string('audiopromptpending', $plugin);
+            } else {
+                $note = get_string('audiopromptgeneratenote', $plugin);
+            }
+            $mform->addElement('static', 'audiopromptgenerate', '', html_writer::div($note, 'small text-muted'));
+
+            $name = 'audiopromptvoice';
+            $mform->addElement('text', $name, get_string($name, $plugin), ['size' => 20]);
+            $mform->setType($name, PARAM_TEXT);
+            $mform->addHelpButton($name, $name, $plugin);
+        }
+
         $name = 'prompttranscriptdisplay';
         $mform->addElement('select', $name, get_string($name, $plugin), [
             SPEAKUP_PROMPTTRANSCRIPT_HIDE => get_string('no'),

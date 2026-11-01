@@ -110,9 +110,7 @@ if ($id || optional_param('new', 0, PARAM_BOOL)) {
         $typelabel = ($p->providertype === ai_provider::TYPE_CORE)
                 ? get_string('aiprovidertype_core', 'qtype_speakup')
                 : get_string('aiprovidertype_external', 'qtype_speakup');
-        $capabilitylabel = ($p->capability === ai_provider::CAPABILITY_MULTIMODAL)
-                ? get_string('aicapability_multimodal', 'qtype_speakup')
-                : get_string('aicapability_text', 'qtype_speakup');
+        $capabilitylabel = get_string('aicapability_' . $p->capability, 'qtype_speakup');
         $enabledlabel = $p->enabled ? get_string('yes') : get_string('no');
 
         $actions = html_writer::link($editurl, get_string('edit')) . ' | ' .

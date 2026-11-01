@@ -87,6 +87,9 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var string transcript of the audio prompt, e.g. for students who cannot hear it. */
     public $audioprompttranscript;
 
+    /** @var string|null the voice for generating the audio prompt from its transcript, or empty for the site default. */
+    public $audiopromptvoice;
+
     /** @var int how the audio prompt transcript is shown: one of the SPEAKUP_PROMPTTRANSCRIPT_* constants. */
     public $prompttranscriptdisplay;
 

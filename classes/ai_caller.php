@@ -274,6 +274,35 @@ class ai_caller {
             throw new \moodle_exception('errorrequestnotvalidjson', 'qtype_speakup');
         }
 
+        $rawresponse = self::send_request($url, $headerstemplate, $apikey, $body);
+
+        $decoded = json_decode($rawresponse, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \moodle_exception('erroraiproviderresponse', 'qtype_speakup');
+        }
+
+        $content = self::extract_by_path($decoded, $provider->returnpath);
+        if ($content === null) {
+            throw new \moodle_exception('erroraiproviderresponse', 'qtype_speakup');
+        }
+
+        return (string) $content;
+    }
+
+    /**
+     * POST a JSON request body to a provider, and return the raw response.
+     *
+     * @param string $url
+     * @param string $headerstemplate extra headers as JSON, with tokens
+     *      already substituted. If empty, the API key is sent as a Bearer token.
+     * @param string $apikey
+     * @param string $body the JSON request body.
+     * @param array|null $info if given, set to the curl info, e.g. content_type.
+     * @return string the raw response body.
+     * @throws \moodle_exception if the provider returns an HTTP error.
+     */
+    protected static function send_request(string $url, string $headerstemplate, string $apikey,
+            string $body, ?array &$info = null): string {
         $headers = ['Content-Type: application/json'];
         if (!empty($headerstemplate)) {
             $extra = json_decode($headerstemplate, true);
@@ -290,16 +319,18 @@ class ai_caller {
 
         $curl = new \curl();
         $curl->setHeader($headers);
-        $rawresponse = $curl->post($url, $body);
-
+        $rawresponse = (string) $curl->post($url, $body);
         $info = $curl->get_info();
 
+        // The request could not be sent, e.g. a blocked URL or no connection.
+        if ($curl->get_errno() || (!empty($curl->error) && $rawresponse === $curl->error)) {
+            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '', $curl->error);
+        }
+
         if (!empty($info['http_code']) && $info['http_code'] >= 400) {
-            // Try to surface the provider's own error message from the
-            // response body, not just the HTTP status - most JSON APIs
-            // (including Gemini's) put a genuinely useful explanation
-            // there (e.g. "model not found for API version v1beta"),
-            // which is far more actionable than "HTTP 404" alone.
+            // Surface the provider's own error message from the response
+            // body, not just the HTTP status - most JSON APIs (including
+            // Gemini's) put a useful explanation there.
             $detail = 'HTTP ' . $info['http_code'];
             $errorbody = json_decode($rawresponse, true);
             if (is_array($errorbody)) {
@@ -311,18 +342,7 @@ class ai_caller {
             }
             throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '', $detail);
         }
-
-        $decoded = json_decode($rawresponse, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('erroraiproviderresponse', 'qtype_speakup');
-        }
-
-        $content = self::extract_by_path($decoded, $provider->returnpath);
-        if ($content === null) {
-            throw new \moodle_exception('erroraiproviderresponse', 'qtype_speakup');
-        }
-
-        return (string) $content;
+        return $rawresponse;
     }
 
     /**

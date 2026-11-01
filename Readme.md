@@ -45,6 +45,62 @@ are original to this project.
 - **Media type**: `SPEAKUP_MEDIA_AUDIO` or `SPEAKUP_MEDIA_VIDEO`, also set per
   question in `qtype_speakup_options`.
 
+## GIFT format
+
+SpeakUp questions can be imported and exported in GIFT. The settings go
+inside the braces, one per line. The first line must be the audio prompt
+transcript, `AUDIO: text` (or `AUDIO(voice=name): text`), or `SPEAKUP` for a
+question without an audio prompt. Every other setting is optional: settings
+that are left out get their usual defaults.
+
+    ::Weekend::Listen and answer.{AUDIO: What did you do last weekend?}
+
+    ::String instruments::[html]<p>Listen to the prompt and record your answer.</p>{
+    AUDIO: Talk about a string instrument that you can play.
+    TIMELIMIT=60
+    MEDIA=audio
+    RESPONSE=record
+    LANGUAGE=en-US
+    PAUSE=no
+    RECORDAFTERPROMPT=yes
+    MAXPROMPTPLAYS=1
+    MAXRESPONSES=2
+    SILENCESTOP=5
+    PROMPTTRANSCRIPT=collapsed
+    TRANSCRIPTPENALTY=30%
+    GRADING=auto
+    FEEDBACK=formative
+    AI=Gemini, 100%
+    RUBRIC=Score the answer out of 100.\nThen give two suggestions.
+    TARGETITEM=(words, 50, 40%, x1)
+    TARGETPHRASE=("I have played", 10%, /1, partial, nocase)
+    SHOW=calculation:both, phrases:both, items:both, comment:both, transcript:both
+    STATS=no; words, longwords, uniquewords, lexicaldensity
+    #### <p>General feedback, as in standard GIFT.</p>
+    }
+
+- Settings can be given by their field names (e.g. `TIMELIMITINSECONDS`,
+  `STTLANGUAGE`, `AIRUBRIC`) or by short names (e.g. `TIMELIMIT`, `LANGUAGE`,
+  `RUBRIC`). Unrecognised settings and values are reported as warnings, and
+  skipped.
+- Yes/no settings take `yes` or `no`. `SHOW` takes `none`, `students`,
+  `teachers` or `both`, for all five details at once or for each one.
+  `PROMPTTRANSCRIPT` takes `hide`, `collapsed` or `expanded`.
+- `AI` takes `no`, or the provider's name and/or the weighting, e.g.
+  `AI=Gemini, 50%`. Providers are matched by name; credentials are never
+  exported.
+- `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)` and
+  `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
+  case|nocase)`. Repeat the line, or put several in one line, for more.
+- As usual in GIFT, a blank line ends the question, so write line breaks as
+  `\n`, and escape `{`, `}`, `=`, `#`, `~` and `:` in values with a
+  backslash (only `{` and `}` are essential).
+- GIFT cannot hold files, so the audio prompt file is not exported. When a
+  question is imported (or saved) with a transcript but no audio prompt, the
+  audio prompt is generated from the transcript in the background, by the
+  speech provider set in the plugin's settings (Site administration >
+  Plugins > Question types > SpeakUp).
+
 ## Roadmap
 
 1. Port recordrtc's `avrecording.js` + templates for the single-response case.

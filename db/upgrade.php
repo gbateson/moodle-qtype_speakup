@@ -445,5 +445,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091158, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091159) {
+        // The voice for generating the audio prompt from its transcript.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('audiopromptvoice', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'audioprompttranscript');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091159, 'qtype', 'speakup');
+    }
+
     return true;
 }

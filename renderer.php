@@ -276,6 +276,12 @@ class qtype_speakup_renderer extends qtype_renderer {
                 $question->id, 'filename', false);
         $file = reset($files);
         if (!$file) {
+            // The audio prompt may still be being generated from its transcript.
+            if (trim((string) $question->audioprompttranscript) !== ''
+                    && \qtype_speakup\task\generate_audio_prompt::is_pending($question->id)) {
+                return html_writer::div(get_string('audiopromptnotready', 'qtype_speakup'),
+                        'qtype_speakup-audio-prompt alert alert-info my-2');
+            }
             return '';
         }
         // A question file URL, served by question_pluginfile() (see lib.php),

@@ -38,6 +38,8 @@ class ai_provider {
     const CAPABILITY_TEXT = 'text';
     /** Provider can accept the actual audio/video file. */
     const CAPABILITY_MULTIMODAL = 'multimodal';
+    /** Provider turns text into speech (text-to-speech), e.g. for audio prompts. */
+    const CAPABILITY_SPEECH = 'speech';
 
     /** No file is ever sent (text-only providers). */
     const UPLOAD_NONE = 'none';
@@ -73,12 +75,18 @@ class ai_provider {
      * Deliberately excludes every other field - this is the only thing
      * the question editing form should ever see.
      *
+     * Speech (text-to-speech) providers are left out, since they cannot
+     * assess or transcribe responses.
+     *
      * @param bool $enabledonly
      * @return array
      */
     public static function get_menu(bool $enabledonly = true): array {
         $menu = [];
         foreach (self::get_all($enabledonly) as $provider) {
+            if ($provider->capability === self::CAPABILITY_SPEECH) {
+                continue;
+            }
             $label = $provider->name;
             if ($provider->providertype === self::TYPE_CORE) {
                 $label .= ' (' . get_string('aiprovidertype_core', 'qtype_speakup') . ')';
@@ -86,6 +94,42 @@ class ai_provider {
             $menu[$provider->id] = $label;
         }
         return $menu;
+    }
+
+    /**
+     * Options for choosing a speech (text-to-speech) provider: id => name.
+     *
+     * @param bool $enabledonly
+     * @return array
+     */
+    public static function get_speech_menu(bool $enabledonly = true): array {
+        $menu = [];
+        foreach (self::get_all($enabledonly) as $provider) {
+            if ($provider->providertype === self::TYPE_EXTERNAL && $provider->capability === self::CAPABILITY_SPEECH) {
+                $menu[$provider->id] = $provider->name;
+            }
+        }
+        return $menu;
+    }
+
+    /**
+     * Get the speech provider chosen in the site settings, for generating
+     * audio prompts from their transcripts.
+     *
+     * @return \stdClass|null the provider, or null if none is chosen, or
+     *      it no longer exists, is disabled or is not a speech provider.
+     */
+    public static function get_tts_provider(): ?\stdClass {
+        $id = (int) get_config('qtype_speakup', 'ttsproviderid');
+        if (!$id) {
+            return null;
+        }
+        $provider = self::get($id);
+        if (!$provider || empty($provider->enabled) || $provider->providertype !== self::TYPE_EXTERNAL
+                || $provider->capability !== self::CAPABILITY_SPEECH) {
+            return null;
+        }
+        return $provider;
     }
 
     /**
@@ -107,6 +151,10 @@ class ai_provider {
         $uploadstyle = $data->uploadstyle ?? self::UPLOAD_NONE;
         if ($providertype !== self::TYPE_EXTERNAL || $capability !== self::CAPABILITY_MULTIMODAL) {
             $uploadstyle = self::UPLOAD_NONE;
+        }
+        // Core AI can only generate text.
+        if ($providertype === self::TYPE_CORE) {
+            $data->capability = self::CAPABILITY_TEXT;
         }
         $data->uploadstyle = $uploadstyle;
         if ($uploadstyle !== self::UPLOAD_REFERENCE) {
