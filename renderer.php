@@ -382,7 +382,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         $output .= html_writer::div('', 'qtype_speakup-prompt-message small text-warning mb-1 hide',
                 ['role' => 'status', 'aria-live' => 'polite']);
 
-        $this->page->requires->strings_for_js(['promptplaysused', 'responsesused'], $plugin);
+        $this->page->requires->strings_for_js(['listenfirst', 'promptplaysused', 'responsesused'], $plugin);
         $this->page->requires->js_call_amd('qtype_speakup/promptcontrol', 'init', [
             $qa->get_outer_question_div_unique_id(),
             [

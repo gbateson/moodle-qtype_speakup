@@ -97,6 +97,7 @@ $string['maxresponses_help'] = 'How many times students can record (or upload) a
 $string['recordafterpromptnote'] = 'Recording starts as soon as the prompt finishes.';
 $string['maxpromptplaysnote'] = 'You can play the prompt {$a} time(s).';
 $string['maxresponsesnote'] = 'You can give {$a} response(s).';
+$string['listenfirst'] = 'Listen to the prompt first. Recording will start when it finishes.';
 $string['promptplaysused'] = 'You have played the prompt as many times as allowed.';
 $string['responsesused'] = 'You have given as many responses as allowed.';
 $string['recordaudioprompt'] = 'Record the audio prompt';

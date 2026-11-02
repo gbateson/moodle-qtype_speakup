@@ -77,8 +77,13 @@ Feature: Audio prompts and recording in SpeakUp questions
     When I am on the "speakup-003" "core_question > preview" page logged in as teacher
     Then I should see "Recording starts as soon as the prompt finishes."
     And the SpeakUp recorder should be "new"
+    # Students listen first: the record button waits for the prompt.
+    And I should see "Listen to the prompt first. Recording will start when it finishes."
+    And "button.qtype_speakup-main-button.disabled[aria-disabled=true]" "css_element" should exist
     And I play the SpeakUp audio prompt
     And the SpeakUp recorder should be "recording"
+    And I should not see "Listen to the prompt first."
+    And "button.qtype_speakup-main-button.disabled" "css_element" should not exist
     And I wait "2" seconds
     And I click on "button.qtype_speakup-main-button" "css_element"
     And I wait until the SpeakUp recording is uploaded
@@ -120,3 +125,8 @@ Feature: Audio prompts and recording in SpeakUp questions
     And "#qtype_speakup-audioprompt audio[src*='audioprompt.mp3']" "css_element" should exist
     # The recorder can be used again straight away.
     And the "disabled" attribute of "#qtype_speakup-audioprompt button.qtype_speakup-main-button" "css_element" should not be set
+
+  Scenario: Without "Start recording when the prompt finishes", students can record straight away
+    When I am on the "speakup-002" "core_question > preview" page logged in as teacher
+    Then I should not see "Listen to the prompt first."
+    And "button.qtype_speakup-main-button.disabled" "css_element" should not exist

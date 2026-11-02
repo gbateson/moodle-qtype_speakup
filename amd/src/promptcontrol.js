@@ -53,10 +53,20 @@ export const init = (questionId, settings) => {
     const stored = readStorage(storageKey);
     let plays = Math.max(parseInt(playsField?.value || '0', 10), stored.plays || 0);
     let responses = Math.max(parseInt(responsesField?.value || '0', 10), stored.responses || 0);
+    // Whether the student has heard the prompt to the end. A play saved with
+    // the response (e.g. before the page was reloaded) counts as heard.
+    let heard = !!stored.heard || parseInt(playsField?.value || '0', 10) > 0;
     saveCounts();
 
     const prompt = questionDiv.querySelector('.qtype_speakup-audio-prompt audio') ||
         questionDiv.querySelector('.qtext audio');
+
+    // With "Start recording when the prompt finishes", students listen
+    // first: the record button is disabled until the prompt has finished.
+    if (prompt && settings.recordAfterPrompt && !heard) {
+        setRecordButtonsEnabled(false);
+        showMessage(getString('listenfirst'));
+    }
 
     if (prompt) {
         let midPlay = false;
@@ -75,6 +85,12 @@ export const init = (questionId, settings) => {
         });
         prompt.addEventListener('ended', () => {
             midPlay = false;
+            if (!heard) {
+                heard = true;
+                saveCounts();
+                setRecordButtonsEnabled(true);
+                hideMessage();
+            }
             if (settings.maxPromptPlays && plays >= settings.maxPromptPlays) {
                 lockPrompt();
             }
@@ -84,6 +100,13 @@ export const init = (questionId, settings) => {
         });
         if (settings.maxPromptPlays && plays >= settings.maxPromptPlays) {
             lockPrompt();
+            // The prompt cannot be played again, so do not wait for it.
+            if (!heard) {
+                heard = true;
+                saveCounts();
+                setRecordButtonsEnabled(true);
+                hideMessage();
+            }
         }
     }
 
@@ -129,6 +152,27 @@ export const init = (questionId, settings) => {
     /**
      * Stop the prompt being played again, and say why.
      */
+    /**
+     * Enable or disable the record button (and the pause button). This uses
+     * the "disabled" class, rather than the property, which the recorder
+     * sets itself as it records and uploads.
+     *
+     * @param {boolean} enabled
+     */
+    function setRecordButtonsEnabled(enabled) {
+        questionDiv.querySelectorAll('button.qtype_speakup-main-button, .qtype_speakup-pause-button button')
+            .forEach((button) => {
+                button.classList.toggle('disabled', !enabled);
+                if (enabled) {
+                    button.removeAttribute('aria-disabled');
+                    button.removeAttribute('tabindex');
+                } else {
+                    button.setAttribute('aria-disabled', 'true');
+                    button.setAttribute('tabindex', '-1');
+                }
+            });
+    }
+
     function lockPrompt() {
         prompt.controls = false;
         prompt.classList.add('qtype_speakup-prompt-locked');
@@ -155,7 +199,7 @@ export const init = (questionId, settings) => {
             responsesField.value = responses;
         }
         try {
-            window.localStorage.setItem(storageKey, JSON.stringify({plays: plays, responses: responses}));
+            window.localStorage.setItem(storageKey, JSON.stringify({plays: plays, responses: responses, heard: heard}));
         } catch (e) {
             // Storage may be unavailable, e.g. in a private window. The hidden fields still work.
         }
@@ -170,6 +214,13 @@ export const init = (questionId, settings) => {
         if (message) {
             message.textContent = text;
             message.classList.remove('hide');
+        }
+    }
+
+    function hideMessage() {
+        if (message) {
+            message.textContent = '';
+            message.classList.add('hide');
         }
     }
 };
