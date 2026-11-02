@@ -1,6 +1,13 @@
 /* SpeakUp questions in the Moodle app. */
-.qtype-speakup-frame iframe {
+.qtype-speakup-frame {
     width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+/* On iOS, a frame with "width: 100%" stretches to fit its content; with these, it fits the screen. */
+.qtype-speakup-frame iframe {
+    width: 1px;
+    min-width: 100%;
     min-height: 200px;
     border: 0;
 }

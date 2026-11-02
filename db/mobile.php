@@ -45,7 +45,7 @@ $addons = [
                 'method' => 'mobile_get_speakup', // In classes/output/mobile.php.
                 'styles' => [
                     'url' => $CFG->wwwroot . '/question/type/speakup/mobile/styles_app.css',
-                    'version' => '1.01',
+                    'version' => '1.02',
                 ],
             ],
         ],

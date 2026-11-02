@@ -155,6 +155,13 @@ var result = {
             iframe.id = frameid + '-iframe';
             iframe.src = src;
             // Let the frame record, play the prompt, and show pictures full screen.
+            // On iOS, a frame with "width: 100%" stretches to fit its content,
+            // so wide content (e.g. an audio player) would make it wider than
+            // the screen. With these, it is exactly as wide as the screen.
+            iframe.style.width = '1px';
+            iframe.style.minWidth = '100%';
+            iframe.style.border = '0';
+            iframe.setAttribute('scrolling', 'no');
             iframe.setAttribute('allow', 'microphone; camera; autoplay; fullscreen');
             iframe.setAttribute('allowfullscreen', 'allowfullscreen');
             iframe.addEventListener('load', function() {

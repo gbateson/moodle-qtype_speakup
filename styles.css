@@ -207,3 +207,20 @@
 .que.speakup .qtype_speakup-image-pages .qtype_speakup-image-thumb {
     max-height: 18rem;
 }
+
+/*
+ * The response page in the Moodle app's frame (see respond.php): the
+ * recorder and players fill the frame, and nothing may make it scroll sideways.
+ */
+body.qtype_speakup-mobile-response {
+    overflow-x: hidden;
+}
+body.qtype_speakup-mobile-response #page,
+body.qtype_speakup-mobile-response #region-main,
+body.qtype_speakup-mobile-response .que.speakup {
+    max-width: 100%;
+    min-width: 0;
+}
+body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-audio-widget {
+    width: 100%;
+}
