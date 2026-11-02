@@ -81,8 +81,11 @@ export const init = (questionId, prefix) => {
         if (changed) {
             send({fields: fields});
         }
-        const height = document.documentElement.scrollHeight;
-        if (height !== sentHeight) {
+        // The height of the content, not of the page: a page is never
+        // shorter than its frame, so measuring the page would make the
+        // frame grow each time the app resized it.
+        const height = contentHeight(questionDiv);
+        if (Math.abs(height - sentHeight) > 1) {
             sentHeight = height;
             send({height: height});
         }
@@ -92,6 +95,19 @@ export const init = (questionId, prefix) => {
     send({ready: true});
     check();
     setInterval(check, INTERVAL);
+};
+
+/**
+ * Get the height of the page's content: from the top of the page to the
+ * bottom of the question, including its margin.
+ *
+ * @param {HTMLElement} questionDiv
+ * @returns {number} the height in pixels.
+ */
+const contentHeight = (questionDiv) => {
+    const bottom = questionDiv.getBoundingClientRect().bottom + window.scrollY;
+    const margin = parseFloat(window.getComputedStyle(questionDiv).marginBottom) || 0;
+    return Math.ceil(bottom + margin);
 };
 
 /**

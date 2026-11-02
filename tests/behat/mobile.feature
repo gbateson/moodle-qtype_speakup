@@ -65,3 +65,17 @@ Feature: SpeakUp questions in the Moodle app
   Scenario: Students cannot open the response page for someone else's attempt
     When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" with a key for "student2"
     Then I should see "This question cannot be answered here"
+
+  @javascript
+  Scenario: In a frame, the response page reports its height, without growing after recording
+    When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" in a frame
+    Then the SpeakUp app frame should keep the same height
+    And I switch to "qtype-speakup-test-frame" iframe
+    And the Moodle app gives the SpeakUp response page a token for "student"
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And the SpeakUp recorder should be "recording"
+    And I wait "2" seconds
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And I wait until the SpeakUp recording is uploaded
+    And I switch to the main frame
+    And the SpeakUp app frame should keep the same height

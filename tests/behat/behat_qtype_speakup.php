@@ -320,7 +320,76 @@ class behat_qtype_speakup extends behat_base {
         // Any draft item id: the response goes into the user's own draft area with this id.
         $url = new moodle_url('/question/type/speakup/respond.php',
                 ['key' => $key, 'usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]);
+        $this->responseurl = $url;
         $this->execute('behat_general::i_visit', [$url->out_as_local_url(false)]);
+    }
+
+    /** @var moodle_url|null the last response page opened. */
+    protected $responseurl = null;
+
+    /**
+     * Show the response page in a frame on another page, resized as the
+     * Moodle app does (see mobile/mobile.js), to check how it behaves there.
+     *
+     * @When /^I open the SpeakUp app response page for "(?P<question>[^"]+)" in quiz "(?P<quiz>[^"]+)" attempted by "(?P<username>[^"]+)" in a frame$/
+     * @param string $questionname
+     * @param string $quizname
+     * @param string $username
+     */
+    public function i_open_the_speakup_app_response_page_in_a_frame(string $questionname, string $quizname,
+            string $username): void {
+        // Get the response page's address (with a key), then show a plain page around it.
+        $this->i_open_the_speakup_app_response_page($questionname, $quizname, $username, $username);
+        $key = \qtype_speakup\mobile_support::create_response_key(
+                (int) $this->get_user_id($username), (int) $this->responseurl->get_param('usage'));
+        $this->responseurl->param('key', $key);
+        $this->execute('behat_general::i_visit', ['/question/type/speakup/tests/fixtures/frame.html']);
+        $this->execute_script("(function() {
+            const iframe = document.createElement('iframe');
+            iframe.id = 'qtype-speakup-test-frame';
+            iframe.name = 'qtype-speakup-test-frame';
+            iframe.style.width = '100%';
+            iframe.style.border = '0';
+            iframe.src = " . json_encode($this->responseurl->out(false)) . ";
+            window.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'qtype_speakup' && e.data.height) {
+                    iframe.style.height = (Math.ceil(e.data.height) + 16) + 'px';
+                }
+            });
+            document.body.appendChild(iframe);
+        })();");
+        $this->getSession()->switchToIFrame('qtype-speakup-test-frame');
+        $this->wait_for_pending_js();
+        $this->getSession()->switchToIFrame(null);
+    }
+
+    /**
+     * Check that the response page's frame keeps the same height (it does
+     * not keep growing as it is resized).
+     *
+     * @Then /^the SpeakUp app frame should keep the same height$/
+     */
+    public function the_speakup_app_frame_should_keep_the_same_height(): void {
+        $height = 'return document.getElementById("qtype-speakup-test-frame").offsetHeight;';
+        // Let the page report its height first.
+        sleep(2);
+        $first = (int) $this->evaluate_script($height);
+        sleep(3);
+        $second = (int) $this->evaluate_script($height);
+        if ($first < 50 || $second !== $first) {
+            throw new ExpectationException("The frame was {$first}px tall, and then {$second}px.", $this->getSession());
+        }
+    }
+
+    /**
+     * Get a user's id.
+     *
+     * @param string $username
+     * @return int
+     */
+    protected function get_user_id(string $username): int {
+        global $DB;
+        return (int) $DB->get_field('user', 'id', ['username' => $username], MUST_EXIST);
     }
 
     /**
