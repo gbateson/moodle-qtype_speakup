@@ -78,3 +78,31 @@ Feature: Test editing a SpeakUp question
     And I should see "Penalty for showing the transcript"
     And I set the field "Grading method" to "Manual"
     And I should not see "Penalty for showing the transcript"
+
+  @javascript
+  Scenario: The headings show the most the target items and phrases can award
+    When I am on the "speakup-001" "core_question > edit" page logged in as teacher
+    Then I should see "Up to 30%" in the "#id_itemsheader" "css_element"
+    # Phrases: 40% + 30% + 20% divided by 2.
+    And I should see "Up to 80%" in the "#id_phrasesheader" "css_element"
+    And I set the field "id_phrasepercent_0" to "100%"
+    And I should see "Up to 140%" in the "#id_phrasesheader" "css_element"
+    And I set the field "id_phrasematch_1" to ""
+    And I should see "Up to 110%" in the "#id_phrasesheader" "css_element"
+    And I set the field "id_itemmultiplier_0" to "multiplied by 2"
+    And I should see "Up to 60%" in the "#id_itemsheader" "css_element"
+
+  @javascript
+  Scenario: Phrase boxes grow to fit their text
+    When I am on the "speakup-001" "core_question > edit" page logged in as teacher
+    Then the "id_phrasematch_1" field should be wider than the "id_phrasematch_0" field
+    And I set the field "id_phrasematch_0" to "a much longer target phrase than the others"
+    And the "id_phrasematch_0" field should be wider than the "id_phrasematch_1" field
+
+  @javascript
+  Scenario: After adding a target phrase, the new phrase box has the focus
+    When I am on the "speakup-001" "core_question > edit" page logged in as teacher
+    And I press "id_phraseadd"
+    Then the focused element is "id_phrasematch_3" "field"
+    And I press "id_itemadd"
+    And the focused element is "id_itemcount_1" "field"

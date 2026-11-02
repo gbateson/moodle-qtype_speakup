@@ -440,3 +440,4 @@ $string['giftnoprovider'] = 'there is no AI provider called "{$a}" on this site'
 $string['giftunknownline'] = 'This line was not recognised, and was skipped: {$a}';
 $string['giftunknownsetting'] = 'This setting was not recognised, and was skipped: {$a}';
 $string['giftwarning'] = 'SpeakUp question "{$a->name}": {$a->message}';
+$string['subtotal'] = 'Up to {$a}%';

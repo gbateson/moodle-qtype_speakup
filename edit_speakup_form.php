@@ -39,6 +39,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Id will be set to 'speakup_edit_form'.
         $this->set_form_id($mform);
 
+        // Subtotals of the target items and phrases, phrase boxes that grow
+        // to fit their text, and scrolling to new rows after "Add".
+        global $PAGE;
+        $PAGE->requires->strings_for_js(['subtotal'], 'qtype_speakup');
+        $PAGE->requires->js_call_amd('qtype_speakup/editform', 'init');
+
         $name = 'timelimitinseconds';
         $label = get_string($name, $plugin);
         $mform->addElement('duration', $name, $label);
@@ -193,7 +199,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $elements = [
             $mform->createElement('group', 'phrasegroup', get_string('phrasegroup', $plugin), [
                 $mform->createElement('static', '', '', get_string('phrasetext1', $plugin)),
-                $mform->createElement('text', 'phrasematch', '', ['size' => 30]),
+                $mform->createElement('text', 'phrasematch', '', ['size' => 15]),
                 $mform->createElement('static', '', '', get_string('phrasetext2', $plugin)),
                 $mform->createElement('select', 'phrasepercent', '', $percentmenu),
                 $mform->createElement('select', 'phrasedivisor', '', $divisormenu),

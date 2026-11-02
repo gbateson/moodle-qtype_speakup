@@ -209,4 +209,65 @@ class behat_qtype_speakup extends behat_base {
         }, [], 60);
         $this->wait_for_pending_js();
     }
+
+    /**
+     * Compare the widths of two fields, e.g. to check a phrase box grows to fit its text.
+     *
+     * @Then /^the "(?P<first>[^"]+)" field should be wider than the "(?P<second>[^"]+)" field$/
+     * @param string $first the id of the first field.
+     * @param string $second the id of the second field.
+     */
+    public function the_field_should_be_wider_than(string $first, string $second): void {
+        $widths = $this->evaluate_script('return [document.getElementById(' . json_encode($first) . ').offsetWidth, ' .
+                'document.getElementById(' . json_encode($second) . ').offsetWidth];');
+        if ($widths[0] <= $widths[1]) {
+            throw new ExpectationException("\"$first\" is {$widths[0]}px wide, and \"$second\" is {$widths[1]}px wide.",
+                    $this->getSession());
+        }
+    }
+
+    /**
+     * Check the height of an element, e.g. to check an editor grows to fit its content.
+     *
+     * @Then /^the "(?P<selector>(?:[^"]|\\")*)" "css_element" should be (?P<comparison>taller|shorter) than (?P<pixels>\d+) pixels$/
+     * @param string $selector CSS selector.
+     * @param string $comparison "taller" or "shorter".
+     * @param int $pixels
+     */
+    public function the_element_should_be_taller_than(string $selector, string $comparison, int $pixels): void {
+        $selector = json_encode(str_replace('\\"', '"', $selector));
+        $this->spin(function() use ($selector, $comparison, $pixels) {
+            $height = $this->evaluate_script("return (function() {
+                const element = document.querySelector($selector);
+                return element ? element.getBoundingClientRect().height : -1;
+            })();");
+            if ($height < 0) {
+                throw new ExpectationException("There is no element $selector.", $this->getSession());
+            }
+            if (($comparison === 'taller') ? ($height > $pixels) : ($height < $pixels)) {
+                return true;
+            }
+            throw new ExpectationException("$selector is {$height}px tall, not $comparison than {$pixels}px.",
+                    $this->getSession());
+        }, [], 10);
+    }
+
+    /**
+     * Fill a text area with some lines of text, as if the user typed them.
+     *
+     * @When /^I fill the "(?P<id>[^"]+)" text area with (?P<lines>\d+) lines of text$/
+     * @param string $id the id of the text area.
+     * @param int $lines
+     */
+    public function i_fill_the_text_area_with_lines_of_text(string $id, int $lines): void {
+        $this->execute_script("(function() {
+            const textarea = document.getElementById(" . json_encode($id) . ");
+            const lines = [];
+            for (let i = 1; i <= $lines; i++) {
+                lines.push('Line ' + i + ' of some text.');
+            }
+            textarea.value = lines.join(String.fromCharCode(10));
+            textarea.dispatchEvent(new Event('input', {bubbles: true}));
+        })();");
+    }
 }

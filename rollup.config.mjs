@@ -45,6 +45,18 @@ export default [
         },
     },
     {
+        input: 'amd/src/editform.js',
+        external,
+        output: {
+            file: 'amd/build/editform.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/editform'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
         input: 'amd/src/prompttranscript.js',
         external,
         output: {

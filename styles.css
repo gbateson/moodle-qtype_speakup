@@ -148,3 +148,31 @@
 #speakup_edit_form #id_itemsheader .fitem:nth-of-type(4n)[id^=fgroup_id_itemaward_] {
     background-color: #f0f0f0;
 }
+
+/*
+ * Space between the words and the boxes in each row of the target items
+ * and phrases, e.g. "If [phrase] is used, award [40%] [exactly] of ...".
+ */
+#speakup_edit_form [id^=fgroup_id_itemgroup_] .felement .fitem,
+#speakup_edit_form [id^=fgroup_id_itemaward_] .felement .fitem,
+#speakup_edit_form [id^=fgroup_id_phrasegroup_] .felement .fitem {
+    margin-left: 0.4em !important;
+    margin-right: 0.4em !important;
+}
+
+/* The subtotals next to the "Target items" and "Target phrases" headings. */
+#speakup_edit_form .qtype_speakup-subtotal {
+    font-size: 0.9rem;
+    font-weight: normal;
+}
+
+/*
+ * Atto's editing area grows to fit its content, up to 80% of the window's
+ * height (as the other editors and text areas do, see amd/src/editform.js).
+ * Atto gives it a fixed height, so this needs !important.
+ */
+#speakup_edit_form .editor_atto_content {
+    height: auto !important;
+    max-height: 80vh;
+    overflow-y: auto;
+}
