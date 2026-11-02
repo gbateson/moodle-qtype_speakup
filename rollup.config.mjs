@@ -81,6 +81,18 @@ export default [
         },
     },
     {
+        input: 'amd/src/mobilebridge.js',
+        external,
+        output: {
+            file: 'amd/build/mobilebridge.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/mobilebridge'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
         input: 'amd/src/prompttranscript.js',
         external,
         output: {

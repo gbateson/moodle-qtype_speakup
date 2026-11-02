@@ -40,6 +40,37 @@ use qtype_speakup\output\video_recorder;
 
 class qtype_speakup_renderer extends qtype_renderer {
 
+    /** @var int|null the draft file area for the response, if given (see mobile_response()). */
+    protected $responsedraftitemid = null;
+
+    /** @var bool whether to leave out the question text (see mobile_response()). */
+    protected $hidequestiontext = false;
+
+    /**
+     * Show the response part of a question (the audio prompt and the
+     * recorder or uploader), for the Moodle app's frame (see respond.php).
+     *
+     * The app shows the question text itself, and sends the response with
+     * the quiz, so the response must go into the app's draft file area.
+     *
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @param int $draftitemid the app's draft file area for the response.
+     * @return string HTML
+     */
+    public function mobile_response(question_attempt $qa, question_display_options $options, int $draftitemid): string {
+        $this->responsedraftitemid = $draftitemid;
+        $this->hidequestiontext = true;
+        try {
+            $html = $this->formulation_and_controls($qa, $options);
+        } finally {
+            $this->responsedraftitemid = null;
+            $this->hidequestiontext = false;
+        }
+        return html_writer::div(html_writer::div($html, 'formulation clearfix'), 'que speakup',
+                ['id' => $qa->get_outer_question_div_unique_id()]);
+    }
+
     #[\Override]
     public function formulation_and_controls(question_attempt $qa, question_display_options $options): string {
         global $DB;
@@ -57,7 +88,8 @@ class qtype_speakup_renderer extends qtype_renderer {
         $draftitemid = 0;
         if (!$options->readonly) {
             // Prepare a draft file area to store the recording.
-            $draftitemid = $qa->prepare_response_files_draft_itemid('recording', $options->context->id);
+            $draftitemid = $this->responsedraftitemid
+                    ?? $qa->prepare_response_files_draft_itemid('recording', $options->context->id);
 
             // Add a hidden form field with the draft item id.
             $output .= html_writer::empty_tag('input', ['type' => 'hidden',
@@ -92,7 +124,9 @@ class qtype_speakup_renderer extends qtype_renderer {
 
         $questiontext = $question->format_text($question->questiontext, $question->questiontextformat,
                 $qa, 'question', 'questiontext', $question->id);
-        $output .= html_writer::tag('div', $questiontext, ['class' => 'qtext']);
+        if (!$this->hidequestiontext) {
+            $output .= html_writer::tag('div', $questiontext, ['class' => 'qtext']);
+        }
         $output .= $this->audio_prompt($qa, $options);
         $output .= $this->prompt_controls($qa, $options);
 

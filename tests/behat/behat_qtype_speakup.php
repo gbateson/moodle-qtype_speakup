@@ -288,4 +288,33 @@ class behat_qtype_speakup extends behat_base {
         }, [], 60);
         $this->wait_for_pending_js();
     }
+
+    /**
+     * Open the response page that the Moodle app shows in a frame (see
+     * respond.php), for a SpeakUp question in a user's quiz attempt.
+     *
+     * @When /^I am on the SpeakUp app response page for "(?P<question>[^"]+)" in quiz "(?P<quiz>[^"]+)" attempted by "(?P<username>[^"]+)"$/
+     * @param string $questionname
+     * @param string $quizname
+     * @param string $username
+     */
+    public function i_am_on_the_speakup_app_response_page(string $questionname, string $quizname, string $username): void {
+        global $DB;
+        $quiz = $DB->get_record('quiz', ['name' => $quizname], '*', MUST_EXIST);
+        $user = $DB->get_record('user', ['username' => $username], '*', MUST_EXIST);
+        $attempts = $DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'userid' => $user->id], 'attempt DESC', '*', 0, 1);
+        $attempt = reset($attempts);
+        if (!$attempt) {
+            throw new Exception("$username has not started an attempt at $quizname.");
+        }
+        $slot = $DB->get_field_sql("
+                SELECT qa.slot
+                  FROM {question_attempts} qa
+                  JOIN {question} q ON q.id = qa.questionid
+                 WHERE qa.questionusageid = ? AND q.name = ?", [$attempt->uniqueid, $questionname], MUST_EXIST);
+        // Any draft item id: the response goes into the user's own draft area with this id.
+        $url = new moodle_url('/question/type/speakup/respond.php',
+                ['usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]);
+        $this->execute('behat_general::i_visit', [$url->out_as_local_url(false)]);
+    }
 }

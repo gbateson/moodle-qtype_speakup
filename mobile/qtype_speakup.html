@@ -1,0 +1,22 @@
+<section class="qtype-speakup-container" *ngIf="question.text || question.text === ''">
+    <ion-item class="ion-text-wrap" lines="none">
+        <ion-label>
+            <core-format-text [component]="component" [componentId]="componentId" [text]="question.text"
+                [contextLevel]="contextLevel" [contextInstanceId]="contextInstanceId" [courseId]="courseId">
+            </core-format-text>
+        </ion-label>
+    </ion-item>
+    <!-- Review: the response, the transcript and the grading details, as on the site. -->
+    <ion-item class="ion-text-wrap" lines="none" *ngIf="question.speakupReview">
+        <ion-label>
+            <core-format-text [component]="component" [componentId]="componentId" [text]="question.speakupReview"
+                [contextLevel]="contextLevel" [contextInstanceId]="contextInstanceId" [courseId]="courseId">
+            </core-format-text>
+        </ion-label>
+    </ion-item>
+    <!-- Attempt: the response is given in a frame from the site (see mobile.js). -->
+    <div *ngIf="question.speakupFrameId" class="qtype-speakup-frame" [attr.id]="question.speakupFrameId">
+        <p class="qtype-speakup-loading" *ngIf="question.speakupLoading">{{ 'plugin.qtype_speakup.mobileloading' | translate }}</p>
+    </div>
+    <input *ngFor="let field of question.speakupFields" type="hidden" [attr.name]="field.name" [value]="field.value">
+</section>

@@ -506,3 +506,17 @@ $string['preset_geminitts'] = 'Gemini speech (text-to-speech)';
 $string['preset_geminiupload'] = 'Gemini (Google), large files';
 $string['preset_openai'] = 'ChatGPT (OpenAI)';
 $string['preset_openaitts'] = 'OpenAI speech (text-to-speech)';
+
+// The Moodle app.
+$string['mobileapp'] = 'Allow SpeakUp questions in the Moodle app';
+$string['mobileapp_desc'] = 'If this is on, and the site meets the conditions above, students can answer SpeakUp questions in the Moodle app. Otherwise, the app offers to open quizzes with SpeakUp questions in the browser.';
+$string['mobilecondition_framembedding'] = '"Allow frame embedding" is on (Site administration > General > Security > HTTP security).';
+$string['mobilecondition_mobileapp'] = '"Allow SpeakUp questions in the Moodle app" (below) is on.';
+$string['mobilecondition_mobileservice'] = 'Web services for mobile devices are enabled (Site administration > General > Mobile app > Mobile settings).';
+$string['mobilecondition_securecookies'] = 'The site uses HTTPS, with "Secure cookies only" on (Site administration > General > Security > HTTP security).';
+$string['mobileheading'] = 'Moodle app';
+$string['mobileheading_desc'] = 'In the Moodle app, students answer SpeakUp questions in a frame from this site, so that the recorder and uploader work just as they do in a browser. This needs all of these:';
+$string['mobileloading'] = 'Loading...';
+$string['mobilenoattempt'] = 'This question cannot be answered here: it is not in one of your quiz attempts that is still in progress.';
+$string['mobilenotsupported'] = 'Not all of these are met, so the Moodle app offers to open quizzes with SpeakUp questions in the browser.';
+$string['mobilesupported'] = 'All of these are met, so students can answer SpeakUp questions in the Moodle app (version 4.2 or later).';

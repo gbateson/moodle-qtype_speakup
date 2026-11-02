@@ -1,0 +1,21 @@
+/* SpeakUp questions in the Moodle app. */
+.qtype-speakup-frame iframe {
+    width: 100%;
+    min-height: 200px;
+    border: 0;
+}
+.qtype-speakup-container img.qtype_speakup-image-thumb {
+    max-width: 100%;
+    max-height: 18rem;
+}
+.qtype-speakup-container .qtype_speakup-image-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.qtype-speakup-container .hide,
+.qtype-speakup-container .d-none {
+    display: none;
+}

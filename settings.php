@@ -74,6 +74,24 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // The Moodle app: SpeakUp works there when the site meets some
+    // conditions; otherwise the app opens the quiz in the browser.
+    $status = '';
+    if (during_initial_install() === false && !empty($CFG->version)) {
+        $status = \qtype_speakup\mobile_support::get_status_html();
+    }
+    $settings->add(new admin_setting_heading(
+        'qtype_speakup/mobileheading',
+        get_string('mobileheading', 'qtype_speakup'),
+        get_string('mobileheading_desc', 'qtype_speakup') . $status
+    ));
+    $settings->add(new admin_setting_configcheckbox(
+        'qtype_speakup/mobileapp',
+        get_string('mobileapp', 'qtype_speakup'),
+        get_string('mobileapp_desc', 'qtype_speakup'),
+        1
+    ));
+
     $ADMIN->add('qtypesettings', new admin_externalpage(
         'qtype_speakup_manageaiproviders',
         get_string('manageaiproviders', 'qtype_speakup'),

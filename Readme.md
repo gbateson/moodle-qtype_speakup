@@ -118,6 +118,30 @@ that are left out get their usual defaults.
   speech provider set in the plugin's settings (Site administration >
   Plugins > Question types > SpeakUp).
 
+## The Moodle app
+
+In the Moodle app, students answer SpeakUp questions in a frame from the
+site (`respond.php`), so that the recorder, uploader and audio prompt work
+just as they do in a browser. The app shows the question text, sends the
+response with the quiz, and shows the review. This needs:
+
+- the setting "Allow SpeakUp questions in the Moodle app" (on by default);
+- web services for mobile devices;
+- "Allow frame embedding" (Site administration > General > Security >
+  HTTP security);
+- HTTPS, with "Secure cookies only" on, so the app can keep the student
+  logged in inside the frame (as it does for SCORM and H5P);
+- Moodle app 4.2 or later.
+
+The plugin's settings page shows which of these are met. If any is not,
+SpeakUp tells the app it is not supported (see `db/mobile.php` and
+`classes/output/mobile.php`), and the app offers to open the quiz in the
+browser instead.
+
+On phones, recording in the frame also needs the app to allow the
+microphone (and camera) there. Where it does not, students can still
+upload a recording, photo or file.
+
 ## Running the tests
 
 PHPUnit tests are in `tests/`, one file for each class in `classes/`, plus
