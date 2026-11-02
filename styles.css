@@ -8,6 +8,21 @@
 /* Styles for audio widgets. */
 .que.speakup .qtype_speakup-audio-widget {
     width: 26em;
+    max-width: 100%;
+    /* On narrow screens (e.g. a phone in portrait), the button moves below the player. */
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+}
+
+/* Let the player, and the placeholder and timer it replaces, shrink to fit narrow screens. */
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player,
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-no-recording-placeholder,
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-time-left {
+    flex: 1 1 12em;
+    min-width: 0;
+}
+.que.speakup audio {
+    max-width: 100%;
 }
 
 .que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player,

@@ -79,3 +79,16 @@ Feature: SpeakUp questions in the Moodle app
     And I wait until the SpeakUp recording is uploaded
     And I switch to the main frame
     And the SpeakUp app frame should keep the same height
+
+  @javascript
+  Scenario: On a phone in portrait, the audio players fit the screen
+    Given I change viewport size to "360x640"
+    When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" with a key for "student"
+    Then nothing in the SpeakUp question should be wider than the window
+    And the Moodle app gives the SpeakUp response page a token for "student"
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And the SpeakUp recorder should be "recording"
+    And I wait "2" seconds
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And I wait until the SpeakUp recording is uploaded
+    And nothing in the SpeakUp question should be wider than the window

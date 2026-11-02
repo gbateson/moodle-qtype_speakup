@@ -19,3 +19,20 @@
 .qtype-speakup-container .d-none {
     display: none;
 }
+
+/* Audio players fit the screen, e.g. a phone in portrait. */
+.qtype-speakup-container audio {
+    width: 100%;
+    max-width: 100%;
+}
+.qtype-speakup-container .qtype_speakup-audio-widget {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    max-width: 100%;
+    gap: 0.25rem;
+}
+.qtype-speakup-container .qtype_speakup-media-player {
+    flex: 1 1 12em;
+    min-width: 0;
+}

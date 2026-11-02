@@ -417,4 +417,28 @@ class behat_qtype_speakup extends behat_base {
         });");
         $this->wait_for_pending_js();
     }
+
+    /**
+     * Check that nothing in the SpeakUp question goes past the right edge
+     * of the window, e.g. on a phone in portrait.
+     *
+     * @Then /^nothing in the SpeakUp question should be wider than the window$/
+     */
+    public function nothing_in_the_speakup_question_should_be_wider_than_the_window(): void {
+        $overflow = $this->evaluate_script("return (function() {
+            const width = document.documentElement.clientWidth;
+            const wide = [];
+            document.querySelectorAll('.que.speakup *').forEach((element) => {
+                const box = element.getBoundingClientRect();
+                if (box.width > 0 && box.height > 0 && box.right > width + 1) {
+                    wide.push(element.tagName.toLowerCase() + '.' + String(element.className).split(' ')[0] +
+                        ' (right edge ' + Math.round(box.right) + 'px)');
+                }
+            });
+            return wide.length ? 'Window ' + width + 'px wide: ' + wide.slice(0, 5).join(', ') : '';
+        })();");
+        if ($overflow) {
+            throw new ExpectationException($overflow, $this->getSession());
+        }
+    }
 }
