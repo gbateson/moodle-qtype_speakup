@@ -25,6 +25,11 @@
  * times the prompt was played) back here, to the hidden fields that the app
  * sends with the quiz.
  *
+ * Phones may not keep cookies in frames, so the frame has no session: it is
+ * opened with a single-use key from the site, and when it is ready, it is
+ * sent the app's web service token, which it uses for files. The token is
+ * only sent to the site's own address.
+ *
  * When the question is reviewed, the site's HTML is shown as it is.
  *
  * This file is plain JavaScript, run by the app, not an AMD module.
@@ -101,6 +106,10 @@ var result = {
             if (e.origin !== origin || !data || data.type !== 'qtype_speakup' || data.prefix !== prefix) {
                 return;
             }
+            if (data.ready && e.source) {
+                // The frame is ready: send it the app's token, for its files.
+                e.source.postMessage({type: 'qtype_speakup_token', prefix: prefix, token: site.getToken()}, origin);
+            }
             if (data.fields) {
                 Object.keys(data.fields).forEach(function(name) {
                     var value = String(data.fields[name]);
@@ -125,7 +134,8 @@ var result = {
         window.qtypeSpeakupListeners[prefix] = listener;
         window.addEventListener('message', listener);
 
-        // Show the frame, logged in to the site, once the template is shown.
+        // Show the frame, once the template is shown, with a single-use key
+        // that identifies the student to respond.php.
         var url = siteurl + '/question/type/speakup/respond.php?usage=' + usage + '&slot=' + slot +
             '&draft=' + encodeURIComponent(recording.value);
         var addFrame = function(src, tries) {
@@ -152,11 +162,12 @@ var result = {
             });
             container.appendChild(iframe);
         };
-        site.getAutoLoginUrl(url, false).then(function(src) {
-            addFrame(src, 0);
-            return src;
-        }).catch(function() {
-            addFrame(url, 0);
+        site.write('qtype_speakup_get_response_key', {usage: parseInt(usage, 10), slot: parseInt(slot, 10)}).then(function(response) {
+            addFrame(url + '&key=' + encodeURIComponent(response.key), 0);
+            return response;
+        }).catch(function(error) {
+            question.speakupLoading = false;
+            that.CoreDomUtilsProvider.showErrorModalDefault(error, 'Error');
         });
 
         return true;

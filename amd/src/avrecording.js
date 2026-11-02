@@ -39,6 +39,7 @@
 import Log from 'core/log';
 import ModalFactory from 'core/modal_factory';
 import Templates from 'core/templates';
+import {getUploadRequest, isUploadError} from 'qtype_speakup/draftfiles';
 
 /**
  * Verify that the question type can work. If not, show a warning.
@@ -933,25 +934,23 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
      * @param {Blob} blob data to upload.
      * @param {string} recordingFilename the filename to use for the uplaod.
      */
-    function uploadBlobToRepository(blob, recordingFilename) {
-
-        // Create FormData to send to PHP filepicker-upload script.
-        const formData = new FormData();
-        formData.append('repo_upload_file', blob, recordingFilename);
-        formData.append('sesskey', M.cfg.sesskey);
-        formData.append('repo_id', uploadInfo.uploadRepositoryId);
-        formData.append('itemid', uploadInfo.draftItemId);
-        formData.append('savepath', '/');
-        formData.append('ctx_id', uploadInfo.contextId);
-        formData.append('overwrite', '1');
-
+    async function uploadBlobToRepository(blob, recordingFilename) {
+        // In a browser, this uses the student's session. In the Moodle
+        // app's frame, it uses the app's token (see qtype_speakup/draftfiles).
+        let upload;
+        try {
+            upload = await getUploadRequest(blob, recordingFilename, uploadInfo);
+        } catch (e) {
+            handleUploadError();
+            return;
+        }
         const uploadRequest = new XMLHttpRequest();
         uploadRequest.addEventListener('readystatechange', handleUploadReadyStateChanged);
         uploadRequest.upload.addEventListener('progress', handleUploadProgress);
         uploadRequest.addEventListener('error', handleUploadError);
         uploadRequest.addEventListener('abort', handleUploadAbort);
-        uploadRequest.open('POST', M.cfg.wwwroot + '/repository/repository_ajax.php?action=upload');
-        uploadRequest.send(formData);
+        uploadRequest.open('POST', upload.url);
+        uploadRequest.send(upload.formData);
     }
 
     /**
@@ -964,9 +963,15 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
             return; // Not finished yet. We will get more of these events when it is.
         }
 
-        const response = JSON.parse(uploadRequest.responseText);
-        if (response.errorcode) {
+        let response = null;
+        try {
+            response = JSON.parse(uploadRequest.responseText);
+        } catch (error) {
+            response = null;
+        }
+        if (uploadRequest.status === 200 && isUploadError(response)) {
             handleUploadError(); // Moodle sends back errors with a 200 status code for some reason!
+            return;
         }
 
         if (uploadRequest.status === 200) {

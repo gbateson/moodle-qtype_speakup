@@ -291,17 +291,21 @@ class behat_qtype_speakup extends behat_base {
 
     /**
      * Open the response page that the Moodle app shows in a frame (see
-     * respond.php), for a SpeakUp question in a user's quiz attempt.
+     * respond.php), for a SpeakUp question in a user's quiz attempt, with a
+     * single-use key for a user (usually the same user), as the app does.
      *
-     * @When /^I am on the SpeakUp app response page for "(?P<question>[^"]+)" in quiz "(?P<quiz>[^"]+)" attempted by "(?P<username>[^"]+)"$/
+     * @When /^I open the SpeakUp app response page for "(?P<question>[^"]+)" in quiz "(?P<quiz>[^"]+)" attempted by "(?P<username>[^"]+)" with a key for "(?P<keyuser>[^"]+)"$/
      * @param string $questionname
      * @param string $quizname
-     * @param string $username
+     * @param string $username the user who started the attempt.
+     * @param string $keyusername the user the key is for.
      */
-    public function i_am_on_the_speakup_app_response_page(string $questionname, string $quizname, string $username): void {
+    public function i_open_the_speakup_app_response_page(string $questionname, string $quizname, string $username,
+            string $keyusername): void {
         global $DB;
         $quiz = $DB->get_record('quiz', ['name' => $quizname], '*', MUST_EXIST);
         $user = $DB->get_record('user', ['username' => $username], '*', MUST_EXIST);
+        $keyuser = $DB->get_record('user', ['username' => $keyusername], '*', MUST_EXIST);
         $attempts = $DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'userid' => $user->id], 'attempt DESC', '*', 0, 1);
         $attempt = reset($attempts);
         if (!$attempt) {
@@ -312,9 +316,36 @@ class behat_qtype_speakup extends behat_base {
                   FROM {question_attempts} qa
                   JOIN {question} q ON q.id = qa.questionid
                  WHERE qa.questionusageid = ? AND q.name = ?", [$attempt->uniqueid, $questionname], MUST_EXIST);
+        $key = \qtype_speakup\mobile_support::create_response_key($keyuser->id, $attempt->uniqueid);
         // Any draft item id: the response goes into the user's own draft area with this id.
         $url = new moodle_url('/question/type/speakup/respond.php',
-                ['usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]);
+                ['key' => $key, 'usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]);
         $this->execute('behat_general::i_visit', [$url->out_as_local_url(false)]);
+    }
+
+    /**
+     * Give the response page the user's web service token, as the Moodle
+     * app does (see mobile/mobile.js), so that it can upload files.
+     *
+     * @When /^the Moodle app gives the SpeakUp response page a token for "(?P<username>[^"]+)"$/
+     * @param string $username
+     */
+    public function the_moodle_app_gives_the_speakup_response_page_a_token(string $username): void {
+        global $CFG, $DB;
+        // Turn on the web services that the app uses.
+        set_config('enablewebservices', 1);
+        set_config('enablemobilewebservice', 1);
+        set_config('webserviceprotocols', 'rest');
+        $DB->set_field('external_services', 'enabled', 1, ['shortname' => MOODLE_OFFICIAL_MOBILE_SERVICE]);
+        assign_capability('webservice/rest:use', CAP_ALLOW, $CFG->defaultuserroleid, context_system::instance()->id, true);
+
+        $user = $DB->get_record('user', ['username' => $username], '*', MUST_EXIST);
+        $service = $DB->get_record('external_services', ['shortname' => MOODLE_OFFICIAL_MOBILE_SERVICE], '*', MUST_EXIST);
+        $token = \core_external\util::generate_token(EXTERNAL_TOKEN_PERMANENT, $service, $user->id,
+                context_system::instance());
+        $this->execute_script("require(['qtype_speakup/draftfiles'], function(draftfiles) {
+            draftfiles.setToken(" . json_encode($token) . ");
+        });");
+        $this->wait_for_pending_js();
     }
 }

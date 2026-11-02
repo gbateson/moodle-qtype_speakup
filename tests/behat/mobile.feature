@@ -38,25 +38,30 @@ Feature: SpeakUp questions in the Moodle app
     And I navigate to "Plugins > Question types > SpeakUp - spoken response" in site administration
     Then I should see "Moodle app"
     And I should see "\"Allow frame embedding\" is on"
-    And I should see "The site uses HTTPS, with \"Secure cookies only\" on"
-    # The test site does not use HTTPS.
+    And I should see "Web services for mobile devices are enabled"
+    # The test site does not allow frame embedding, or the app.
     And I should see "Not all of these are met, so the Moodle app offers to open quizzes with SpeakUp questions in the browser."
     And the field "Allow SpeakUp questions in the Moodle app" matches value "1"
 
   @javascript
-  Scenario: The response page shows the recorder, but not the question text, and records into the app's draft area
-    When I log in as "student"
-    And I am on the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student"
+  Scenario: The response page needs no login, shows the recorder but not the question text, and records with the app's token
+    When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" with a key for "student"
     Then I should not see "Talk about a musical instrument."
     And I should see "Show transcript (penalty -30%)"
     And "input[type=hidden][name$='_recording'][value='987654321']" "css_element" should exist
+    And the Moodle app gives the SpeakUp response page a token for "student"
     And I click on "button.qtype_speakup-main-button" "css_element"
     And the SpeakUp recorder should be "recording"
     And I wait "2" seconds
     And I click on "button.qtype_speakup-main-button" "css_element"
     And I wait until the SpeakUp recording is uploaded
 
+  Scenario: The key can only be used once
+    When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" with a key for "student"
+    And I should see "Show transcript"
+    And I reload the page
+    Then I should see "This page can only be opened from the Moodle app."
+
   Scenario: Students cannot open the response page for someone else's attempt
-    When I log in as "student2"
-    And I am on the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student"
+    When I open the SpeakUp app response page for "speakup-001" in quiz "Quiz 1" attempted by "student" with a key for "student2"
     Then I should see "This question cannot be answered here"

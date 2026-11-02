@@ -39,14 +39,10 @@ final class mobile_support_test extends \advanced_testcase {
      * Meet all the conditions for SpeakUp in the app.
      */
     protected function meet_conditions(): void {
-        global $CFG;
         set_config('mobileapp', 1, 'qtype_speakup');
         set_config('enablewebservices', 1);
         set_config('enablemobilewebservice', 1);
         set_config('allowframembedding', 1);
-        // Secure cookies need HTTPS.
-        $CFG->wwwroot = str_replace('http://', 'https://', $CFG->wwwroot);
-        $CFG->cookiesecure = 1;
     }
 
     /**
@@ -55,7 +51,7 @@ final class mobile_support_test extends \advanced_testcase {
     public function test_conditions(): void {
         $this->resetAfterTest();
         $this->meet_conditions();
-        $this->assertSame(['mobileapp' => true, 'mobileservice' => true, 'framembedding' => true, 'securecookies' => true],
+        $this->assertSame(['mobileapp' => true, 'mobileservice' => true, 'framembedding' => true],
                 mobile_support::get_conditions());
         $this->assertTrue(mobile_support::is_supported());
         $this->assertTrue(mobile_support::is_supported(44000));
@@ -69,11 +65,6 @@ final class mobile_support_test extends \advanced_testcase {
                     mobile_support::get_status_html());
             set_config($name, 1, $plugin);
         }
-
-        global $CFG;
-        $CFG->cookiesecure = 0;
-        $this->assertFalse(mobile_support::get_conditions()['securecookies']);
-        $this->assertFalse(mobile_support::is_supported());
     }
 
     /**
@@ -95,6 +86,7 @@ final class mobile_support_test extends \advanced_testcase {
         $this->assertSame('main', $result['templates'][0]['id']);
         $this->assertStringContainsString('question.speakupFrameId', $result['templates'][0]['html']);
         $this->assertStringContainsString('respond.php', $result['javascript']);
+        $this->assertStringContainsString('qtype_speakup_get_response_key', $result['javascript']);
         $this->assertStringContainsString('componentInit', $result['javascript']);
     }
 
@@ -190,5 +182,70 @@ final class mobile_support_test extends \advanced_testcase {
         $this->assertStringContainsString('name="' . $qa->get_qt_field_name('recording') . '" value="123456789"', $html);
         $this->assertStringNotContainsString('class="qtext"', $html);
         $this->assertStringContainsString('qtype_speakup-audio-widget', $html);
+    }
+
+    /**
+     * A response key can be used once, for its own attempt, before it expires.
+     */
+    public function test_response_keys(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $student = $this->getDataGenerator()->create_user();
+
+        $key = mobile_support::create_response_key($student->id, 123);
+        $this->assertEquals($student->id, mobile_support::use_response_key($key, 123)->id);
+        // Only once.
+        $this->assert_bad_key($key, 123);
+
+        // Only for its own attempt.
+        $key = mobile_support::create_response_key($student->id, 123);
+        $this->assert_bad_key($key, 456);
+        $this->assert_bad_key($key, 123);
+
+        // Not after it expires.
+        $key = mobile_support::create_response_key($student->id, 123);
+        $DB->set_field('user_private_key', 'validuntil', time() - 1, ['value' => $key]);
+        $this->assert_bad_key($key, 123);
+
+        // Not for a suspended user.
+        $key = mobile_support::create_response_key($student->id, 123);
+        $DB->set_field('user', 'suspended', 1, ['id' => $student->id]);
+        $this->assert_bad_key($key, 123);
+
+        // Not a key at all.
+        $this->assert_bad_key('nosuchkey', 123);
+    }
+
+    /**
+     * Check that a response key cannot be used.
+     *
+     * @param string $key
+     * @param int $usageid
+     */
+    protected function assert_bad_key(string $key, int $usageid): void {
+        try {
+            mobile_support::use_response_key($key, $usageid);
+            $this->fail('The key should not be usable');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('mobilebadkey', $e->errorcode);
+        }
+    }
+
+    /**
+     * The web service gives students a key for their own SpeakUp questions only.
+     */
+    public function test_get_response_key(): void {
+        $this->resetAfterTest();
+        $student = $this->getDataGenerator()->create_user();
+        $this->setUser($student);
+        [$usageid] = $this->start_attempt($student);
+
+        $result = \core_external\external_api::clean_returnvalue(external\get_response_key::execute_returns(),
+                external\get_response_key::execute($usageid, 1));
+        $this->assertEquals($student->id, mobile_support::use_response_key($result['key'], $usageid)->id);
+
+        $this->setUser($this->getDataGenerator()->create_user());
+        $this->expectException(\moodle_exception::class);
+        external\get_response_key::execute($usageid, 1);
     }
 }

@@ -123,14 +123,21 @@ that are left out get their usual defaults.
 In the Moodle app, students answer SpeakUp questions in a frame from the
 site (`respond.php`), so that the recorder, uploader and audio prompt work
 just as they do in a browser. The app shows the question text, sends the
-response with the quiz, and shows the review. This needs:
+response with the quiz, and shows the review.
+
+Phones may not keep cookies in frames, so the frame has no session. The app
+gets a single-use key for it from the web service
+`qtype_speakup_get_response_key`, and when the frame is ready, sends it the
+app's web service token (only to the site's address), which the frame uses
+to upload, list and delete files in the response's draft area, and to play
+the audio prompt.
+
+This needs:
 
 - the setting "Allow SpeakUp questions in the Moodle app" (on by default);
 - web services for mobile devices;
 - "Allow frame embedding" (Site administration > General > Security >
   HTTP security);
-- HTTPS, with "Secure cookies only" on, so the app can keep the student
-  logged in inside the frame (as it does for SCORM and H5P);
 - Moodle app 4.2 or later.
 
 The plugin's settings page shows which of these are met. If any is not,

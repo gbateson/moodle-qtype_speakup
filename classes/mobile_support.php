@@ -21,10 +21,12 @@ namespace qtype_speakup;
  *
  * In the app, the response (the recorder, uploader and prompt) is shown in
  * an iframe, from respond.php on this site, so that it works just as it does
- * in a browser. That needs some site settings: see get_conditions(). If any
- * is not met, SpeakUp tells the app it is not supported (see
- * output\mobile::mobile_init()), and the app offers to open the quiz in the
- * browser instead.
+ * in a browser. The frame has no session, since phones may not keep cookies
+ * in frames: it is opened with a single-use key (see create_response_key()),
+ * and then uses the app's web service token. That needs some site settings:
+ * see get_conditions(). If any is not met, SpeakUp tells the app it is not
+ * supported (see output\mobile::mobile_init()), and the app offers to open
+ * the quiz in the browser instead.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -35,6 +37,12 @@ class mobile_support {
     /** The oldest Moodle app version supported: 4.2.0. */
     const MIN_APP_VERSION = 42000;
 
+    /** The "script" of the single-use keys for respond.php, in the user_private_key table. */
+    const KEY_SCRIPT = 'qtype_speakup_respond';
+
+    /** How long a key for respond.php can be used, in seconds. */
+    const KEY_LIFETIME = 300;
+
     /**
      * Check each condition for SpeakUp questions to work in the Moodle app.
      *
@@ -42,8 +50,6 @@ class mobile_support {
      * - mobileservice: web services for mobile devices are enabled.
      * - framembedding: pages from this site can be shown in frames, as the
      *   app does with the response.
-     * - securecookies: the site uses HTTPS with secure cookies. Moodle then
-     *   lets the app keep the login in the frame (as for SCORM and H5P).
      *
      * @return bool[] condition name => whether it is met.
      */
@@ -53,7 +59,6 @@ class mobile_support {
             'mobileapp' => (bool) get_config('qtype_speakup', 'mobileapp'),
             'mobileservice' => !empty($CFG->enablewebservices) && !empty($CFG->enablemobilewebservice),
             'framembedding' => !empty($CFG->allowframembedding),
-            'securecookies' => is_moodle_cookie_secure(),
         ];
     }
 
@@ -113,5 +118,46 @@ class mobile_support {
             throw new \moodle_exception('mobilenoattempt', 'qtype_speakup');
         }
         return [$qa, $quba->get_owning_context()];
+    }
+
+    /**
+     * Create a single-use key that lets a user open respond.php for one of
+     * their quiz attempts, within a few minutes.
+     *
+     * @param int $userid
+     * @param int $usageid the question usage id of the attempt.
+     * @return string the key.
+     */
+    public static function create_response_key(int $userid, int $usageid): string {
+        global $DB;
+        // Remove the user's keys that have expired.
+        $DB->delete_records_select('user_private_key', 'script = ? AND userid = ? AND validuntil < ?',
+                [self::KEY_SCRIPT, $userid, time()]);
+        return create_user_key(self::KEY_SCRIPT, $userid, $usageid, null, time() + self::KEY_LIFETIME);
+    }
+
+    /**
+     * Use a key from create_response_key(): check it, and delete it so that
+     * it cannot be used again.
+     *
+     * @param string $key
+     * @param int $usageid the question usage id it must be for.
+     * @return \stdClass the user it is for.
+     * @throws \moodle_exception if the key is not valid, has expired, or the user cannot log in.
+     */
+    public static function use_response_key(string $key, int $usageid): \stdClass {
+        global $DB;
+        $record = $DB->get_record('user_private_key', ['script' => self::KEY_SCRIPT, 'value' => $key]);
+        if ($record) {
+            $DB->delete_records('user_private_key', ['id' => $record->id]);
+        }
+        if (!$record || (int) $record->instance !== $usageid || $record->validuntil < time()) {
+            throw new \moodle_exception('mobilebadkey', 'qtype_speakup');
+        }
+        $user = $DB->get_record('user', ['id' => $record->userid, 'deleted' => 0, 'suspended' => 0]);
+        if (!$user) {
+            throw new \moodle_exception('mobilebadkey', 'qtype_speakup');
+        }
+        return $user;
     }
 }
