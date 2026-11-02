@@ -67,7 +67,8 @@ final class assess_response_test extends \advanced_testcase {
      * @param array $extra other response data, e.g. prompttranscriptviewed.
      * @return array [usage id, slot]
      */
-    protected function attempt(int $questionid, string $transcript, array $extra = []): array {
+    protected function attempt(int $questionid, string $transcript, array $extra = [],
+            array $filenames = ['recording.mp3']): array {
         global $USER;
         $quba = question_engine::make_questions_usage_by_activity('core_question_preview', \context_system::instance());
         $quba->set_preferred_behaviour('deferredfeedback');
@@ -75,9 +76,11 @@ final class assess_response_test extends \advanced_testcase {
         $quba->start_all_questions();
 
         $draftid = file_get_unused_draft_itemid();
-        get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
-                'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
-                'filename' => 'recording.mp3'], "ID3\x04\x00\x00\x00\x00\x00\x00audio");
+        foreach ($filenames as $filename) {
+            get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
+                    'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
+                    'filename' => $filename], "ID3\x04\x00\x00\x00\x00\x00\x00content");
+        }
         $quba->process_action($slot, [
             'recording' => new \question_file_saver($draftid, 'question', 'response_recording'),
             'browsertranscript' => $transcript,
@@ -224,5 +227,29 @@ final class assess_response_test extends \advanced_testcase {
         $qa = $this->assess($usageid, $slot);
         $this->assertNull($qa->get_mark());
         $this->assertFalse($DB->record_exists('qtype_speakup_response', ['questionattemptid' => $qa->get_database_id()]));
+    }
+
+    /**
+     * The pages of an image response are sent to the AI together, and the
+     * target phrases and items are checked in its transcript.
+     */
+    public function test_image_response(): void {
+        global $DB;
+        $this->setUser($this->getDataGenerator()->create_user());
+        $provider = \qtype_speakup_test_helper::create_multimodal_provider();
+        $questionid = $this->create_question('image', [
+            'aiassessment' => 1, 'aiproviderid' => $provider->id, 'aiweighting' => 10,
+        ]);
+        [$usageid, $slot] = $this->attempt($questionid, '', [], ['01-page.png', '02-page.pdf']);
+
+        \curl::mock_response(json_encode(['candidates' => [['content' => ['parts' => [['text' =>
+                "TRANSCRIPT: Page 1: I have played the guitar.\nFEEDBACK: Good handwriting.\nSCORE: 80"]]]]]]));
+        $qa = $this->assess($usageid, $slot);
+
+        // Phrases: guitar 40% + "I have played" 30%. Items: 7 of 20 words, of 30%. AI: 80% of 10%.
+        $this->assertEqualsWithDelta(0.40 + 0.30 + 0.30 * 7 / 20 + 0.08, $qa->get_mark(), 0.0001);
+        $this->assertSame('Good handwriting.', $qa->get_manual_comment()[0]);
+        $record = $this->get_record($qa);
+        $this->assertSame('Page 1: I have played the guitar.', $record->aitranscript);
     }
 }

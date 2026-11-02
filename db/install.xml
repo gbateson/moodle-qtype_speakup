@@ -57,6 +57,8 @@
             COMMENT="How many responses (recordings or uploads) can be given: 0 for no limit."/>
         <FIELD NAME="silencestop" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="Stop recording after this many seconds of silence, once the student has started speaking: 0 for never."/>
+        <FIELD NAME="maxfiles" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="For image responses: the most files (e.g. pages) a student can upload, 1 to 5."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -151,6 +153,8 @@
             COMMENT="For providertype=external: comma-separated key path to extract the answer from the JSON response, e.g. 'choices,0,message,content'."/>
         <FIELD NAME="requesttemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"
             COMMENT="For providertype=external: JSON request body template, with tokens {{RUBRIC}}, {{TRANSCRIPT}}, {{AUDIO_BASE64}}, {{AUDIO_MIMETYPE}} substituted at call time. Lets each provider's own request shape be configured without hard-coding any one vendor's API."/>
+        <FIELD NAME="filetemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="For multimodal providers: the JSON for one file, repeated for each file at {{FILE_PARTS}} in the request template. Either one part, or an object of MIME type (e.g. image/*) => part."/>
         <FIELD NAME="uploadstyle" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false"
             COMMENT="For providertype=external + capability=multimodal: how the audio/video file is sent - 'inline_base64' or 'upload_reference'. 'none' for text-only providers."/>
         <FIELD NAME="uploadurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"

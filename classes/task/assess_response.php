@@ -78,9 +78,12 @@ class assess_response extends \core\task\adhoc_task {
         $feedback = '';
         try {
             $transcript = (string) $qa->get_last_qt_var('browsertranscript', '');
-            $files = $qa->get_last_qt_files('recording', $data->contextid);
+            // The recording, or the pages of an image response, in order.
+            $files = array_values($qa->get_last_qt_files('recording', $data->contextid));
             $file = reset($files) ?: null;
-            $duration = \qtype_speakup_question::best_duration($file, $qa->get_last_qt_var('browserduration'));
+            $isimage = $question->is_image();
+            $duration = $isimage ? null
+                    : \qtype_speakup_question::best_duration($file, $qa->get_last_qt_var('browserduration'));
             $aifraction = null;
             $aitranscript = null;
 
@@ -104,12 +107,13 @@ class assess_response extends \core\task\adhoc_task {
                     ]);
                 }
                 if ($multimodal) {
-                    $rubric .= "\n\n" . get_string('aiprompttranscribe', 'qtype_speakup', $question->get_language_name());
+                    $rubric .= "\n\n" . get_string($isimage ? 'aiprompttranscribeimage' : 'aiprompttranscribe',
+                            'qtype_speakup', $question->get_language_name());
                 }
 
                 [$aifraction, $feedback] = ai_caller::assess(
                         $provider, (int) $data->contextid, (int) $data->userid,
-                        $rubric, $transcript, $multimodal ? $file : null);
+                        $rubric, $transcript, $multimodal ? $files : null);
 
                 if ($multimodal) {
                     [$aitranscript, $feedback] = ai_caller::split_transcript($feedback);
@@ -127,7 +131,7 @@ class assess_response extends \core\task\adhoc_task {
                 if (!$provider) {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
-                $aitranscript = ai_caller::transcribe($provider, $file, $question->get_language_name());
+                $aitranscript = ai_caller::transcribe($provider, $files, $question->get_language_name(), $isimage);
             }
 
             // The grade combines the target phrases and items with the AI's

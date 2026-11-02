@@ -63,6 +63,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $options = [
             SPEAKUP_MEDIA_AUDIO => get_string('mediatype_audio', $plugin),
             SPEAKUP_MEDIA_VIDEO => get_string('mediatype_video', $plugin),
+            SPEAKUP_MEDIA_IMAGE => get_string('mediatype_image', $plugin),
         ];
         $mform->addElement('select', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
@@ -80,6 +81,25 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         // Pausing only applies to live recording.
         $mform->hideIf('allowpause', 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        // Images (e.g. scans of handwriting) are always uploaded, and have
+        // no length. When "Image" is chosen, the form's JavaScript also sets
+        // the response method to "Upload" (see amd/src/editform.js), so the
+        // settings that depend on it are shown or hidden too.
+        foreach (['timelimitinseconds', 'allowpause', 'responsemethod'] as $field) {
+            $mform->hideIf($field, 'mediatype', 'eq', SPEAKUP_MEDIA_IMAGE);
+        }
+
+        // For images: the most files (e.g. pages) a student can upload.
+        $name = 'maxfiles';
+        $menu = [];
+        for ($i = 1; $i <= SPEAKUP_MAX_IMAGE_FILES; $i++) {
+            $menu[$i] = $i;
+        }
+        $mform->addElement('select', $name, get_string($name, $plugin), $menu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 1);
+        $mform->hideIf($name, 'mediatype', 'neq', SPEAKUP_MEDIA_IMAGE);
 
         // The language the student is expected to speak. Used for live
         // browser transcription, and as a hint to the AI when transcribing.
@@ -477,6 +497,10 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->addHelpButton($name, $name, $plugin);
             $mform->setDefault($name, 0);
         }
+        // Image responses are uploaded, and have no length.
+        foreach (['recordafterprompt', 'silencestop', 'maxresponses'] as $name) {
+            $mform->hideIf($name, 'mediatype', 'eq', SPEAKUP_MEDIA_IMAGE);
+        }
 
         $repositories = repository::get_instances(['type' => 'upload', 'currentcontext' => $this->context]);
         if (empty($repositories)) {
@@ -637,7 +661,11 @@ class qtype_speakup_edit_form extends question_edit_form {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
 
-        if (empty($data['timelimitinseconds']) || $data['timelimitinseconds'] <= 0) {
+        // Images are always uploaded, and have no length.
+        $isimage = (($data['mediatype'] ?? '') === SPEAKUP_MEDIA_IMAGE);
+        $isupload = $isimage || (($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD);
+
+        if (!$isimage && (empty($data['timelimitinseconds']) || $data['timelimitinseconds'] <= 0)) {
             $errors['timelimitinseconds'] = get_string('errornotimelimit', 'qtype_speakup');
         }
 
@@ -649,7 +677,6 @@ class qtype_speakup_edit_form extends question_edit_form {
         // both. Items that count sentences need a transcript with
         // punctuation, which only AI makes: the live transcript has none.
         if ($isautomated && !empty($data['itemtype'])) {
-            $isupload = (($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD);
             foreach ($data['itemtype'] as $key => $itemtype) {
                 $count = trim($data['itemcount'][$key] ?? '');
                 $percent = (int) ($data['itempercent'][$key] ?? 0);
@@ -662,6 +689,8 @@ class qtype_speakup_edit_form extends question_edit_form {
                     $errors["itemaward[$key]"] = get_string('err_itempercent', 'qtype_speakup');
                 } else if (\qtype_speakup\text_stats::needs_sentences($itemtype) && !$usesai && !$isupload) {
                     $errors["itemgroup[$key]"] = get_string('err_itemneedsai', 'qtype_speakup');
+                } else if ($isimage && $itemtype === \qtype_speakup\text_stats::ITEM_SPEECHRATE) {
+                    $errors["itemgroup[$key]"] = get_string('err_speechrateimage', 'qtype_speakup');
                 }
             }
         }
@@ -693,12 +722,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         // automated grading, it needs an AI provider that receives the file
         // itself and can transcribe it: with AI assessment, the AI
         // provider; without, the transcription provider.
-        if ($isautomated && ($data['responsemethod'] ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD) {
+        if ($isautomated && $isupload) {
             $field = ($usesai ? 'aiproviderid' : 'transcriptionproviderid');
             if (!isset($errors[$field])) {
                 $providerid = (int) ($data[$field] ?? 0);
                 if (empty(\qtype_speakup\ai_provider::get_menu(true))) {
-                    $errors['responsemethod'] = get_string('err_uploadneedsprovider', 'qtype_speakup');
+                    $errors[$isimage ? 'mediatype' : 'responsemethod'] = get_string('err_uploadneedsprovider', 'qtype_speakup');
                 } else if (empty($providerid)) {
                     $errors[$field] = get_string('err_transcriptionproviderrequired', 'qtype_speakup');
                 } else {

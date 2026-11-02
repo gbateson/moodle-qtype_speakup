@@ -297,4 +297,36 @@ final class question_test extends \advanced_testcase {
         $this->assertNull(\qtype_speakup_question::best_duration(null, ''));
         $this->assertNull(\qtype_speakup_question::best_duration(null, '-1'));
     }
+
+    /**
+     * Image responses are uploaded, have no length, and take images or PDFs.
+     */
+    public function test_image_responses(): void {
+        $question = $this->make('image');
+        $this->assertTrue($question->is_image());
+        $this->assertTrue($question->is_upload());
+        $this->assertTrue($question->is_graded_later());
+        $this->assertSame(3, $question->get_max_files());
+        $question->maxfiles = 99;
+        $this->assertSame(SPEAKUP_MAX_IMAGE_FILES, $question->get_max_files());
+        $question->maxfiles = 0;
+        $this->assertSame(1, $question->get_max_files());
+
+        $this->assertTrue($question->is_allowed_file_type('image/jpeg'));
+        $this->assertTrue($question->is_allowed_file_type('image/png'));
+        $this->assertTrue($question->is_allowed_file_type('application/pdf'));
+        $this->assertFalse($question->is_allowed_file_type('audio/mp3'));
+        $this->assertFalse($question->is_allowed_file_type('text/plain'));
+
+        // Speech rate needs a recording.
+        $question->targetitems[0]->itemtype = text_stats::ITEM_SPEECHRATE;
+        $this->assertFalse($question->needs_duration());
+
+        // Audio and video questions take one recording, and no images.
+        $question = $this->make();
+        $this->assertFalse($question->is_image());
+        $this->assertSame(1, $question->get_max_files());
+        $this->assertTrue($question->is_allowed_file_type('audio/mp3'));
+        $this->assertFalse($question->is_allowed_file_type('image/png'));
+    }
 }

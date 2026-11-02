@@ -45,6 +45,20 @@ are original to this project.
 - **Media type**: `SPEAKUP_MEDIA_AUDIO` or `SPEAKUP_MEDIA_VIDEO`, also set per
   question in `qtype_speakup_options`.
 
+## Image responses
+
+With the response type "Image", students upload one or more images or PDFs
+(up to the question's "Maximum number of files"), e.g. scans or photos of
+their handwriting, or a drawing. Large photos are made smaller in the
+browser before they are uploaded. For automated grading, a multimodal AI
+provider transcribes the handwriting, page by page, and assesses it; the
+target phrases and items are checked in that transcript.
+
+To send several files in one request, a provider's request template uses
+`{{FILE_PARTS}}`, which is replaced by its "file part template" once for
+each file. The "Preset" menu on the provider form fills in working settings
+for Gemini, ChatGPT and Claude, and for Gemini's and OpenAI's speech.
+
 ## GIFT format
 
 SpeakUp questions can be imported and exported in GIFT. The settings go
@@ -89,6 +103,9 @@ that are left out get their usual defaults.
 - `AI` takes `no`, or the provider's name and/or the weighting, e.g.
   `AI=Gemini, 50%`. Providers are matched by name; credentials are never
   exported.
+- `MEDIA` takes `audio`, `video` or `image`. Image responses (e.g. scans
+  of handwriting) can have `MAXFILES=1` to `5`, and leave out the settings
+  for recordings, such as `TIMELIMIT`.
 - `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)` and
   `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
   case|nocase)`. Repeat the line, or put several in one line, for more.

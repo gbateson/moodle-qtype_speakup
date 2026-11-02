@@ -57,6 +57,30 @@ export default [
         },
     },
     {
+        input: 'amd/src/providerpresets.js',
+        external,
+        output: {
+            file: 'amd/build/providerpresets.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/providerpresets'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
+        input: 'amd/src/imageupload.js',
+        external,
+        output: {
+            file: 'amd/build/imageupload.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/imageupload'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
+    {
         input: 'amd/src/prompttranscript.js',
         external,
         output: {

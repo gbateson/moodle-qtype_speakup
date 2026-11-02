@@ -40,6 +40,30 @@ export const init = () => {
     scrollToNewRow();
     initTextAreas(form);
     initTinyEditors(form);
+    initImageResponses(form);
+};
+
+/**
+ * Images (e.g. scans of handwriting) are always uploaded. So when "Image"
+ * is chosen as the response type, choose "Upload" as the response method,
+ * so that the settings that depend on it are shown or hidden too.
+ *
+ * @param {HTMLFormElement} form
+ */
+const initImageResponses = (form) => {
+    const mediatype = form.elements.namedItem('mediatype');
+    const responsemethod = form.elements.namedItem('responsemethod');
+    if (!mediatype || !responsemethod) {
+        return;
+    }
+    const update = () => {
+        if (mediatype.value === 'image' && responsemethod.value !== 'upload') {
+            responsemethod.value = 'upload';
+            responsemethod.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+    };
+    mediatype.addEventListener('change', update);
+    update();
 };
 
 /**

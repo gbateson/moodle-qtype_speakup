@@ -176,3 +176,19 @@
     max-height: 80vh;
     overflow-y: auto;
 }
+
+/* The pages of an image response (e.g. scans of handwriting). */
+.que.speakup .qtype_speakup-image-item {
+    width: 10rem;
+}
+.que.speakup .qtype_speakup-image-thumb {
+    max-width: 100%;
+    max-height: 12rem;
+    object-fit: contain;
+}
+.que.speakup .qtype_speakup-image-pages .qtype_speakup-image-item {
+    width: 14rem;
+}
+.que.speakup .qtype_speakup-image-pages .qtype_speakup-image-thumb {
+    max-height: 18rem;
+}

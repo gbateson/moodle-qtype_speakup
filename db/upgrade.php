@@ -456,5 +456,23 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091159, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091160) {
+        // Image responses: the most files (e.g. pages) a student can upload.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('maxfiles', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'silencestop');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The JSON for one file, repeated for each file in a request.
+        $table = new xmldb_table('qtype_speakup_ai_providers');
+        $field = new xmldb_field('filetemplate', XMLDB_TYPE_TEXT, null, null, null, null, null, 'requesttemplate');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091160, 'qtype', 'speakup');
+    }
+
     return true;
 }

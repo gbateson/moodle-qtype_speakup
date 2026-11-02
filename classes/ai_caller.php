@@ -70,17 +70,17 @@ class ai_caller {
      * @param string $rubric assessment instructions set on the question.
      * @param string $transcript text transcript (may be empty if a
      *      multimodal provider will be sent the file directly instead).
-     * @param \stored_file|null $file the audio/video recording, for
-     *      multimodal external providers.
+     * @param \stored_file|\stored_file[]|null $files the recording, or the
+     *      images, for multimodal external providers.
      * @return array [float $fraction 0..1, string $feedback]
      * @throws \moodle_exception on any failure.
      */
     public static function assess(\stdClass $provider, int $contextid, int $userid,
-            string $rubric, string $transcript, ?\stored_file $file = null): array {
+            string $rubric, string $transcript, $files = null): array {
         if ($provider->providertype === ai_provider::TYPE_CORE) {
             return self::assess_via_core($contextid, $userid, $rubric, $transcript);
         }
-        return self::assess_via_external($provider, $rubric, $transcript, $file);
+        return self::assess_via_external($provider, $rubric, $transcript, $files);
     }
 
     /**
@@ -122,42 +122,44 @@ class ai_caller {
      * @param \stdClass $provider
      * @param string $rubric
      * @param string $transcript
-     * @param \stored_file|null $file
+     * @param \stored_file|\stored_file[]|null $files
      * @return array [float $fraction, string $feedback]
      */
     protected static function assess_via_external(\stdClass $provider, string $rubric,
-            string $transcript, ?\stored_file $file = null): array {
+            string $transcript, $files = null): array {
         // The {{RUBRIC}} token must carry the same "always end with SCORE: N"
         // instruction the core-AI path gets via build_prompt() below -
         // otherwise an external provider is never actually told what format
         // to reply in, and every response fails to parse regardless of how
         // well the student answered.
         $fullrubric = self::build_rubric_with_instructions($rubric);
-        $content = self::request_external($provider, $fullrubric, $transcript, $file);
+        $content = self::request_external($provider, $fullrubric, $transcript, $files);
         return self::parse_score_and_feedback($content);
     }
 
     /**
-     * Ask an external provider to transcribe a recording, word for word.
+     * Ask an external provider to transcribe a recording, or the handwriting
+     * in some images, word for word.
      *
      * Used for uploaded files without AI assessment, so that the target
      * phrases and items can be checked in the transcript.
      *
      * @param \stdClass $provider a row from qtype_speakup_ai_providers. It
-     *      must be an external provider that receives the file itself.
-     * @param \stored_file $file the audio or video file.
-     * @param string $language the language the speaker is expected to
-     *      speak, e.g. "English (en-US)".
+     *      must be an external provider that receives the files themselves.
+     * @param \stored_file|\stored_file[] $files the audio or video file, or the images.
+     * @param string $language the language the student is expected to use,
+     *      e.g. "English (en-US)".
+     * @param bool $isimage whether the files are images (or PDFs) of handwriting.
      * @return string the transcript.
      * @throws \moodle_exception on any failure.
      */
-    public static function transcribe(\stdClass $provider, \stored_file $file, string $language): string {
+    public static function transcribe(\stdClass $provider, $files, string $language, bool $isimage = false): string {
         if ($provider->providertype === ai_provider::TYPE_CORE
                 || $provider->capability !== ai_provider::CAPABILITY_MULTIMODAL) {
             throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
         }
-        $prompt = get_string('aiprompttranscribeonly', 'qtype_speakup', $language);
-        $content = trim(self::request_external($provider, $prompt, '', $file));
+        $prompt = get_string($isimage ? 'aiprompttranscribeonlyimage' : 'aiprompttranscribeonly', 'qtype_speakup', $language);
+        $content = trim(self::request_external($provider, $prompt, '', $files));
         // Remove a "TRANSCRIPT:" label, if the AI added one anyway.
         return trim((string) preg_replace('/^[\s*#]*TRANSCRIPT\s*:[\s*]*/i', '', $content));
     }
@@ -184,87 +186,92 @@ class ai_caller {
     }
 
     /**
-     * Send a prompt (and, for a multimodal provider, the recording) to an
-     * admin-configured external REST API, and return the text it replies.
+     * Send a prompt (and, for a multimodal provider, the response's files)
+     * to an admin-configured external REST API, and return the text it replies.
+     *
+     * Files are given to the request template in one of two ways:
+     * - One file: {{AUDIO_BASE64}} or {{FILE_BASE64}} and {{AUDIO_MIMETYPE}}
+     *   or {{FILE_MIMETYPE}} (or, if files are uploaded first,
+     *   {{AUDIO_FILE_URI}} or {{FILE_URI}}).
+     * - Any number of files: {{FILE_PARTS}}, which is replaced by the
+     *   provider's file template once for each file, each followed by a
+     *   comma (see build_file_parts()).
      *
      * @param \stdClass $provider a row from qtype_speakup_ai_providers.
      * @param string $prompt substituted for the {{RUBRIC}} token.
      * @param string $transcript substituted for the {{TRANSCRIPT}} token.
-     * @param \stored_file|null $file the recording, for multimodal providers.
+     * @param \stored_file|\stored_file[]|null $files the recording, or the
+     *      images, for multimodal providers.
      * @return string the text of the reply.
      * @throws \moodle_exception on any failure.
      */
     protected static function request_external(\stdClass $provider, string $prompt,
-            string $transcript, ?\stored_file $file = null): string {
+            string $transcript, $files = null): string {
         if (empty($provider->url) || empty($provider->requesttemplate)) {
             throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
         }
-        $fullrubric = $prompt;
-
-        $audiobase64 = '';
-        $audiomimetype = '';
-        $extratokens = [];
-        if ($file && $provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
-            // Fail loudly if the template has no slot for the recording.
-            // Otherwise the token is simply never substituted (or replaced
-            // with an empty string) and some providers - Gemini included -
-            // quietly accept the request and grade the transcript alone,
-            // which looks like success but isn't. Checked before uploading,
-            // so a misconfigured provider doesn't upload files for nothing.
-            $requiredtoken = [
-                ai_provider::UPLOAD_REFERENCE => '{{AUDIO_FILE_URI}}',
-                ai_provider::UPLOAD_INLINE_BASE64 => '{{AUDIO_BASE64}}',
-            ][$provider->uploadstyle] ?? null;
-            if ($requiredtoken !== null && strpos($provider->requesttemplate, $requiredtoken) === false) {
-                throw new \moodle_exception('errortemplatemissingaudio', 'qtype_speakup', '', $requiredtoken);
-            }
-
-            if ($provider->uploadstyle === ai_provider::UPLOAD_REFERENCE) {
-                // A genuine upload-then-reference flow is provider-specific
-                // in ways plain JSON templating can't express (see the
-                // class docblock above and classes/upload/uploader.php) -
-                // delegate to whichever protocol implementation this
-                // provider is configured to use, and merge in whatever
-                // extra tokens it returns (e.g. {{AUDIO_FILE_URI}}) below.
-                $uploader = \qtype_speakup\upload\uploader_factory::create((string) $provider->uploadprotocol);
-                $result = $uploader->upload($file, $provider);
-                // AUDIO_MIMETYPE is always treated as a "raw" (unescaped)
-                // token alongside AUDIO_BASE64 below, regardless of which
-                // upload style produced it - pull it out here so both
-                // paths end up in exactly the same place.
-                $audiomimetype = $result['AUDIO_MIMETYPE'] ?? '';
-                unset($result['AUDIO_MIMETYPE']);
-                $extratokens = $result;
-            } else if ($provider->uploadstyle === ai_provider::UPLOAD_INLINE_BASE64) {
-                $audiobase64 = base64_encode($file->get_content());
-                $audiomimetype = $file->get_mimetype();
-            }
-        }
+        $files = self::normalise_files($files);
+        $template = $provider->requesttemplate;
+        $usesparts = (strpos($template, '{{FILE_PARTS}}') !== false);
 
         $model = (string) ($provider->model ?? '');
         $apikey = (string) ($provider->apikey ?? '');
+        $plaintokens = ['MODEL' => $model, 'APIKEY' => $apikey];
+        $escapedtokens = ['RUBRIC' => $prompt, 'TRANSCRIPT' => $transcript, 'MODEL' => $model, 'APIKEY' => $apikey];
+        $fileparts = '';
+
+        if ($files && $provider->capability === ai_provider::CAPABILITY_MULTIMODAL) {
+            // Fail loudly if the template has no slot for the files.
+            // Otherwise the token is simply never substituted and some
+            // providers - Gemini included - quietly grade the transcript
+            // alone, which looks like success but isn't. Checked before
+            // uploading, so a misconfigured provider doesn't upload files
+            // for nothing.
+            $slots = ($provider->uploadstyle === ai_provider::UPLOAD_REFERENCE)
+                    ? ['{{FILE_PARTS}}', '{{FILE_URI}}', '{{AUDIO_FILE_URI}}']
+                    : ['{{FILE_PARTS}}', '{{FILE_BASE64}}', '{{AUDIO_BASE64}}'];
+            $hasslot = false;
+            foreach ($slots as $slot) {
+                $hasslot = $hasslot || (strpos($template, $slot) !== false);
+            }
+            if (!$hasslot) {
+                throw new \moodle_exception('errortemplatemissingaudio', 'qtype_speakup', '', implode(', ', $slots));
+            }
+            if (!$usesparts && count($files) > 1) {
+                throw new \moodle_exception('errortemplatemultiplefiles', 'qtype_speakup');
+            }
+            if ($usesparts && trim((string) ($provider->filetemplate ?? '')) === '') {
+                throw new \moodle_exception('errorfiletemplatemissing', 'qtype_speakup');
+            }
+
+            $filetokens = [];
+            foreach ($files as $file) {
+                $filetokens[] = self::get_file_tokens($provider, $file);
+            }
+            if ($usesparts) {
+                $fileparts = self::build_file_parts((string) $provider->filetemplate, $files, $filetokens);
+            } else {
+                // One file: its tokens go straight into the request template.
+                $escapedtokens = array_merge($escapedtokens, $filetokens[0]);
+                $plaintokens = array_merge($plaintokens, $filetokens[0]);
+            }
+        }
 
         // The URL and headers are not JSON, so every token is substituted
         // there as plain text - e.g. a provider that puts the model in
         // the URL path, or an API-key header convention other than the
-        // automatic Bearer-token fallback below (see e.g. Gemini's
+        // automatic Bearer-token fallback (see e.g. Gemini's
         // x-goog-api-key header).
-        $plaintokens = array_merge(['MODEL' => $model, 'APIKEY' => $apikey], $extratokens);
         $url = self::substitute_plain($provider->url, $plaintokens);
         $headerstemplate = self::substitute_plain((string) $provider->headers, $plaintokens);
 
-        // The request body IS JSON. RUBRIC/TRANSCRIPT/MODEL/APIKEY, and
-        // any extra tokens an uploader returned (e.g. AUDIO_FILE_URI), are
-        // JSON-string-escaped, since they could in principle contain
-        // quotes, newlines, etc. AUDIO_BASE64/AUDIO_MIMETYPE never need
-        // escaping (a base64 string and a MIME type never contain
-        // characters JSON needs escaped), so they are substituted as-is
-        // regardless of which upload style produced them.
-        $escapedtokens = array_merge(
-                ['RUBRIC' => $fullrubric, 'TRANSCRIPT' => $transcript, 'MODEL' => $model, 'APIKEY' => $apikey],
-                $extratokens);
-        $body = self::substitute_escaped($provider->requesttemplate, $escapedtokens);
-        $body = self::substitute_plain($body, ['AUDIO_BASE64' => $audiobase64, 'AUDIO_MIMETYPE' => $audiomimetype]);
+        // The request body IS JSON, so values are JSON-string-escaped.
+        // The file parts are JSON already, so they are inserted as they are.
+        $body = self::substitute_escaped($template, $escapedtokens);
+        $body = self::substitute_plain($body, ['FILE_PARTS' => $fileparts]);
+        // Tokens with no value, e.g. a file token when there is no file.
+        $body = self::substitute_plain($body, ['AUDIO_BASE64' => '', 'AUDIO_MIMETYPE' => '', 'AUDIO_FILE_URI' => '',
+                'FILE_BASE64' => '', 'FILE_MIMETYPE' => '', 'FILE_URI' => '', 'FILE_NAME' => '']);
 
         json_decode($body);
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -287,6 +294,123 @@ class ai_caller {
         }
 
         return (string) $content;
+    }
+
+    /**
+     * Turn one file, several files or none into a list of files.
+     *
+     * @param \stored_file|\stored_file[]|null $files
+     * @return \stored_file[]
+     */
+    protected static function normalise_files($files): array {
+        if ($files instanceof \stored_file) {
+            return [$files];
+        }
+        return is_array($files) ? array_values(array_filter($files)) : [];
+    }
+
+    /**
+     * Get the tokens for one file: its content (base64) or, if files are
+     * uploaded first, the reference the provider gave back; its MIME type;
+     * and its name. Each is available as FILE_... and, for compatibility,
+     * AUDIO_....
+     *
+     * @param \stdClass $provider
+     * @param \stored_file $file
+     * @return array token name => value.
+     */
+    protected static function get_file_tokens(\stdClass $provider, \stored_file $file): array {
+        $tokens = ['FILE_NAME' => $file->get_filename()];
+        if ($provider->uploadstyle === ai_provider::UPLOAD_REFERENCE) {
+            // A genuine upload-then-reference flow is provider-specific in
+            // ways JSON templating can't express (see classes/upload/uploader.php).
+            $uploader = \qtype_speakup\upload\uploader_factory::create((string) $provider->uploadprotocol);
+            $result = $uploader->upload($file, $provider);
+            $mimetype = $result['AUDIO_MIMETYPE'] ?? $file->get_mimetype();
+            $uri = $result['AUDIO_FILE_URI'] ?? '';
+            unset($result['AUDIO_MIMETYPE']);
+            $tokens += $result;
+            $tokens += ['FILE_URI' => $uri, 'AUDIO_FILE_URI' => $uri];
+        } else {
+            $content = base64_encode($file->get_content());
+            $mimetype = $file->get_mimetype();
+            $tokens += ['FILE_BASE64' => $content, 'AUDIO_BASE64' => $content];
+        }
+        $tokens += ['FILE_MIMETYPE' => $mimetype, 'AUDIO_MIMETYPE' => $mimetype];
+        return $tokens;
+    }
+
+    /**
+     * Build the {{FILE_PARTS}} of a request: the file template once for
+     * each file, with that file's tokens, each followed by a comma. So
+     * {{FILE_PARTS}} goes just before another item in a JSON list, e.g.
+     * "parts": [{{FILE_PARTS}} {"text": "{{RUBRIC}}"}], and with no files
+     * the list is still valid.
+     *
+     * The file template is either one JSON part, or a JSON object of MIME
+     * types => parts, for providers that need a different part for e.g.
+     * images and PDFs: {"image/*": {...}, "application/pdf": {...}}. A key
+     * of "*" matches any file.
+     *
+     * @param string $filetemplate
+     * @param \stored_file[] $files
+     * @param array[] $filetokens the tokens of each file.
+     * @return string
+     * @throws \moodle_exception if the template is not valid, or has no part for a file's type.
+     */
+    public static function build_file_parts(string $filetemplate, array $files, array $filetokens): string {
+        $parts = '';
+        foreach (array_values($files) as $i => $file) {
+            $part = self::choose_file_part($filetemplate, $file->get_mimetype());
+            $parts .= self::substitute_escaped($part, $filetokens[$i]) . ', ';
+        }
+        return $parts;
+    }
+
+    /**
+     * Choose the file template part for a file's MIME type.
+     *
+     * @param string $filetemplate one JSON part, or an object of MIME types => parts.
+     * @param string $mimetype
+     * @return string the JSON part, with its tokens not yet substituted.
+     * @throws \moodle_exception
+     */
+    public static function choose_file_part(string $filetemplate, string $mimetype): string {
+        $decoded = json_decode($filetemplate, true);
+        if (!is_array($decoded)) {
+            throw new \moodle_exception('errorfiletemplatejson', 'qtype_speakup');
+        }
+        if (!self::is_mimetype_map($decoded)) {
+            return trim($filetemplate);
+        }
+        $mimetype = strtolower($mimetype);
+        $candidates = [$mimetype, strtok($mimetype, '/') . '/*', '*'];
+        foreach ($candidates as $key) {
+            foreach ($decoded as $pattern => $part) {
+                if (strtolower(trim($pattern)) === $key) {
+                    return json_encode($part, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                }
+            }
+        }
+        throw new \moodle_exception('errorproviderfiletype', 'qtype_speakup', '', $mimetype);
+    }
+
+    /**
+     * Is a decoded file template an object of MIME types => parts, rather than one part?
+     *
+     * @param array $decoded
+     * @return bool
+     */
+    public static function is_mimetype_map(array $decoded): bool {
+        if (!$decoded || array_is_list($decoded)) {
+            return false;
+        }
+        foreach ($decoded as $key => $value) {
+            if (!is_array($value) || ($key !== '*' && strpos((string) $key, '/') === false)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

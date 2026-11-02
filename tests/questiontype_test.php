@@ -44,7 +44,7 @@ final class questiontype_test extends \advanced_testcase {
             'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
             'showitems', 'showcomment', 'showtranscript', 'showstats', 'statsitems', 'audioprompttranscript',
             'audiopromptvoice', 'prompttranscriptdisplay', 'transcriptpenalty', 'recordafterprompt', 'maxpromptplays',
-            'maxresponses', 'silencestop'];
+            'maxresponses', 'silencestop', 'maxfiles'];
 
     /**
      * Create a test question in a new category.
@@ -345,5 +345,31 @@ final class questiontype_test extends \advanced_testcase {
         // No transcript: nothing queued.
         $qdata = $this->create_question('basic');
         $this->assertFalse(task\generate_audio_prompt::is_pending($qdata->id));
+    }
+
+    /**
+     * Image responses are always uploaded, and are exported to GIFT with
+     * their number of files, and without the settings for recordings.
+     */
+    public function test_image_question(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $qdata = $this->create_question('image', ['responsemethod' => SPEAKUP_RESPONSE_RECORD, 'maxfiles' => 9]);
+        $this->assertSame(SPEAKUP_RESPONSE_UPLOAD, $qdata->options->responsemethod);
+        $this->assertEquals(SPEAKUP_MAX_IMAGE_FILES, $qdata->options->maxfiles);
+
+        $gift = (new \qformat_gift())->writequestion($qdata);
+        $this->assertStringContainsString('MEDIA=image', $gift);
+        $this->assertStringContainsString('MAXFILES=5', $gift);
+        $this->assertStringNotContainsString('TIMELIMIT=', $gift);
+        $this->assertStringNotContainsString('SILENCESTOP=', $gift);
+
+        $imported = $this->read_gift($gift)[0];
+        $this->assertSame(SPEAKUP_MEDIA_IMAGE, $imported->mediatype);
+        $this->assertSame(5, $imported->maxfiles);
+
+        $imported = $this->read_gift("::Scan::Write about your weekend.{\nSPEAKUP\nMEDIA=handwriting\nPAGES=2\n}\n")[0];
+        $this->assertSame(SPEAKUP_MEDIA_IMAGE, $imported->mediatype);
+        $this->assertSame(2, $imported->maxfiles);
     }
 }

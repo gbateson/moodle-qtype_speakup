@@ -59,13 +59,23 @@ export const listFiles = async(draftItemId) => {
  */
 export const deleteAllFiles = async(draftItemId) => {
     for (const file of await listFiles(draftItemId)) {
-        await postForm('/repository/draftfiles_ajax.php?action=delete', {
-            itemid: draftItemId,
-            filepath: file.filepath || '/',
-            filename: file.filename,
-        });
+        await deleteFile(draftItemId, file.filename, file.filepath);
     }
 };
+
+/**
+ * Delete one file from a draft file area.
+ *
+ * @param {number} draftItemId
+ * @param {string} filename
+ * @param {string} [filepath]
+ * @returns {Promise}
+ */
+export const deleteFile = (draftItemId, filename, filepath) => postForm('/repository/draftfiles_ajax.php?action=delete', {
+    itemid: draftItemId,
+    filepath: filepath || '/',
+    filename: filename,
+});
 
 /**
  * Get the extension of a file name, e.g. ".mp3".

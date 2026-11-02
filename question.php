@@ -90,6 +90,9 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var string|null the voice for generating the audio prompt from its transcript, or empty for the site default. */
     public $audiopromptvoice;
 
+    /** @var int for image responses: the most files (e.g. pages) a student can upload. */
+    public $maxfiles;
+
     /** @var int how the audio prompt transcript is shown: one of the SPEAKUP_PROMPTTRANSCRIPT_* constants. */
     public $prompttranscriptdisplay;
 
@@ -168,7 +171,30 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return bool
      */
     public function is_upload(): bool {
-        return $this->responsemethod === SPEAKUP_RESPONSE_UPLOAD;
+        return $this->responsemethod === SPEAKUP_RESPONSE_UPLOAD || $this->is_image();
+    }
+
+    /**
+     * Do students upload images or PDFs, e.g. scans of their handwriting,
+     * rather than audio or video? (Images are always uploaded.)
+     *
+     * @return bool
+     */
+    public function is_image(): bool {
+        return $this->mediatype === SPEAKUP_MEDIA_IMAGE;
+    }
+
+    /**
+     * Get the most files a student can upload: for images, the question's
+     * setting (1 to 5); otherwise, one recording.
+     *
+     * @return int
+     */
+    public function get_max_files(): int {
+        if (!$this->is_image()) {
+            return 1;
+        }
+        return max(1, min(SPEAKUP_MAX_IMAGE_FILES, (int) $this->maxfiles));
     }
 
     /**
@@ -302,6 +328,9 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return bool
      */
     public function needs_duration(): bool {
+        if ($this->is_image()) {
+            return false;
+        }
         foreach ($this->get_active_items() as $item) {
             if ($item->itemtype === \qtype_speakup\text_stats::ITEM_SPEECHRATE) {
                 return true;
@@ -549,11 +578,11 @@ class qtype_speakup_question extends question_graded_automatically {
             return get_string('norecording', 'qtype_speakup');
         }
         if (is_object($response['recording']) && method_exists($response['recording'], 'get_files')) {
-            $files = $response['recording']->get_files();
-            foreach ($files as $file) {
-                return s($file->get_filename());
+            $names = [];
+            foreach ($response['recording']->get_files() as $file) {
+                $names[] = s($file->get_filename());
             }
-            return get_string('norecording', 'qtype_speakup');
+            return $names ? implode(', ', $names) : get_string('norecording', 'qtype_speakup');
         }
         // Non-empty but not a file-like object - a real recording exists
         // (see is_complete_response()) but we can't cheaply get its actual
@@ -579,16 +608,43 @@ class qtype_speakup_question extends question_graded_automatically {
             return false;
         }
         foreach ($response['recording']->get_files() as $file) {
-            if (!file_mimetype_in_typegroup($file->get_mimetype(), ['audio', 'video'])) {
+            if (!$this->is_allowed_file_type($file->get_mimetype())) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Can students give a file of this type as their response? Images or
+     * PDFs for image responses; otherwise, audio or video.
+     *
+     * @param string $mimetype
+     * @return bool
+     */
+    public function is_allowed_file_type(string $mimetype): bool {
+        if ($this->is_image()) {
+            return $mimetype === 'application/pdf' || file_mimetype_in_typegroup($mimetype, ['image']);
+        }
+        return file_mimetype_in_typegroup($mimetype, ['audio', 'video']);
+    }
+
+    /**
+     * Does the response have more files than allowed?
+     *
+     * @param array $response
+     * @return bool
+     */
+    protected function has_too_many_files(array $response): bool {
+        if (empty($response['recording']) || !($response['recording'] instanceof question_response_files)) {
+            return false;
+        }
+        return count($response['recording']->get_files()) > $this->get_max_files();
+    }
+
     #[\Override]
     public function is_complete_response(array $response): bool {
-        if ($this->has_non_media_file($response)) {
+        if ($this->has_non_media_file($response) || $this->has_too_many_files($response)) {
             return false;
         }
         return $this->has_response_file($response);
@@ -652,7 +708,10 @@ class qtype_speakup_question extends question_graded_automatically {
     #[\Override]
     public function get_validation_error(array $response) {
         if ($this->has_non_media_file($response)) {
-            return get_string('notmediafile', 'qtype_speakup');
+            return get_string($this->is_image() ? 'notimagefile' : 'notmediafile', 'qtype_speakup');
+        }
+        if ($this->has_too_many_files($response)) {
+            return get_string('toomanyfiles', 'qtype_speakup', $this->get_max_files());
         }
         if (!$this->is_complete_response($response)) {
             return get_string('norecording', 'qtype_speakup');

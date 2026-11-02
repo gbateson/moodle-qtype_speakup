@@ -217,4 +217,135 @@ final class ai_caller_test extends \advanced_testcase {
         $this->assertStringContainsString(get_string('aipromptinstructions', 'qtype_speakup'), $prompt);
         $this->assertStringEndsWith('My transcript.', $prompt);
     }
+
+    /**
+     * Save some content as a file.
+     *
+     * @param string $filename
+     * @param string $content
+     * @return \stored_file
+     */
+    protected static function make_file(string $filename, string $content = 'content'): \stored_file {
+        return get_file_storage()->create_file_from_string(['contextid' => \context_system::instance()->id,
+                'component' => 'qtype_speakup', 'filearea' => 'test', 'itemid' => 0, 'filepath' => '/',
+                'filename' => $filename], $content);
+    }
+
+    /**
+     * The file part template is repeated for each file, each followed by a comma.
+     */
+    public function test_build_file_parts(): void {
+        $this->resetAfterTest();
+        $files = [self::make_file('01-a.png'), self::make_file('02-b.jpg')];
+        $tokens = [
+            ['FILE_MIMETYPE' => 'image/png', 'FILE_BASE64' => 'AAAA', 'FILE_NAME' => '01-a.png'],
+            ['FILE_MIMETYPE' => 'image/jpeg', 'FILE_BASE64' => 'BBBB', 'FILE_NAME' => '02-b.jpg'],
+        ];
+        $parts = ai_caller::build_file_parts('{"mime": "{{FILE_MIMETYPE}}", "data": "{{FILE_BASE64}}"}', $files, $tokens);
+        $json = json_decode('[' . $parts . '{"text": "prompt"}]', true);
+        $this->assertSame([
+            ['mime' => 'image/png', 'data' => 'AAAA'],
+            ['mime' => 'image/jpeg', 'data' => 'BBBB'],
+            ['text' => 'prompt'],
+        ], $json);
+        $this->assertSame('', ai_caller::build_file_parts('{"data": "{{FILE_BASE64}}"}', [], []));
+    }
+
+    /**
+     * A file part template can have a different part for each kind of file.
+     */
+    public function test_choose_file_part(): void {
+        $template = '{"image/*": {"type": "image"}, "application/pdf": {"type": "document"}, "*": {"type": "other"}}';
+        $this->assertSame('{"type":"image"}', ai_caller::choose_file_part($template, 'image/jpeg'));
+        $this->assertSame('{"type":"document"}', ai_caller::choose_file_part($template, 'application/pdf'));
+        $this->assertSame('{"type":"other"}', ai_caller::choose_file_part($template, 'audio/mpeg'));
+        // One part, for any file.
+        $this->assertSame('{"data": "{{FILE_BASE64}}"}', ai_caller::choose_file_part('{"data": "{{FILE_BASE64}}"}', 'audio/mpeg'));
+        $this->assertTrue(ai_caller::is_mimetype_map(['image/*' => ['a' => 1]]));
+        $this->assertFalse(ai_caller::is_mimetype_map(['inline_data' => ['a' => 1]]));
+        $this->assertFalse(ai_caller::is_mimetype_map([['a' => 1]]));
+    }
+
+    /**
+     * A file with no matching part, or a template that is not JSON, is an error.
+     *
+     * @dataProvider choose_file_part_errors_provider
+     * @param string $template
+     * @param string $mimetype
+     */
+    public function test_choose_file_part_errors(string $template, string $mimetype): void {
+        $this->expectException(\moodle_exception::class);
+        ai_caller::choose_file_part($template, $mimetype);
+    }
+
+    /**
+     * Data for test_choose_file_part_errors().
+     *
+     * @return array
+     */
+    public static function choose_file_part_errors_provider(): array {
+        return [
+            'no part for audio' => ['{"image/*": {"type": "image"}}', 'audio/mpeg'],
+            'not JSON' => ['{"data": {{FILE_BASE64}}}', 'image/png'],
+        ];
+    }
+
+    /**
+     * A multimodal provider with {{FILE_PARTS}} is sent several images.
+     */
+    public function test_assess_several_files(): void {
+        $this->resetAfterTest();
+        \qtype_speakup_test_helper::allow_any_curl_url();
+        $provider = \qtype_speakup_test_helper::create_multimodal_provider();
+        $files = [self::make_file('01-a.png'), self::make_file('02-b.png'), self::make_file('03-c.pdf')];
+
+        \curl::mock_response(json_encode(['candidates' => [['content' => ['parts' => [['text' => "Neat work.\nSCORE: 90"]]]]]]));
+        [$fraction, $feedback] = ai_caller::assess($provider, 1, 2, 'Assess this.', '', $files);
+        $this->assertEqualsWithDelta(0.9, $fraction, 0.0001);
+        $this->assertSame('Neat work.', $feedback);
+
+        // With no files, the same template still works, e.g. for a transcript.
+        \curl::mock_response(json_encode(['candidates' => [['content' => ['parts' => [['text' => "SCORE: 50"]]]]]]));
+        [$fraction] = ai_caller::assess($provider, 1, 2, 'Assess this.', 'A transcript.', []);
+        $this->assertEqualsWithDelta(0.5, $fraction, 0.0001);
+    }
+
+    /**
+     * A template for one file cannot be sent several, and {{FILE_PARTS}}
+     * needs a file part template.
+     */
+    public function test_assess_several_files_errors(): void {
+        $this->resetAfterTest();
+        $files = [self::make_file('01-a.png'), self::make_file('02-b.png')];
+
+        $provider = \qtype_speakup_test_helper::create_multimodal_provider([
+            'requesttemplate' => '{"prompt": "{{RUBRIC}}", "data": "{{FILE_BASE64}}"}',
+        ]);
+        try {
+            ai_caller::assess($provider, 1, 2, 'Assess this.', '', $files);
+            $this->fail('Expected an exception');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('errortemplatemultiplefiles', $e->errorcode);
+        }
+
+        $provider = \qtype_speakup_test_helper::create_multimodal_provider(['name' => 'No parts', 'filetemplate' => '']);
+        try {
+            ai_caller::assess($provider, 1, 2, 'Assess this.', '', $files);
+            $this->fail('Expected an exception');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('errorfiletemplatemissing', $e->errorcode);
+        }
+    }
+
+    /**
+     * Transcribing images uses the handwriting prompt.
+     */
+    public function test_transcribe_images(): void {
+        $this->resetAfterTest();
+        \qtype_speakup_test_helper::allow_any_curl_url();
+        $provider = \qtype_speakup_test_helper::create_multimodal_provider();
+        \curl::mock_response(json_encode(['candidates' => [['content' => ['parts' => [['text' => "TRANSCRIPT: Page 1: Hello."]]]]]]));
+        $this->assertSame('Page 1: Hello.', ai_caller::transcribe($provider, [self::make_file('01-a.png')],
+                'English (en-US)', true));
+    }
 }

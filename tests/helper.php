@@ -28,6 +28,8 @@ require_once($CFG->dirroot . '/question/type/speakup/questiontype.php');
  * - manual: graded by a teacher.
  * - prompt: graded automatically, with an audio prompt transcript and a
  *   penalty for showing it.
+ * - image: up to 3 uploaded images or PDFs, e.g. scans of handwriting,
+ *   graded automatically.
  *
  * These are used by the PHPUnit tests, and by Behat's
  * "the following questions exist" step (with "template").
@@ -40,7 +42,7 @@ class qtype_speakup_test_helper extends question_test_helper {
 
     #[\Override]
     public function get_test_questions() {
-        return ['basic', 'manual', 'prompt'];
+        return ['basic', 'manual', 'prompt', 'image'];
     }
 
     /**
@@ -76,6 +78,7 @@ class qtype_speakup_test_helper extends question_test_helper {
             'maxpromptplays' => 0,
             'maxresponses' => 0,
             'silencestop' => 0,
+            'maxfiles' => 1,
         ];
     }
 
@@ -97,6 +100,11 @@ class qtype_speakup_test_helper extends question_test_helper {
                 $options['recordafterprompt'] = 1;
                 $options['maxpromptplays'] = 2;
                 $options['maxresponses'] = 1;
+                break;
+            case 'image':
+                $options['mediatype'] = SPEAKUP_MEDIA_IMAGE;
+                $options['responsemethod'] = SPEAKUP_RESPONSE_UPLOAD;
+                $options['maxfiles'] = 3;
                 break;
         }
         return $options;
@@ -187,6 +195,13 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * @return qtype_speakup_question
+     */
+    public function make_speakup_question_image() {
+        return $this->make_question('image');
+    }
+
+    /**
      * Get the data that the question form would return.
      *
      * @param string $which
@@ -242,6 +257,13 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * @return stdClass
+     */
+    public function get_speakup_question_form_data_image() {
+        return $this->get_form_data('image');
+    }
+
+    /**
      * Get the question data, as returned by question_bank::load_question_data().
      *
      * @param string $which
@@ -291,6 +313,13 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * @return stdClass
+     */
+    public function get_speakup_question_data_image() {
+        return $this->get_question_data('image');
+    }
+
+    /**
      * Create an AI provider, for tests.
      *
      * @param array $data fields that differ from a text provider called "Test AI".
@@ -332,6 +361,23 @@ class qtype_speakup_test_helper extends question_test_helper {
         ], $data));
         set_config('ttsproviderid', $provider->id, 'qtype_speakup');
         return $provider;
+    }
+
+    /**
+     * Create a multimodal provider that takes any number of files, like Gemini.
+     *
+     * @param array $data fields that differ from the defaults.
+     * @return stdClass the provider record.
+     */
+    public static function create_multimodal_provider(array $data = []): stdClass {
+        return self::create_provider(array_merge([
+            'name' => 'Test multimodal',
+            'capability' => \qtype_speakup\ai_provider::CAPABILITY_MULTIMODAL,
+            'uploadstyle' => \qtype_speakup\ai_provider::UPLOAD_INLINE_BASE64,
+            'returnpath' => 'candidates,0,content,parts,0,text',
+            'requesttemplate' => '{"contents": [{"parts": [{{FILE_PARTS}} {"text": "{{RUBRIC}}"}]}]}',
+            'filetemplate' => '{"inline_data": {"mime_type": "{{FILE_MIMETYPE}}", "data": "{{FILE_BASE64}}"}}',
+        ], $data));
     }
 
     /**

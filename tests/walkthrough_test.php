@@ -191,4 +191,78 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->check_output_contains_lang_string('audiopromptnotready', 'qtype_speakup');
         $this->assertStringNotContainsString('qtype_speakup/audioprompt/', $this->currentoutput);
     }
+
+    /**
+     * Image responses show the upload widget, and the pages when reviewed.
+     */
+    public function test_image_response(): void {
+        global $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        // A question in the database, so the attempt can be saved and loaded again.
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $generator->create_question_category();
+        $questiondata = $generator->create_question('speakup', 'image', ['category' => $category->id]);
+        $question = \question_bank::load_question($questiondata->id);
+        $this->start_attempt_at_question($question, 'deferredfeedback', 1);
+
+        $this->render();
+        $this->check_output_contains_lang_string('uploadimage', 'qtype_speakup');
+        $this->check_output_contains_lang_string('maxfilesnote', 'qtype_speakup', 3);
+        $this->assertStringContainsString('application/pdf', $this->currentoutput);
+        $this->assertStringNotContainsString('qtype_speakup-audio-widget', $this->currentoutput);
+
+        $draftid = file_get_unused_draft_itemid();
+        foreach (['01-page.png', '02-page.pdf'] as $filename) {
+            get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
+                    'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
+                    'filename' => $filename], 'content');
+        }
+        $this->process_submission(['recording' => $draftid]);
+        $this->check_current_state(question_state::$complete);
+        $this->finish();
+        // The files are stored when the attempt is saved.
+        $this->save_quba();
+        $this->load_quba();
+        $this->displayoptions->readonly = true;
+
+        $this->render();
+        $this->check_output_contains_lang_string('pagex', 'qtype_speakup', 1);
+        $this->check_output_contains_lang_string('pagex', 'qtype_speakup', 2);
+        $this->assertStringContainsString('01-page.png', $this->currentoutput);
+        $this->assertStringContainsString('<img', $this->currentoutput);
+        $this->assertStringContainsString('qtype_speakup-image-pdf', $this->currentoutput);
+    }
+
+    /**
+     * An image response must be images or PDFs, and no more files than allowed.
+     */
+    public function test_image_response_checks(): void {
+        global $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $question = test_question_maker::make_question('speakup', 'image');
+        $this->start_attempt_at_question($question, 'deferredfeedback', 1);
+
+        $draftid = file_get_unused_draft_itemid();
+        get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
+                'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
+                'filename' => 'notes.txt'], 'Not an image.');
+        $this->process_submission(['recording' => $draftid]);
+        $this->check_current_state(question_state::$invalid);
+        $this->render();
+        $this->check_output_contains_lang_string('notimagefile', 'qtype_speakup');
+
+        $draftid = file_get_unused_draft_itemid();
+        foreach (['01.png', '02.png', '03.png', '04.png'] as $filename) {
+            get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
+                    'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
+                    'filename' => $filename], 'content');
+        }
+        $this->process_submission(['recording' => $draftid]);
+        $this->check_current_state(question_state::$invalid);
+        $this->render();
+        $this->check_output_contains_lang_string('toomanyfiles', 'qtype_speakup', 3);
+    }
 }

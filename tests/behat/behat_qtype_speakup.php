@@ -270,4 +270,22 @@ class behat_qtype_speakup extends behat_base {
             textarea.dispatchEvent(new Event('input', {bubbles: true}));
         })();");
     }
+
+    /**
+     * Upload an image or PDF as a page of an image response.
+     *
+     * @When /^I upload "(?P<filepath>[^"]+)" as a SpeakUp page$/
+     * @param string $filepath relative to Moodle's root directory.
+     */
+    public function i_upload_as_a_speakup_page(string $filepath): void {
+        global $CFG;
+        $count = 'return document.querySelectorAll(".que.speakup .qtype_speakup-image-item").length;';
+        $before = (int) $this->evaluate_script($count);
+        $input = $this->find('css', '.que.speakup .qtype_speakup-image-input');
+        $input->attachFile($CFG->dirroot . '/' . $filepath);
+        $this->spin(function() use ($count, $before) {
+            return (int) $this->evaluate_script($count) > $before;
+        }, [], 60);
+        $this->wait_for_pending_js();
+    }
 }

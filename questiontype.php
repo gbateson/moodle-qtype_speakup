@@ -64,6 +64,10 @@ define('SPEAKUP_PROMPTTRANSCRIPT_EXPANDED', 2);
 define('SPEAKUP_MEDIA_AUDIO', 'audio');
 /** Student records audio + webcam video, e.g. for assessing non-verbal communication too. */
 define('SPEAKUP_MEDIA_VIDEO', 'video');
+/** Student uploads one or more images or PDFs, e.g. scans of handwriting or drawings. */
+define('SPEAKUP_MEDIA_IMAGE', 'image');
+/** The most files a student can upload for an image response. */
+define('SPEAKUP_MAX_IMAGE_FILES', 5);
 
 /** Student records their response live in the browser. */
 define('SPEAKUP_RESPONSE_RECORD', 'record');
@@ -117,6 +121,7 @@ class qtype_speakup extends question_type {
             'maxpromptplays',
             'maxresponses',
             'silencestop',
+            'maxfiles',
         ];
     }
 
@@ -128,6 +133,14 @@ class qtype_speakup extends question_type {
     #[\Override]
     public function save_question_options($question) {
         global $DB;
+
+        // Images (e.g. scans of handwriting) are always uploaded.
+        if (($question->mediatype ?? '') === SPEAKUP_MEDIA_IMAGE) {
+            $question->responsemethod = SPEAKUP_RESPONSE_UPLOAD;
+        }
+        if (isset($question->maxfiles)) {
+            $question->maxfiles = max(1, min(SPEAKUP_MAX_IMAGE_FILES, (int) $question->maxfiles));
+        }
 
         // Without AI assessment, aiproviderid holds the transcription
         // provider, which the question form has in a separate field (see
@@ -440,6 +453,8 @@ class qtype_speakup extends question_type {
             'PLAYS' => 'maxpromptplays',
             'RESPONSES' => 'maxresponses',
             'SILENCE' => 'silencestop',
+            'FILES' => 'maxfiles',
+            'PAGES' => 'maxfiles',
             'TARGETITEM' => 'targetitem',
             'TARGETITEMS' => 'targetitem',
             'ITEM' => 'targetitem',
@@ -577,6 +592,12 @@ class qtype_speakup extends question_type {
             'GRADING' => $o->gradingmethod,
             'FEEDBACK' => $o->feedbackmode,
         ];
+        if ($o->mediatype === SPEAKUP_MEDIA_IMAGE) {
+            // Images are always uploaded, and have no length.
+            unset($settings['TIMELIMIT'], $settings['RESPONSE'], $settings['PAUSE'], $settings['RECORDAFTERPROMPT'],
+                    $settings['MAXRESPONSES'], $settings['SILENCESTOP']);
+            $settings = ['MAXFILES' => (int) ($o->maxfiles ?? 1)] + $settings;
+        }
 
         $providername = '';
         if (!empty($o->aiproviderid)) {
@@ -743,7 +764,9 @@ class qtype_speakup extends question_type {
         $yesno = ['yes' => 1, 'y' => 1, 'true' => 1, 'on' => 1, '1' => 1, 'no' => 0, 'n' => 0, 'false' => 0, 'off' => 0, '0' => 0];
         // Choices from a list.
         $choices = [
-            'mediatype' => [SPEAKUP_MEDIA_AUDIO => SPEAKUP_MEDIA_AUDIO, SPEAKUP_MEDIA_VIDEO => SPEAKUP_MEDIA_VIDEO],
+            'mediatype' => [SPEAKUP_MEDIA_AUDIO => SPEAKUP_MEDIA_AUDIO, SPEAKUP_MEDIA_VIDEO => SPEAKUP_MEDIA_VIDEO,
+                    SPEAKUP_MEDIA_IMAGE => SPEAKUP_MEDIA_IMAGE, 'images' => SPEAKUP_MEDIA_IMAGE,
+                    'handwriting' => SPEAKUP_MEDIA_IMAGE],
             'responsemethod' => [SPEAKUP_RESPONSE_RECORD => SPEAKUP_RESPONSE_RECORD,
                     SPEAKUP_RESPONSE_UPLOAD => SPEAKUP_RESPONSE_UPLOAD],
             'gradingmethod' => [SPEAKUP_GRADING_AUTO => SPEAKUP_GRADING_AUTO, 'automatic' => SPEAKUP_GRADING_AUTO,
@@ -763,6 +786,7 @@ class qtype_speakup extends question_type {
             'maxpromptplays' => [0, 10, null],
             'maxresponses' => [0, 10, null],
             'silencestop' => [0, 15, [0, 2, 3, 4, 5, 7, 10, 15]],
+            'maxfiles' => [1, SPEAKUP_MAX_IMAGE_FILES, null],
         ];
 
         if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats'])) {

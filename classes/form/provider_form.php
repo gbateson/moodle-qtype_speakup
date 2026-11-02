@@ -39,6 +39,23 @@ class provider_form extends \moodleform {
         $mform->addElement('hidden', 'id', 0);
         $mform->setType('id', PARAM_INT);
 
+        // Ready-made settings for common providers. Choosing one fills in
+        // the form (see amd/src/providerpresets.js); it is not saved.
+        global $PAGE;
+        $presets = \qtype_speakup\provider_presets::get_presets();
+        $name = 'preset';
+        $options = ['' => get_string('choosedots')];
+        foreach ($presets as $key => $preset) {
+            $options[$key] = $preset['label'];
+        }
+        // The presets' settings are in a data attribute, being too much to
+        // pass to js_call_amd().
+        $mform->addElement('select', $name, get_string($name, $plugin), $options,
+                ['data-presets' => json_encode($presets)]);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setType($name, PARAM_ALPHANUMEXT);
+        $PAGE->requires->js_call_amd('qtype_speakup/providerpresets', 'init');
+
         $name = 'name';
         $label = get_string($name, $plugin);
         $mform->addElement('text', $name, $label, ['size' => 40]);
@@ -127,6 +144,15 @@ class provider_form extends \moodleform {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->hideIf($name, 'providertype', 'neq', ai_provider::TYPE_EXTERNAL);
 
+        // The JSON for one file, repeated for each file at {{FILE_PARTS}}.
+        $name = 'filetemplate';
+        $label = get_string($name, $plugin);
+        $mform->addElement('textarea', $name, $label, ['rows' => 6, 'style' => 'font-family: monospace;']);
+        $mform->setType($name, PARAM_RAW_TRIMMED);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'providertype', 'neq', ai_provider::TYPE_EXTERNAL);
+        $mform->hideIf($name, 'capability', 'neq', ai_provider::CAPABILITY_MULTIMODAL);
+
         $name = 'uploadstyle';
         $label = get_string($name, $plugin);
         $options = [
@@ -198,17 +224,16 @@ class provider_form extends \moodleform {
                 // Validate as JSON only after substituting placeholder
                 // tokens with harmless dummy values, since the raw
                 // template (e.g. {{TRANSCRIPT}} unquoted) is not valid
-                // JSON by itself.
-                $sample = str_replace(
-                        ['{{RUBRIC}}', '{{TRANSCRIPT}}', '{{MODEL}}', '{{APIKEY}}', '{{AUDIO_BASE64}}', '{{AUDIO_MIMETYPE}}',
-                                '{{AUDIO_FILE_URI}}', '{{TEXT}}', '{{VOICE}}', '{{LANGUAGE}}'],
-                        ['sample rubric', 'sample transcript', 'sample-model', 'sample-key', 'AAAA', 'audio/webm',
-                                'https://example.com/sample-file', 'sample text', 'sample-voice', 'en-US'],
-                        $data['requesttemplate']);
-                json_decode($sample);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    $errors['requesttemplate'] = get_string('err_invalidjson', 'qtype_speakup');
-                } else if ($data['capability'] === ai_provider::CAPABILITY_SPEECH
+                // JSON by itself. {{FILE_PARTS}} is checked both with no
+                // files and with one, since each part ends with a comma.
+                foreach (['', '{"part": 1}, '] as $parts) {
+                    json_decode(self::sample_json($data['requesttemplate'], $parts));
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        $errors['requesttemplate'] = get_string('err_invalidjson', 'qtype_speakup');
+                        break;
+                    }
+                }
+                if (!isset($errors['requesttemplate']) && $data['capability'] === ai_provider::CAPABILITY_SPEECH
                         && strpos($data['requesttemplate'], '{{TEXT}}') === false) {
                     $errors['requesttemplate'] = get_string('err_templateneedstext', 'qtype_speakup');
                 }
@@ -220,9 +245,20 @@ class provider_form extends \moodleform {
             // demanding settings the admin cannot even see.
             if ($data['capability'] === ai_provider::CAPABILITY_MULTIMODAL) {
                 $template = $data['requesttemplate'];
+                $filetemplate = trim($data['filetemplate'] ?? '');
+                $usesparts = (strpos($template, '{{FILE_PARTS}}') !== false);
                 // Don't overwrite a more fundamental template error (empty
                 // or invalid JSON) found above.
                 $templateok = !isset($errors['requesttemplate']);
+
+                if ($filetemplate !== '') {
+                    $decoded = json_decode(self::sample_json($filetemplate, ''), true);
+                    if (!is_array($decoded)) {
+                        $errors['filetemplate'] = get_string('err_invalidjson', 'qtype_speakup');
+                    }
+                } else if ($usesparts) {
+                    $errors['filetemplate'] = get_string('err_filetemplaterequired', 'qtype_speakup');
+                }
 
                 switch ($data['uploadstyle']) {
                     case ai_provider::UPLOAD_REFERENCE:
@@ -232,14 +268,22 @@ class provider_form extends \moodleform {
                         if (trim($data['uploadurl']) === '') {
                             $errors['uploadurl'] = get_string('err_uploadurlrequired', 'qtype_speakup');
                         }
-                        if ($templateok && strpos($template, '{{AUDIO_FILE_URI}}') === false) {
+                        $tokens = ['{{FILE_URI}}', '{{AUDIO_FILE_URI}}'];
+                        if ($templateok && !$usesparts && !self::contains_any($template, $tokens)) {
                             $errors['requesttemplate'] = get_string('err_templateneedsfileuri', 'qtype_speakup');
+                        } else if ($usesparts && $filetemplate !== '' && !isset($errors['filetemplate'])
+                                && !self::contains_any($filetemplate, $tokens)) {
+                            $errors['filetemplate'] = get_string('err_templateneedsfileuri', 'qtype_speakup');
                         }
                         break;
 
                     case ai_provider::UPLOAD_INLINE_BASE64:
-                        if ($templateok && strpos($template, '{{AUDIO_BASE64}}') === false) {
+                        $tokens = ['{{FILE_BASE64}}', '{{AUDIO_BASE64}}'];
+                        if ($templateok && !$usesparts && !self::contains_any($template, $tokens)) {
                             $errors['requesttemplate'] = get_string('err_templateneedsbase64', 'qtype_speakup');
+                        } else if ($usesparts && $filetemplate !== '' && !isset($errors['filetemplate'])
+                                && !self::contains_any($filetemplate, $tokens)) {
+                            $errors['filetemplate'] = get_string('err_templateneedsbase64', 'qtype_speakup');
                         }
                         break;
                 }
@@ -254,5 +298,40 @@ class provider_form extends \moodleform {
         }
 
         return $errors;
+    }
+
+    /**
+     * Substitute sample values for the tokens in a template, to check the JSON.
+     *
+     * @param string $template
+     * @param string $parts the sample value of {{FILE_PARTS}}.
+     * @return string
+     */
+    protected static function sample_json(string $template, string $parts): string {
+        $samples = [
+            '{{RUBRIC}}' => 'sample rubric', '{{TRANSCRIPT}}' => 'sample transcript', '{{MODEL}}' => 'sample-model',
+            '{{APIKEY}}' => 'sample-key', '{{AUDIO_BASE64}}' => 'AAAA', '{{AUDIO_MIMETYPE}}' => 'audio/webm',
+            '{{AUDIO_FILE_URI}}' => 'https://example.com/sample-file', '{{FILE_BASE64}}' => 'AAAA',
+            '{{FILE_MIMETYPE}}' => 'image/png', '{{FILE_URI}}' => 'https://example.com/sample-file',
+            '{{FILE_NAME}}' => 'sample.png', '{{TEXT}}' => 'sample text', '{{VOICE}}' => 'sample-voice',
+            '{{LANGUAGE}}' => 'en-US', '{{FILE_PARTS}}' => $parts,
+        ];
+        return str_replace(array_keys($samples), array_values($samples), $template);
+    }
+
+    /**
+     * Does a text contain any of these tokens?
+     *
+     * @param string $text
+     * @param string[] $tokens
+     * @return bool
+     */
+    protected static function contains_any(string $text, array $tokens): bool {
+        foreach ($tokens as $token) {
+            if (strpos($text, $token) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 }

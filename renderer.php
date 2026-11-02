@@ -100,17 +100,22 @@ class qtype_speakup_renderer extends qtype_renderer {
             // Review: read-only playback widget, no recorder controls.
             // Note: get_response_file_url() already returns a plain string
             // URL, not a moodle_url object - do not call ->out() on it.
-            $recordingurl = $existingfile ? $qa->get_response_file_url($existingfile) : null;
-            // An uploaded file may be audio or video, whatever the question's
-            // media type, so use a player that suits the file itself.
-            $isvideo = ($question->mediatype === SPEAKUP_MEDIA_VIDEO);
-            if ($question->is_upload() && $existingfile) {
-                $isvideo = (strpos($existingfile->get_mimetype(), 'video/') === 0);
+            if ($question->is_image()) {
+                // The pages, in order, each opening full size.
+                $output .= $this->image_pages($qa, $existingfiles);
+            } else {
+                $recordingurl = $existingfile ? $qa->get_response_file_url($existingfile) : null;
+                // An uploaded file may be audio or video, whatever the question's
+                // media type, so use a player that suits the file itself.
+                $isvideo = ($question->mediatype === SPEAKUP_MEDIA_VIDEO);
+                if ($question->is_upload() && $existingfile) {
+                    $isvideo = (strpos($existingfile->get_mimetype(), 'video/') === 0);
+                }
+                $widget = $isvideo
+                        ? new video_playback($filename, $recordingurl, $candownload)
+                        : new audio_playback($filename, $recordingurl, $candownload);
+                $output .= $this->render($widget);
             }
-            $widget = $isvideo
-                    ? new video_playback($filename, $recordingurl, $candownload)
-                    : new audio_playback($filename, $recordingurl, $candownload);
-            $output .= $this->render($widget);
 
             // The transcript the response is graded from: the AI's transcript,
             // if the background task made one, or else the live transcript
@@ -132,7 +137,7 @@ class qtype_speakup_renderer extends qtype_renderer {
             // The length of the recording, if it is needed: getID3 reads it
             // from the file if it can, or else the browser measured it.
             $duration = null;
-            if ($question->needs_duration() || $question->is_upload()) {
+            if ($question->needs_duration() || ($question->is_upload() && !$question->is_image())) {
                 $duration = qtype_speakup_question::best_duration($existingfile, $qa->get_last_qt_var('browserduration'));
             }
 
@@ -190,6 +195,11 @@ class qtype_speakup_renderer extends qtype_renderer {
                 throw new moodle_exception('errornouploadrepo', 'moodle');
             }
             $uploadrepository = reset($repositories); // Get the first (and only) upload repo.
+
+            if ($question->is_image()) {
+                // Image upload widget: up to maxfiles images or PDFs.
+                return $output . $this->image_widget($qa, $question, $options, $draftitemid, (int) $uploadrepository->id);
+            }
 
             if ($question->is_upload()) {
                 // File upload widget, instead of the recorder.
@@ -454,6 +464,75 @@ class qtype_speakup_renderer extends qtype_renderer {
                 [$qa->get_outer_question_div_unique_id(), $settings]);
 
         return $this->render($widget);
+    }
+
+    /**
+     * Show the widget for uploading images or PDFs, e.g. scans of handwriting.
+     *
+     * @param question_attempt $qa
+     * @param qtype_speakup_question $question
+     * @param question_display_options $options
+     * @param int $draftitemid the draft file area to upload to.
+     * @param int $repositoryid id of the "upload" repository.
+     * @return string HTML
+     */
+    protected function image_widget(question_attempt $qa, qtype_speakup_question $question,
+            question_display_options $options, int $draftitemid, int $repositoryid): string {
+        // Any image that Moodle recognises, or a PDF.
+        $extensions = array_values(array_unique(array_merge(file_get_typegroup('extension', ['image']), ['.pdf'])));
+        $maxfiles = $question->get_max_files();
+        $settings = [
+            'uploadRepositoryId' => $repositoryid,
+            'contextId' => $options->context->id,
+            'draftItemId' => $draftitemid,
+            'maxUploadSize' => $question->get_upload_size_limit($options->context),
+            'acceptedTypes' => $extensions,
+            'maxFiles' => $maxfiles,
+        ];
+        $this->page->requires->strings_for_js([
+            'fileuploaded', 'pageremoved', 'pagex', 'removepage', 'removepagex', 'toomanyfiles', 'uploadanotherimage',
+            'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobig', 'uploadwrongtypeimage',
+        ], 'qtype_speakup');
+        $this->page->requires->js_call_amd('qtype_speakup/imageupload', 'init',
+                [$qa->get_outer_question_div_unique_id(), $settings]);
+
+        $notes = ($maxfiles > 1) ? html_writer::div(get_string('maxfilesnote', 'qtype_speakup', $maxfiles),
+                'qtype_speakup-image-notes small text-muted mb-1') : '';
+        return $notes . $this->render_from_template('qtype_speakup/image_uploader', [
+            'accept' => implode(',', array_merge(['image/*', 'application/pdf'], $extensions)),
+            'multiple' => $maxfiles > 1,
+        ]);
+    }
+
+    /**
+     * Show the pages of an image response, in order. Each opens full size.
+     *
+     * @param question_attempt $qa
+     * @param stored_file[] $files
+     * @return string HTML
+     */
+    protected function image_pages(question_attempt $qa, array $files): string {
+        if (!$files) {
+            return html_writer::div(get_string('nofileuploaded', 'qtype_speakup'), 'qtype_speakup-no-recording-placeholder');
+        }
+        $items = '';
+        $number = 0;
+        foreach ($files as $file) {
+            $number++;
+            $label = get_string('pagex', 'qtype_speakup', $number);
+            $url = $qa->get_response_file_url($file);
+            if ($file->get_mimetype() === 'application/pdf') {
+                $content = html_writer::link($url, s(preg_replace('/^\d+-/', '', $file->get_filename())),
+                        ['class' => 'qtype_speakup-image-pdf d-block py-3', 'target' => '_blank', 'rel' => 'noopener']);
+            } else {
+                $content = html_writer::link($url, html_writer::empty_tag('img',
+                        ['src' => $url, 'alt' => $label, 'class' => 'qtype_speakup-image-thumb']),
+                        ['target' => '_blank', 'rel' => 'noopener']);
+            }
+            $items .= html_writer::tag('li', html_writer::div($label, 'small fw-bold') . $content,
+                    ['class' => 'qtype_speakup-image-item card p-1 me-2 mb-2 text-center']);
+        }
+        return html_writer::tag('ol', $items, ['class' => 'qtype_speakup-image-list qtype_speakup-image-pages list-unstyled d-flex flex-wrap my-1']);
     }
 
     /**
