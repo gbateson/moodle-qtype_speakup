@@ -163,18 +163,65 @@ final class generate_audio_prompt_test extends \advanced_testcase {
     }
 
     /**
-     * A failed request throws an exception, so that the task is tried again later.
+     * If the reply is not audio, trying again won't help, so the task ends,
+     * and the person who saved the question is sent a message.
      */
     public function test_execute_failure(): void {
         $this->resetAfterTest();
-        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
         \qtype_speakup_test_helper::allow_any_curl_url();
         \qtype_speakup_test_helper::create_speech_provider();
         $qdata = $this->create_question();
 
         \curl::mock_response('<html>Server error</html>');
-        $this->expectException(\moodle_exception::class);
+        $sink = $this->redirectMessages();
         $this->run_tasks($qdata->id);
+
+        $this->assertSame([], $this->get_prompt_files($qdata));
+        $messages = $sink->get_messages();
+        $this->assertCount(1, $messages);
+        $this->assertEquals($user->id, $messages[0]->useridto);
+        $this->assertSame('audiopromptfailed', $messages[0]->eventtype);
+        $this->assertStringContainsString(get_string('errorttsnotaudio', 'qtype_speakup'), $messages[0]->fullmessage);
+    }
+
+    /**
+     * If the provider cannot be reached, the task fails, so that Moodle
+     * tries it again later, until the last try.
+     */
+    public function test_execute_temporary_failure(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        \qtype_speakup_test_helper::allow_any_curl_url();
+        // Nothing listens on port 1, so the connection is refused.
+        \qtype_speakup_test_helper::create_speech_provider(['url' => 'http://127.0.0.1:1/']);
+        $qdata = $this->create_question();
+        $sink = $this->redirectMessages();
+
+        $tasks = \core\task\manager::get_adhoc_tasks(generate_audio_prompt::class);
+        $this->assertCount(1, $tasks);
+        $task = reset($tasks);
+        $this->assertSame(\qtype_speakup\task_failure::MAX_TRIES, $task->get_attempts_available());
+        ob_start();
+        try {
+            $task->execute();
+            $this->fail('The task should fail, so that it is tried again.');
+        } catch (\qtype_speakup\ai_request_exception $e) {
+            $this->assertTrue($e->temporary);
+        } finally {
+            ob_end_clean();
+        }
+        $this->assertCount(0, $sink->get_messages());
+
+        $task->set_attempts_available(1);
+        ob_start();
+        try {
+            $task->execute();
+        } finally {
+            ob_end_clean();
+        }
+        $this->assertCount(1, $sink->get_messages());
     }
 
     /**

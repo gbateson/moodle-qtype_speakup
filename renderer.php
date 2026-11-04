@@ -202,8 +202,13 @@ class qtype_speakup_renderer extends qtype_renderer {
                     $aifraction = ($question->uses_ai() && $airesponse->aiscore !== null) ? (float) $airesponse->aiscore : null;
                     $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, $aifraction, $qa);
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
-                    $output .= html_writer::tag('div', get_string('aiassessmentfailed', 'qtype_speakup'),
-                            ['class' => 'qtype_speakup-ai-feedback text-danger']);
+                    // Teachers see why; students see that a teacher will grade it.
+                    if ($this->can_see_errors($options) && !empty($airesponse->aierror)) {
+                        $message = get_string('aiassessmentfailedreason', 'qtype_speakup', s($airesponse->aierror));
+                    } else {
+                        $message = get_string('aiassessmentfailed', 'qtype_speakup');
+                    }
+                    $output .= html_writer::tag('div', $message, ['class' => 'qtype_speakup-ai-feedback text-danger']);
                 } else if (!$airesponse && $qa->get_state()->is_graded()) {
                     // Already graded, but with no record of the background
                     // grading, e.g. an attempt restored from a backup (which
@@ -218,6 +223,12 @@ class qtype_speakup_renderer extends qtype_renderer {
                     }
                     $output .= html_writer::tag('div', get_string('aiassessmentpending', 'qtype_speakup'),
                             ['class' => 'qtype_speakup-ai-feedback text-muted']);
+                    if ($airesponse && !empty($airesponse->aierror) && $this->can_see_errors($options)) {
+                        // An earlier try failed, and it will be tried again.
+                        $output .= html_writer::tag('div',
+                                get_string('aiassessmentretrying', 'qtype_speakup', s($airesponse->aierror)),
+                                ['class' => 'qtype_speakup-ai-error text-warning']);
+                    }
                 }
             }
 
@@ -616,6 +627,17 @@ class qtype_speakup_renderer extends qtype_renderer {
             default:
                 return false;
         }
+    }
+
+    /**
+     * Can the current viewer see why background grading failed? Only
+     * teachers, i.e. viewers who can grade quizzes, as in can_show().
+     *
+     * @param question_display_options $options
+     * @return bool
+     */
+    protected function can_see_errors(question_display_options $options): bool {
+        return has_capability('mod/quiz:grade', $options->context);
     }
 
     /**

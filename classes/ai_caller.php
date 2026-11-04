@@ -61,6 +61,12 @@ namespace qtype_speakup;
  */
 class ai_caller {
 
+    /** The longest to wait to connect to a provider, in seconds. */
+    const CONNECT_TIMEOUT = 20;
+
+    /** The longest to wait for a provider's reply, in seconds. */
+    const REQUEST_TIMEOUT = 300;
+
     /**
      * Assess a response, dispatching to core AI or an external provider.
      *
@@ -109,7 +115,7 @@ class ai_caller {
         $response = $manager->process_action($action);
 
         if (!$response->get_success()) {
-            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '', $response->get_errormessage());
+            throw new ai_request_exception((string) $response->get_errormessage(), (int) $response->get_errorcode());
         }
 
         $content = $response->get_response_data()['generatedcontent'] ?? '';
@@ -443,12 +449,16 @@ class ai_caller {
 
         $curl = new \curl();
         $curl->setHeader($headers);
-        $rawresponse = (string) $curl->post($url, $body);
+        // Don't let a request that hangs hold up cron (and the other tasks) for ever.
+        $rawresponse = (string) $curl->post($url, $body, [
+            'CURLOPT_CONNECTTIMEOUT' => self::CONNECT_TIMEOUT,
+            'CURLOPT_TIMEOUT' => self::REQUEST_TIMEOUT,
+        ]);
         $info = $curl->get_info();
 
-        // The request could not be sent, e.g. a blocked URL or no connection.
+        // The request could not be sent, e.g. a blocked URL, no connection, or a timeout.
         if ($curl->get_errno() || (!empty($curl->error) && $rawresponse === $curl->error)) {
-            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '', $curl->error);
+            throw new ai_request_exception(self::hide_key((string) $curl->error, $apikey), 0);
         }
 
         if (!empty($info['http_code']) && $info['http_code'] >= 400) {
@@ -464,9 +474,21 @@ class ai_caller {
                     $detail .= ': ' . $errorbody['error'];
                 }
             }
-            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '', $detail);
+            throw new ai_request_exception(self::hide_key($detail, $apikey), (int) $info['http_code']);
         }
         return $rawresponse;
+    }
+
+    /**
+     * Remove an API key from an error message, since the message is saved,
+     * and shown to teachers.
+     *
+     * @param string $message
+     * @param string $apikey
+     * @return string
+     */
+    protected static function hide_key(string $message, string $apikey): string {
+        return ($apikey === '') ? $message : str_replace($apikey, '********', $message);
     }
 
     /**

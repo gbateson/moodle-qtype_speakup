@@ -474,5 +474,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091160, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091163) {
+        // Why the last try to assess a response failed, for teachers.
+        $table = new xmldb_table('qtype_speakup_response');
+        $field = new xmldb_field('aierror', XMLDB_TYPE_TEXT, null, null, null, null, null, 'aistatus');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091163, 'qtype', 'speakup');
+    }
+
     return true;
 }

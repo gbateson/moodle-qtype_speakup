@@ -119,6 +119,8 @@
         <FIELD NAME="aiscore" TYPE="number" LENGTH="10" DECIMALS="5" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="aistatus" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"
             COMMENT="pending, done, failed, notapplicable"/>
+        <FIELD NAME="aierror" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Why the last try to assess the response failed, if it did. Shown to teachers."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>

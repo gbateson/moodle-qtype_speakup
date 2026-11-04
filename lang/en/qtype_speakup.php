@@ -251,6 +251,24 @@ $string['awaitingtranscription'] = 'Your recording has been received and is bein
 $string['awaitingaiassessment'] = 'Your recording has been transcribed and sent for assessment.';
 $string['aiassessmentpending'] = 'Your response is waiting to be assessed. Your grade and feedback will appear here when they are ready.';
 $string['aiassessmentfailed'] = 'Your response could not be processed. It will be graded manually by your teacher.';
+$string['aiassessmentfailedreason'] = 'The response could not be assessed, so it needs to be graded manually. Reason: {$a}';
+$string['aiassessmentretrying'] = 'Assessing the response failed, and will be tried again later. Reason: {$a}';
+$string['assessmentfailedsubject'] = 'A SpeakUp response could not be assessed';
+$string['assessmentfailedmessage'] = 'The response of {$a->student} to the question "{$a->question}" in the quiz "{$a->quiz}" could not be assessed, so it needs to be graded manually.
+
+Reason: {$a->reason}
+
+Grade it here: {$a->url}';
+$string['assessmentfailedpreviewmessage'] = 'Your preview of the question "{$a->question}" could not be assessed.
+
+Reason: {$a->reason}';
+$string['audiopromptfailedsubject'] = 'A SpeakUp audio prompt could not be generated';
+$string['audiopromptfailedmessage'] = 'The audio prompt of the question "{$a->question}" could not be generated from its transcript. You can record or upload one on the question\'s edit page, or save the question again to try again.
+
+Reason: {$a->reason}';
+$string['gradeitnow'] = 'Grade it now';
+$string['messageprovider:assessmentfailed'] = 'SpeakUp responses that could not be assessed';
+$string['messageprovider:audiopromptfailed'] = 'SpeakUp audio prompts that could not be generated';
 $string['transcript'] = 'Transcript';
 $string['browsertranscript'] = 'Live transcript (from browser speech recognition)';
 $string['phrasesmatched'] = 'Target phrases used: {$a->matched} of {$a->total} ({$a->percent}% of the question grade).';
@@ -434,6 +452,7 @@ $string['errorttsnotaudio'] = 'the speech provider\'s reply was not audio.';
 $string['errorttsnotext'] = 'there is no text.';
 $string['errorttstoolong'] = 'the text is longer than {$a} characters.';
 $string['taskgenerateaudioprompt'] = 'Generate audio prompts from their transcripts';
+$string['taskassessresponse'] = 'Assess SpeakUp responses';
 $string['ttsheading'] = 'Text-to-speech';
 $string['ttsheading_desc'] = 'A speech provider can generate audio prompts from their transcripts, e.g. for questions imported from GIFT, or questions saved with a transcript but no audio prompt. The audio is generated in the background, usually within a few minutes. Speech providers are set up on the "Manage AI providers" page, with the capability "Speech (text-to-speech)".';
 $string['ttsproviderid'] = 'Speech provider';

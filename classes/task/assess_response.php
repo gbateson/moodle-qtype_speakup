@@ -19,6 +19,7 @@ namespace qtype_speakup\task;
 use qtype_speakup\ai_caller;
 use qtype_speakup\ai_provider;
 use qtype_speakup\rubric_placeholders;
+use qtype_speakup\task_failure;
 
 /**
  * Adhoc task: assess one SpeakUp question's response with AI, then post the
@@ -33,11 +34,24 @@ use qtype_speakup\rubric_placeholders;
  * assess), userid and contextid (passed through to the core AI subsystem,
  * if that is the configured provider type).
  *
+ * If assessing fails for a reason that may go away (e.g. no connection, or
+ * the provider is busy), the task fails, and Moodle tries it again later,
+ * up to {@see task_failure::MAX_TRIES} times. Otherwise, or after the last
+ * try, the response is marked as failed, with the reason, which teachers
+ * see when they review it; the teachers are sent a message; and the task
+ * ends without failing, so it is not tried again. Either way, the reason
+ * is written to the task's log.
+ *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assess_response extends \core\task\adhoc_task {
+
+    #[\Override]
+    public function get_name() {
+        return get_string('taskassessresponse', 'qtype_speakup');
+    }
 
     #[\Override]
     public function execute() {
@@ -47,10 +61,22 @@ class assess_response extends \core\task\adhoc_task {
         require_once($CFG->libdir . '/questionlib.php');
 
         $data = $this->get_custom_data();
-        $usageid = $data->usageid;
-        $slot = $data->slot;
+        $usageid = (int) $data->usageid;
+        $slot = (int) $data->slot;
 
+        // The attempt may have been deleted (e.g. with its quiz, or by a
+        // teacher) since this task was queued. Then there is nothing to do,
+        // and trying again would not help.
+        if (!$DB->record_exists('question_usages', ['id' => $usageid])) {
+            mtrace('qtype_speakup: the response at usage ' . $usageid . ' slot ' . $slot .
+                    ' no longer exists (e.g. its attempt was deleted), so it was not assessed.');
+            return;
+        }
         $quba = \question_engine::load_questions_usage_by_activity($usageid);
+        if (!in_array($slot, $quba->get_slots())) {
+            mtrace('qtype_speakup: usage ' . $usageid . ' has no slot ' . $slot . ', so it was not assessed.');
+            return;
+        }
         $qa = $quba->get_question_attempt($slot);
         /** @var \qtype_speakup_question $question */
         $question = $quba->get_question($slot);
@@ -73,7 +99,6 @@ class assess_response extends \core\task\adhoc_task {
             $record->id = $DB->insert_record('qtype_speakup_response', $record);
         }
 
-        $success = false;
         $fraction = null;
         $feedback = '';
         try {
@@ -158,24 +183,41 @@ class assess_response extends \core\task\adhoc_task {
             $record->aifeedback = $feedback;
             $record->aiscore = $aifraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';
-            $success = true;
+            $record->aierror = null;
 
         } catch (\Throwable $e) {
-            // Any failure here (missing/misconfigured provider, network
-            // error, unparseable AI response, etc.) leaves this question
-            // on manual grading rather than propagating the error - the
-            // renderer shows an explicit "AI assessment failed" message
-            // by checking $record->aistatus directly (see renderer.php).
-            mtrace('qtype_speakup: AI assessment failed for usage ' . $usageid . ' slot ' . $slot .
-                    ': ' . $e->getMessage());
+            $reason = task_failure::describe($e);
+            $record->aierror = $reason;
+            $record->timemodified = time();
+
+            if (task_failure::retry($e, $this)) {
+                // E.g. no connection, or the provider is busy. Save the
+                // reason, for teachers, and fail, so that Moodle tries again.
+                $record->aistatus = 'pending';
+                $DB->update_record('qtype_speakup_response', $record);
+                mtrace('qtype_speakup: assessing the response at usage ' . $usageid . ' slot ' . $slot .
+                        ' failed, and will be tried again later (' . ($this->get_attempts_available() - 1) .
+                        ' tries left): ' . $reason);
+                throw $e;
+            }
+
+            // It won't work, or this was the last try. The question stays
+            // as "Needs grading", for a teacher to grade by hand; the
+            // renderer says so, and shows teachers the reason.
             $record->aistatus = 'failed';
+            $DB->update_record('qtype_speakup_response', $record);
+            mtrace('qtype_speakup: the response at usage ' . $usageid . ' slot ' . $slot .
+                    ' could not be assessed, so it needs to be graded manually: ' . $reason);
+            $count = task_failure::notify_assessment_failed($qa, $usageid, $slot, (int) $data->userid, $reason);
+            mtrace('qtype_speakup: ' . $count . ' teacher(s) were sent a message about this.');
+            return;
         }
 
         $record->timemodified = time();
         $DB->update_record('qtype_speakup_response', $record);
 
         // Post the result, unless there is neither a grade nor a comment.
-        if ($success && ($fraction !== null || $feedback !== '')) {
+        if ($fraction !== null || $feedback !== '') {
             // Post the AI's result the same way a human teacher's grading
             // action would - manual_grade() works via process_action(),
             // the same mechanism the grading UI itself uses, so a teacher
@@ -217,11 +259,5 @@ class assess_response extends \core\task\adhoc_task {
                         ' - skipping quiz grade resync.');
             }
         }
-        // On failure, deliberately leave the attempt exactly as it was
-        // (still "not yet graded", via manualgraded behaviour) - the
-        // renderer shows an explicit "AI assessment failed" message by
-        // checking $record->aistatus directly, and a teacher can grade it
-        // manually like any other manualgraded question. No regrade is
-        // needed for that to work correctly.
     }
 }

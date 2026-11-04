@@ -17,6 +17,7 @@
 namespace qtype_speakup\task;
 
 use qtype_speakup\ai_provider;
+use qtype_speakup\task_failure;
 use qtype_speakup\tts;
 
 /**
@@ -26,6 +27,10 @@ use qtype_speakup\tts;
  * It is queued when a question is saved or imported with a transcript but
  * no audio prompt. If, by the time it runs, the question has an audio
  * prompt, or its transcript has changed, it does nothing.
+ *
+ * If the speech provider fails for a reason that may go away (e.g. no
+ * connection), the task fails, and Moodle tries it again later. Otherwise,
+ * or after the last try, the person who saved the question is sent a message.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -57,6 +62,7 @@ class generate_audio_prompt extends \core\task\adhoc_task {
             return false;
         }
         $task = new self();
+        $task->set_attempts_available(\qtype_speakup\task_failure::MAX_TRIES);
         $task->set_custom_data((object) [
             'questionid' => $questionid,
             'contextid' => $contextid,
@@ -123,8 +129,23 @@ class generate_audio_prompt extends \core\task\adhoc_task {
         }
 
         $voice = tts::choose_voice($options->audiopromptvoice ?? '', $options->sttlanguage ?? '');
-        // Any failure throws an exception, so that the task is tried again later.
-        [$audio, $extension, $mimetype] = tts::generate($provider, $transcript, $voice, (string) ($options->sttlanguage ?? ''));
+        try {
+            [$audio, $extension, $mimetype] = tts::generate($provider, $transcript, $voice,
+                    (string) ($options->sttlanguage ?? ''));
+        } catch (\Throwable $e) {
+            $reason = task_failure::describe($e);
+            if (task_failure::retry($e, $this)) {
+                // E.g. no connection, or the provider is busy: fail, so that Moodle tries again.
+                mtrace("Generating the audio prompt of question $questionid failed, and will be tried again later (" .
+                        ($this->get_attempts_available() - 1) . " tries left): $reason");
+                throw $e;
+            }
+            // It won't work, or this was the last try: tell the question's author.
+            mtrace("The audio prompt of question $questionid could not be generated: $reason");
+            $count = task_failure::notify_audio_prompt_failed($questionid, (int) $this->get_userid(), $reason);
+            mtrace("$count person(s) were sent a message about this.");
+            return;
+        }
 
         get_file_storage()->create_file_from_string([
             'contextid' => $contextid,

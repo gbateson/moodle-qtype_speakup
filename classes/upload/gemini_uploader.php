@@ -111,12 +111,16 @@ class gemini_uploader extends uploader {
 
         $curl = new \curl();
         $curl->setHeader($headers);
-        $curl->post($uploadurl, $body);
+        $curl->post($uploadurl, $body, [
+            'CURLOPT_CONNECTTIMEOUT' => \qtype_speakup\ai_caller::CONNECT_TIMEOUT,
+            'CURLOPT_TIMEOUT' => \qtype_speakup\ai_caller::REQUEST_TIMEOUT,
+        ]);
+        self::check_curl_error($curl);
 
         $info = $curl->get_info();
         if (!empty($info['http_code']) && $info['http_code'] >= 400) {
-            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '',
-                    'Gemini upload (start): HTTP ' . $info['http_code']);
+            throw new \qtype_speakup\ai_request_exception(
+                    'Gemini upload (start): HTTP ' . $info['http_code'], (int) $info['http_code']);
         }
 
         $responseheaders = $curl->getResponse();
@@ -146,12 +150,16 @@ class gemini_uploader extends uploader {
 
         $curl = new \curl();
         $curl->setHeader($headers);
-        $rawresponse = $curl->post($sessionurl, $content);
+        $rawresponse = $curl->post($sessionurl, $content, [
+            'CURLOPT_CONNECTTIMEOUT' => \qtype_speakup\ai_caller::CONNECT_TIMEOUT,
+            'CURLOPT_TIMEOUT' => \qtype_speakup\ai_caller::REQUEST_TIMEOUT,
+        ]);
+        self::check_curl_error($curl);
 
         $info = $curl->get_info();
         if (!empty($info['http_code']) && $info['http_code'] >= 400) {
-            throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '',
-                    'Gemini upload (finalize): HTTP ' . $info['http_code']);
+            throw new \qtype_speakup\ai_request_exception(
+                    'Gemini upload (finalize): HTTP ' . $info['http_code'], (int) $info['http_code']);
         }
 
         $decoded = json_decode((string) $rawresponse, true);
@@ -186,17 +194,21 @@ class gemini_uploader extends uploader {
 
         while ($state === 'PROCESSING') {
             if (time() >= $timeout) {
-                throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '',
+                throw new \qtype_speakup\ai_request_exception(
                         'Gemini upload: file was still being processed after ' . self::MAX_WAIT_SECONDS . ' seconds');
             }
             sleep(self::CHECK_INTERVAL_SECONDS);
 
             $curl = new \curl();
-            $rawresponse = $curl->get($checkurl);
+            $rawresponse = $curl->get($checkurl, [], [
+                'CURLOPT_CONNECTTIMEOUT' => \qtype_speakup\ai_caller::CONNECT_TIMEOUT,
+                'CURLOPT_TIMEOUT' => \qtype_speakup\ai_caller::REQUEST_TIMEOUT,
+            ]);
+            self::check_curl_error($curl);
             $info = $curl->get_info();
             if (!empty($info['http_code']) && $info['http_code'] >= 400) {
-                throw new \moodle_exception('erroraiprovider', 'qtype_speakup', '',
-                        'Gemini upload (check state): HTTP ' . $info['http_code']);
+                throw new \qtype_speakup\ai_request_exception(
+                    'Gemini upload (check state): HTTP ' . $info['http_code'], (int) $info['http_code']);
             }
             $decoded = json_decode((string) $rawresponse, true);
             $state = $decoded['state'] ?? '';
@@ -209,5 +221,17 @@ class gemini_uploader extends uploader {
         }
 
         return $fileuri;
+    }
+
+    /**
+     * Throw an exception if a request could not be sent, or got no reply in time.
+     *
+     * @param \curl $curl
+     * @throws \qtype_speakup\ai_request_exception
+     */
+    protected static function check_curl_error(\curl $curl): void {
+        if ($curl->get_errno()) {
+            throw new \qtype_speakup\ai_request_exception('Gemini upload: ' . $curl->error, 0);
+        }
     }
 }

@@ -95,11 +95,13 @@ final class assess_response_test extends \advanced_testcase {
      *
      * @param int $usageid
      * @param int $slot
+     * @param int $tries how many tries are left, including this one.
      * @return \question_attempt the attempt, reloaded.
      */
-    protected function assess(int $usageid, int $slot): \question_attempt {
+    protected function assess(int $usageid, int $slot, int $tries = 1): \question_attempt {
         global $USER;
         $task = new assess_response();
+        $task->set_attempts_available($tries);
         $task->set_custom_data(['usageid' => $usageid, 'slot' => $slot, 'userid' => $USER->id,
                 'contextid' => \context_system::instance()->id]);
         ob_start();
@@ -174,20 +176,145 @@ final class assess_response_test extends \advanced_testcase {
     }
 
     /**
-     * If the AI's reply cannot be used, the attempt is left for a teacher to grade.
+     * If the AI's reply cannot be used, even on the last try, the attempt is
+     * left for a teacher to grade, with the reason, and the person
+     * previewing is sent a message.
      */
     public function test_ai_failure(): void {
-        $this->setUser($this->getDataGenerator()->create_user());
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
         $provider = \qtype_speakup_test_helper::create_provider();
         $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
         [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
 
         self::mock_chat_reply('I cannot score this.');
-        $qa = $this->assess($usageid, $slot);
+        $sink = $this->redirectMessages();
+        $qa = $this->assess($usageid, $slot, 1);
 
         $this->assertNull($qa->get_mark());
         $this->assertSame('needsgrading', $qa->get_state()->__toString());
+        $record = $this->get_record($qa);
+        $this->assertSame('failed', $record->aistatus);
+        $this->assertSame(get_string('erroraiscoreunparseable', 'qtype_speakup'), $record->aierror);
+
+        $messages = $sink->get_messages();
+        $this->assertCount(1, $messages);
+        $this->assertEquals($user->id, $messages[0]->useridto);
+        $this->assertSame('assessmentfailed', $messages[0]->eventtype);
+        $this->assertStringContainsString($record->aierror, $messages[0]->fullmessage);
+    }
+
+    /**
+     * If the provider cannot be reached, and there are tries left, the task
+     * fails, so that Moodle tries it again later. The reason is saved, and
+     * no one is sent a message yet.
+     */
+    public function test_temporary_failure(): void {
+        $this->setUser($this->getDataGenerator()->create_user());
+        // Nothing listens on port 1, so the connection is refused.
+        $provider = \qtype_speakup_test_helper::create_provider(['url' => 'http://127.0.0.1:1/']);
+        $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+
+        $sink = $this->redirectMessages();
+        try {
+            $this->assess($usageid, $slot, 5);
+            $this->fail('The task should fail, so that it is tried again.');
+        } catch (\qtype_speakup\ai_request_exception $e) {
+            $this->assertTrue($e->temporary);
+        }
+        $quba = question_engine::load_questions_usage_by_activity($usageid);
+        $record = $this->get_record($quba->get_question_attempt($slot));
+        $this->assertSame('pending', $record->aistatus);
+        $this->assertNotEmpty($record->aierror);
+        $this->assertCount(0, $sink->get_messages());
+
+        // On the last try, it gives up.
+        $qa = $this->assess($usageid, $slot, 1);
         $this->assertSame('failed', $this->get_record($qa)->aistatus);
+        $this->assertCount(1, $sink->get_messages());
+    }
+
+    /**
+     * An error that won't go away (e.g. the provider was deleted) is not
+     * tried again, even if there are tries left.
+     */
+    public function test_permanent_failure(): void {
+        $this->setUser($this->getDataGenerator()->create_user());
+        $provider = \qtype_speakup_test_helper::create_provider();
+        $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        \qtype_speakup\ai_provider::delete($provider->id);
+
+        $sink = $this->redirectMessages();
+        $qa = $this->assess($usageid, $slot, 5);
+
+        $record = $this->get_record($qa);
+        $this->assertSame('failed', $record->aistatus);
+        $this->assertSame(get_string('errorproviderconfig', 'qtype_speakup'), $record->aierror);
+        $this->assertCount(1, $sink->get_messages());
+    }
+
+    /**
+     * Some HTTP errors may go away (e.g. the provider is busy), and others
+     * won't (e.g. a wrong API key).
+     */
+    public function test_temporary_errors(): void {
+        $this->assertTrue((new \qtype_speakup\ai_request_exception('No connection'))->temporary);
+        $this->assertTrue((new \qtype_speakup\ai_request_exception('HTTP 429', 429))->temporary);
+        $this->assertTrue((new \qtype_speakup\ai_request_exception('HTTP 503', 503))->temporary);
+        $this->assertFalse((new \qtype_speakup\ai_request_exception('HTTP 401', 401))->temporary);
+        $this->assertFalse((new \qtype_speakup\ai_request_exception('HTTP 404', 404))->temporary);
+        $this->assertTrue(\qtype_speakup\ai_request_exception::is_temporary(
+                new \moodle_exception('erroraiproviderresponse', 'qtype_speakup')));
+        $this->assertFalse(\qtype_speakup\ai_request_exception::is_temporary(
+                new \moodle_exception('errorproviderconfig', 'qtype_speakup')));
+        $this->assertFalse(\qtype_speakup\ai_request_exception::is_temporary(new \coding_exception('Oops')));
+    }
+
+    /**
+     * If the attempt was deleted after the task was queued, the task ends
+     * quietly, rather than failing again and again.
+     */
+    public function test_deleted_attempt(): void {
+        $this->setUser($this->getDataGenerator()->create_user());
+        $questionid = $this->create_question('basic', ['aiassessment' => 1]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        question_engine::delete_questions_usage_by_activity($usageid);
+
+        $task = new assess_response();
+        $task->set_custom_data(['usageid' => $usageid, 'slot' => $slot, 'userid' => 0,
+                'contextid' => \context_system::instance()->id]);
+        $this->expectOutputRegex('/no longer exists/');
+        $task->execute();
+    }
+
+    /**
+     * Teachers see why a response could not be assessed; students see that
+     * a teacher will grade it.
+     */
+    public function test_failure_shown(): void {
+        $student = $this->getDataGenerator()->create_user();
+        $this->setUser($student);
+        $provider = \qtype_speakup_test_helper::create_provider();
+        $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        self::mock_chat_reply('I cannot score this.');
+        $this->redirectMessages();
+        $this->assess($usageid, $slot, 1);
+
+        $quba = question_engine::load_questions_usage_by_activity($usageid);
+        $options = new \question_display_options();
+        $options->context = \context_system::instance();
+        $reason = get_string('erroraiscoreunparseable', 'qtype_speakup');
+
+        $html = $quba->render_question($slot, $options);
+        $this->assertStringContainsString(get_string('aiassessmentfailed', 'qtype_speakup'), $html);
+        $this->assertStringNotContainsString($reason, $html);
+
+        $this->setAdminUser();
+        $html = $quba->render_question($slot, $options);
+        $this->assertStringContainsString(s($reason), $html);
     }
 
     /**

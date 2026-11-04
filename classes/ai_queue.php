@@ -42,6 +42,7 @@ class ai_queue {
      */
     public static function queue(int $usageid, int $slot, int $userid, int $contextid): void {
         $task = new task\assess_response();
+        $task->set_attempts_available(task_failure::MAX_TRIES);
         $task->set_custom_data([
             'usageid' => $usageid,
             'slot' => $slot,
