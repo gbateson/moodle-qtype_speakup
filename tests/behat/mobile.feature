@@ -22,12 +22,16 @@ Feature: SpeakUp questions in the Moodle app
     And the following "questions" exist:
       | questioncategory | qtype   | name        | template | recordafterprompt | maxpromptplays | maxresponses |
       | Test questions   | speakup | speakup-001 | prompt   | 0                 | 0              | 0            |
+    And the following "questions" exist:
+      | questioncategory | qtype   | name          | template | mediatype |
+      | Test questions   | speakup | speakup-video | basic    | video     |
     And the following "activities" exist:
       | activity | name   | course | idnumber |
       | quiz     | Quiz 1 | C1     | quiz1    |
     And quiz "Quiz 1" contains the following questions:
-      | question    | page |
-      | speakup-001 | 1    |
+      | question      | page |
+      | speakup-001   | 1    |
+      | speakup-video | 2    |
     And the following "qtype_speakup > audio prompts" exist:
       | question    |
       | speakup-001 |
@@ -90,5 +94,22 @@ Feature: SpeakUp questions in the Moodle app
     And the SpeakUp recorder should be "recording"
     And I wait "2" seconds
     And I click on "button.qtype_speakup-main-button" "css_element"
+    And I wait until the SpeakUp recording is uploaded
+    And nothing in the SpeakUp question should be wider than the window
+
+  @javascript
+  Scenario: On a phone in portrait, the video recorder and player fit the screen
+    Given I change viewport size to "360x640"
+    When I open the SpeakUp app response page for "speakup-video" in quiz "Quiz 1" attempted by "student" with a key for "student"
+    Then nothing in the SpeakUp question should be wider than the window
+    And the Moodle app gives the SpeakUp response page a token for "student"
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And the SpeakUp recorder should be "starting"
+    And nothing in the SpeakUp question should be wider than the window
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And the SpeakUp recorder should be "recording"
+    And nothing in the SpeakUp question should be wider than the window
+    And I wait "2" seconds
+    And I click on "button.qtype_speakup-stop-button" "css_element"
     And I wait until the SpeakUp recording is uploaded
     And nothing in the SpeakUp question should be wider than the window

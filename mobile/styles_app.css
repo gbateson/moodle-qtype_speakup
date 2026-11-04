@@ -43,3 +43,16 @@
     flex: 1 1 12em;
     min-width: 0;
 }
+
+/* Video players fit the screen too. */
+.qtype-speakup-container .qtype_speakup-video-widget {
+    display: flex;
+    flex-direction: column;
+    width: 100% !important;
+    max-width: 100%;
+}
+.qtype-speakup-container video {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+}

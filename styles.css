@@ -39,7 +39,28 @@
     padding-bottom: 0.5rem;
 }
 
-/* Styles for video widgets. */
+/* Styles for video widgets: they fit narrow screens, e.g. a phone in portrait. */
+.que.speakup .qtype_speakup-video-widget {
+    max-width: 100%;
+    min-width: 0;
+}
+.que.speakup .qtype_speakup-video-widget > * {
+    max-width: 100%;
+    min-width: 0;
+}
+.que.speakup video {
+    max-width: 100%;
+    height: auto;
+}
+/* The timer, pause and stop buttons wrap onto two lines if need be. */
+.que.speakup .qtype_speakup-video-widget .qtype_speakup-control-row {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+}
+.que.speakup .qtype_speakup-video-widget .qtype_speakup-time-left {
+    flex: 1 1 8em;
+    min-width: 0;
+}
 .que.speakup .qtype_speakup-ratio-16x9 .qtype_speakup-no-recording-placeholder {
     padding: calc(28.125% - 10.5px) 0;
 }
@@ -221,6 +242,7 @@ body.qtype_speakup-mobile-response .que.speakup {
     max-width: 100%;
     min-width: 0;
 }
-body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-audio-widget {
+body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-audio-widget,
+body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-video-widget {
     width: 100%;
 }

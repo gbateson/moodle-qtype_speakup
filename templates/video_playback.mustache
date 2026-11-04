@@ -40,10 +40,10 @@
     }
 }}
 <span class="qtype_speakup-video-widget qtype_speakup-ratio-{{aspectratio}} d-flex flex-column mw-100"
-        style="width: {{width}}px" data-error-message="{{#str}}err_compatibility, qtype_speakup{{/str}}">
+        style="width: 100%; max-width: {{width}}px" data-error-message="{{#str}}err_compatibility, qtype_speakup{{/str}}">
     {{#hasrecording}}
         <span class="qtype_speakup-media-player">
-            <video controls class="w-100 d-none"{{^candownload}} oncontextmenu="return false;" controlsList=" nodownload"{{/candownload}}
+            <video playsinline controls class="w-100 d-none"{{^candownload}} oncontextmenu="return false;" controlsList=" nodownload"{{/candownload}}
                    data-source="{{recordingurl}}">
             </video>
         </span>
