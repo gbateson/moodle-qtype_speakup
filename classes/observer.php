@@ -25,6 +25,9 @@ namespace qtype_speakup;
  * attempt_submitted event and scans the attempt for any SpeakUp questions
  * using AI grading with a real recording to assess.
  *
+ * It also removes queued background tasks that are no longer needed,
+ * when attempts, quizzes, courses or questions are deleted.
+ *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -61,5 +64,46 @@ class observer {
 
             ai_queue::queue((int) $attempt->uniqueid, (int) $slot, (int) $attempt->userid, (int) $event->contextid);
         }
+    }
+
+    /**
+     * Remove the tasks for a quiz attempt that was deleted.
+     *
+     * @param \mod_quiz\event\attempt_deleted $event
+     */
+    public static function quiz_attempt_deleted(\mod_quiz\event\attempt_deleted $event): void {
+        try {
+            $attempt = $event->get_record_snapshot('quiz_attempts', $event->objectid);
+        } catch (\Throwable $e) {
+            $attempt = null;
+        }
+        if ($attempt && !empty($attempt->uniqueid)) {
+            task_cleanup::remove_assessments((int) $attempt->uniqueid);
+        } else {
+            task_cleanup::remove_orphans();
+        }
+    }
+
+    /**
+     * Remove the tasks for attempts or questions that no longer exist, after
+     * an activity was deleted (e.g. a quiz, with its attempts), or a course
+     * was reset or deleted.
+     *
+     * @param \core\event\base $event
+     */
+    public static function remove_orphaned_tasks(\core\event\base $event): void {
+        if ($event instanceof \core\event\course_module_deleted && ($event->other['modulename'] ?? '') !== 'quiz') {
+            return;
+        }
+        task_cleanup::remove_orphans();
+    }
+
+    /**
+     * Remove the tasks for a question that was deleted.
+     *
+     * @param \core\event\question_deleted $event
+     */
+    public static function question_deleted(\core\event\question_deleted $event): void {
+        task_cleanup::remove_audio_prompts((int) $event->objectid);
     }
 }

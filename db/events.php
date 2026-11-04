@@ -29,4 +29,25 @@ $observers = [
         'eventname' => '\mod_quiz\event\attempt_submitted',
         'callback' => '\qtype_speakup\observer::quiz_attempt_submitted',
     ],
+    // Remove background tasks that are no longer needed.
+    [
+        'eventname' => '\mod_quiz\event\attempt_deleted',
+        'callback' => '\qtype_speakup\observer::quiz_attempt_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_module_deleted',
+        'callback' => '\qtype_speakup\observer::remove_orphaned_tasks',
+    ],
+    [
+        'eventname' => '\core\event\course_reset_ended',
+        'callback' => '\qtype_speakup\observer::remove_orphaned_tasks',
+    ],
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => '\qtype_speakup\observer::remove_orphaned_tasks',
+    ],
+    [
+        'eventname' => '\core\event\question_deleted',
+        'callback' => '\qtype_speakup\observer::question_deleted',
+    ],
 ];

@@ -16,14 +16,11 @@
 
 namespace qtype_speakup;
 
-use mod_quiz\quiz_settings;
-use question_engine;
-
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->libdir . '/questionlib.php');
-require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
 
 /**
  * Tests for telling teachers about background tasks that failed.
@@ -51,16 +48,10 @@ final class task_failure_test extends \advanced_testcase {
         $questiongenerator = $generator->get_plugin_generator('core_question');
         $category = $questiongenerator->create_question_category(['contextid' => \context_course::instance($course->id)->id]);
         $question = $questiongenerator->create_question('speakup', 'basic', ['category' => $category->id, 'name' => 'Guitar']);
-        quiz_add_quiz_question($question->id, $quiz, 0, 1);
-        quiz_settings::create($quiz->id)->get_grade_calculator()->recompute_quiz_sumgrades();
+        \qtype_speakup_test_helper::add_to_quiz($question->id, $quiz);
 
         $this->setUser($student);
-        $quizobj = quiz_settings::create($quiz->id, $student->id);
-        $quba = question_engine::make_questions_usage_by_activity('mod_quiz', $quizobj->get_context());
-        $quba->set_preferred_behaviour($quizobj->get_quiz()->preferredbehaviour);
-        $attempt = quiz_create_attempt($quizobj, 1, null, time(), false, $student->id);
-        quiz_start_new_attempt($quizobj, $quba, $attempt, 1, time());
-        quiz_attempt_save_started($quizobj, $quba, $attempt);
+        [$attempt, $quba] = \qtype_speakup_test_helper::start_quiz_attempt($quiz, $student);
 
         $sink = $this->redirectMessages();
         $count = task_failure::notify_assessment_failed($quba->get_question_attempt(1), $quba->get_id(), 1,

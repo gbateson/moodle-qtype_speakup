@@ -381,6 +381,39 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Start a quiz attempt, as a user.
+     *
+     * @param stdClass $quiz a quiz with at least one question.
+     * @param stdClass $user
+     * @return array [the quiz_attempts record, the question usage]
+     */
+    public static function start_quiz_attempt(stdClass $quiz, stdClass $user): array {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        $quizobj = \mod_quiz\quiz_settings::create($quiz->id, $user->id);
+        $quba = question_engine::make_questions_usage_by_activity('mod_quiz', $quizobj->get_context());
+        $quba->set_preferred_behaviour($quizobj->get_quiz()->preferredbehaviour);
+        $attemptnumber = 1 + count(quiz_get_user_attempts($quiz->id, $user->id, 'all', true));
+        $attempt = quiz_create_attempt($quizobj, $attemptnumber, null, time(), false, $user->id);
+        quiz_start_new_attempt($quizobj, $quba, $attempt, $attemptnumber, time());
+        quiz_attempt_save_started($quizobj, $quba, $attempt);
+        return [$attempt, $quba];
+    }
+
+    /**
+     * Add a question to a quiz, with a mark of 1.
+     *
+     * @param int $questionid
+     * @param stdClass $quiz
+     */
+    public static function add_to_quiz(int $questionid, stdClass $quiz): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        quiz_add_quiz_question($questionid, $quiz, 0, 1);
+        \mod_quiz\quiz_settings::create($quiz->id)->get_grade_calculator()->recompute_quiz_sumgrades();
+    }
+
+    /**
      * Turn off Moodle's checks of curl URLs, so that mocked responses work
      * for any test URL.
      */
