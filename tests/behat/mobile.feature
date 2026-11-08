@@ -25,6 +25,9 @@ Feature: SpeakUp questions in the Moodle app
     And the following "questions" exist:
       | questioncategory | qtype   | name          | template | mediatype |
       | Test questions   | speakup | speakup-video | basic    | video     |
+    And the following "questions" exist:
+      | questioncategory | qtype   | name          | template | gradingmethod | maxfiles |
+      | Test questions   | speakup | speakup-image | image    | manual        | 2        |
     And the following "activities" exist:
       | activity | name   | course | idnumber |
       | quiz     | Quiz 1 | C1     | quiz1    |
@@ -32,6 +35,7 @@ Feature: SpeakUp questions in the Moodle app
       | question      | page |
       | speakup-001   | 1    |
       | speakup-video | 2    |
+      | speakup-image | 3    |
     And the following "qtype_speakup > audio prompts" exist:
       | question    |
       | speakup-001 |
@@ -112,4 +116,24 @@ Feature: SpeakUp questions in the Moodle app
     And I wait "2" seconds
     And I click on "button.qtype_speakup-stop-button" "css_element"
     And I wait until the SpeakUp recording is uploaded
+    And nothing in the SpeakUp question should be wider than the window
+
+  @javascript @_file_upload
+  Scenario: Students upload pages of an image response with the app's token
+    When I open the SpeakUp app response page for "speakup-image" in quiz "Quiz 1" attempted by "student" with a key for "student"
+    Then I should see "No file uploaded."
+    And the Moodle app gives the SpeakUp response page a token for "student"
+    And I upload "question/type/speakup/tests/fixtures/handwriting.png" as a SpeakUp page
+    And I should see "Page 1"
+    And I should see "Upload another page"
+    # The page has no session, so its picture is loaded with the app's token.
+    # (Its picture is not checked, nor is rotating it, since in Moodle 4.5
+    # webservice/draftfile.php gives a PHP warning, which Behat treats as an
+    # error. On a real site, the warning is not shown.)
+    And "img.qtype_speakup-image-thumb[src*='/webservice/draftfile.php/'][src*='token=']" "css_element" should exist
+    And "img.qtype_speakup-image-thumb[src*='01-handwriting.png']" "css_element" should exist
+    And "Rotate page 1 right" "button" should exist
+    And I click on "Remove page 1" "button"
+    And I should see "Page removed."
+    And I should see "No file uploaded."
     And nothing in the SpeakUp question should be wider than the window

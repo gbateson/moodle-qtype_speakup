@@ -31,7 +31,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {deleteFile, getExtension, listFiles, uploadFile} from 'qtype_speakup/draftfiles';
+import {deleteFile, getExtension, getToken, listFiles, uploadFile} from 'qtype_speakup/draftfiles';
 
 /** Image types that can be made smaller or rotated. (Not GIF, which may be animated, or SVG.) */
 const SHRINKABLE = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/heic', 'image/heif'];
@@ -102,6 +102,9 @@ export const init = (questionId, settings) => {
      * Show the files in the draft area, in order.
      */
     async function refresh() {
+        // In the Moodle app's frame, the files can only be listed once the
+        // app has sent its token, which may take a moment.
+        await getToken();
         M.util.js_pending(pendingKey + '-list');
         try {
             files = (await listFiles(settings.draftItemId)).sort((a, b) => a.filename.localeCompare(b.filename));
