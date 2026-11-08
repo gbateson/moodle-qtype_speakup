@@ -5,8 +5,9 @@
  * class prefix renamed from qtype_recordrtc- to qtype_speakup- throughout.
  */
 
-/* Styles for audio widgets. */
-.que.speakup .qtype_speakup-audio-widget {
+/* Styles for audio widgets, in the question and in the audio prompt on the question form. */
+.que.speakup .qtype_speakup-audio-widget,
+.qtype_speakup-audioprompt-editor .qtype_speakup-audio-widget {
     width: 26em;
     max-width: 100%;
     /* On narrow screens (e.g. a phone in portrait), the button moves below the player. */
@@ -17,7 +18,10 @@
 /* Let the player, and the placeholder and timer it replaces, shrink to fit narrow screens. */
 .que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player,
 .que.speakup .qtype_speakup-audio-widget .qtype_speakup-no-recording-placeholder,
-.que.speakup .qtype_speakup-audio-widget .qtype_speakup-time-left {
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-time-left,
+.qtype_speakup-audioprompt-editor .qtype_speakup-media-player,
+.qtype_speakup-audioprompt-editor .qtype_speakup-no-recording-placeholder,
+.qtype_speakup-audioprompt-editor .qtype_speakup-time-left {
     flex: 1 1 12em;
     min-width: 0;
 }
@@ -26,7 +30,9 @@
 }
 
 .que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player,
-.que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player audio {
+.que.speakup .qtype_speakup-audio-widget .qtype_speakup-media-player audio,
+.qtype_speakup-audioprompt-editor .qtype_speakup-media-player,
+.qtype_speakup-audioprompt-editor .qtype_speakup-media-player audio {
     max-height: 36px;
 }
 

@@ -106,3 +106,13 @@ Feature: Test editing a SpeakUp question
     Then the focused element is "id_phrasematch_3" "field"
     And I press "id_itemadd"
     And the focused element is "id_itemcount_1" "field"
+
+  @javascript
+  Scenario: The audio prompt can be played on the question form
+    Given the following "qtype_speakup > audio prompts" exist:
+      | question    |
+      | speakup-002 |
+    When I am on the "speakup-002" "core_question > edit" page logged in as teacher
+    Then ".qtype_speakup-audioprompt-editor audio" "css_element" should be visible
+    And the ".qtype_speakup-audioprompt-editor audio" "css_element" should be wider than 200 pixels
+    And "Delete" "button" in the "#fitem_id_audiopromptwidget" "css_element" should be visible

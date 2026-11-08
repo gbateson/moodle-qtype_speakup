@@ -228,27 +228,31 @@ class behat_qtype_speakup extends behat_base {
     }
 
     /**
-     * Check the height of an element, e.g. to check an editor grows to fit its content.
+     * Check the size of an element, e.g. to check an editor grows to fit its
+     * content, or a player is wide enough to use.
      *
-     * @Then /^the "(?P<selector>(?:[^"]|\\")*)" "css_element" should be (?P<comparison>taller|shorter) than (?P<pixels>\d+) pixels$/
+     * @Then /^the "(?P<selector>(?:[^"]|\\")*)" "css_element" should be (?P<comparison>taller|shorter|wider|narrower) than (?P<pixels>\d+) pixels$/
      * @param string $selector CSS selector.
-     * @param string $comparison "taller" or "shorter".
+     * @param string $comparison "taller", "shorter", "wider" or "narrower".
      * @param int $pixels
      */
-    public function the_element_should_be_taller_than(string $selector, string $comparison, int $pixels): void {
+    public function the_element_size_should_be(string $selector, string $comparison, int $pixels): void {
         $selector = json_encode(str_replace('\\"', '"', $selector));
-        $this->spin(function() use ($selector, $comparison, $pixels) {
-            $height = $this->evaluate_script("return (function() {
+        $dimension = in_array($comparison, ['taller', 'shorter']) ? 'height' : 'width';
+        $bigger = in_array($comparison, ['taller', 'wider']);
+        $this->spin(function() use ($selector, $comparison, $pixels, $dimension, $bigger) {
+            $size = $this->evaluate_script("return (function() {
                 const element = document.querySelector($selector);
-                return element ? element.getBoundingClientRect().height : -1;
+                return element ? element.getBoundingClientRect().$dimension : -1;
             })();");
-            if ($height < 0) {
+            if ($size < 0) {
                 throw new ExpectationException("There is no element $selector.", $this->getSession());
             }
-            if (($comparison === 'taller') ? ($height > $pixels) : ($height < $pixels)) {
+            if ($bigger ? ($size > $pixels) : ($size < $pixels)) {
                 return true;
             }
-            throw new ExpectationException("$selector is {$height}px tall, not $comparison than {$pixels}px.",
+            $adjective = ($dimension === 'height') ? 'tall' : 'wide';
+            throw new ExpectationException("$selector is {$size}px $adjective, not $comparison than {$pixels}px.",
                     $this->getSession());
         }, [], 10);
     }
