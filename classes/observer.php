@@ -106,5 +106,8 @@ class observer {
      */
     public static function question_deleted(\core\event\question_deleted $event): void {
         task_cleanup::remove_audio_prompts((int) $event->objectid);
+        // Its previews should be deleted with it, but are not (in Moodle 4.5),
+        // so remove the tasks for responses that can no longer be loaded.
+        task_cleanup::remove_orphans();
     }
 }

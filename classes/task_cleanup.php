@@ -62,6 +62,34 @@ class task_cleanup {
     }
 
     /**
+     * Can a response still be loaded, to be assessed or have its files made
+     * smaller? Its question usage, its slot, and the questions in the usage
+     * must all still exist.
+     *
+     * Moodle core should delete a question's previews with the question,
+     * but in Moodle 4.5 it does not, so a preview can outlive its question.
+     * Such a usage cannot be loaded.
+     *
+     * @param int $usageid
+     * @param int $slot
+     * @return bool
+     */
+    public static function response_exists(int $usageid, int $slot): bool {
+        global $DB;
+        $exists = $DB->record_exists_sql('
+                SELECT 1
+                  FROM {question_attempts} qa
+                  JOIN {question} q ON q.id = qa.questionid
+                 WHERE qa.questionusageid = ? AND qa.slot = ?', [$usageid, $slot]);
+        $missing = $DB->record_exists_sql('
+                SELECT 1
+                  FROM {question_attempts} qa
+             LEFT JOIN {question} q ON q.id = qa.questionid
+                 WHERE qa.questionusageid = ? AND q.id IS NULL', [$usageid]);
+        return $exists && !$missing;
+    }
+
+    /**
      * Remove the tasks whose question usage or question no longer exists,
      * e.g. after many attempts or questions were deleted at once.
      *
@@ -69,8 +97,8 @@ class task_cleanup {
      */
     public static function remove_orphans(): int {
         global $DB;
-        $nousage = function(\stdClass $data) use ($DB): bool {
-            return !$DB->record_exists('question_usages', ['id' => (int) ($data->usageid ?? 0)]);
+        $nousage = function(\stdClass $data): bool {
+            return !self::response_exists((int) ($data->usageid ?? 0), (int) ($data->slot ?? 0));
         };
         $count = self::remove(assess_response::class, $nousage) + self::remove(reduce_response_files::class, $nousage);
         $count += self::remove(generate_audio_prompt::class, function(\stdClass $data) use ($DB): bool {

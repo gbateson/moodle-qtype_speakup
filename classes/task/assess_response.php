@@ -66,11 +66,11 @@ class assess_response extends \core\task\adhoc_task {
         $slot = (int) $data->slot;
 
         // The attempt may have been deleted (e.g. with its quiz, or by a
-        // teacher) since this task was queued. Then there is nothing to do,
-        // and trying again would not help.
-        if (!$DB->record_exists('question_usages', ['id' => $usageid])) {
+        // teacher), or the question of a preview, since this task was queued.
+        // Then there is nothing to do, and trying again would not help.
+        if (!\qtype_speakup\task_cleanup::response_exists($usageid, $slot)) {
             mtrace('qtype_speakup: the response at usage ' . $usageid . ' slot ' . $slot .
-                    ' no longer exists (e.g. its attempt was deleted), so it was not assessed.');
+                    ' no longer exists (e.g. its attempt, or the question of a preview, was deleted), so it was not assessed.');
             return;
         }
         $quba = \question_engine::load_questions_usage_by_activity($usageid);

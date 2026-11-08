@@ -152,6 +152,31 @@ final class task_cleanup_test extends \advanced_testcase {
     }
 
     /**
+     * Deleting a question removes the tasks for its previews, which Moodle
+     * 4.5 does not delete with it, but not the tasks for other responses.
+     */
+    public function test_preview_question_deleted(): void {
+        $attempt = $this->attempt_and_queue();
+
+        /** @var \core_question_generator $questiongenerator */
+        $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $questiongenerator->create_question_category();
+        $question = $questiongenerator->create_question('speakup', 'basic', ['category' => $category->id]);
+        $quba = \question_engine::make_questions_usage_by_activity('core_question_preview', \context_system::instance());
+        $quba->set_preferred_behaviour('deferredfeedback');
+        $slot = $quba->add_question(\question_bank::load_question($question->id), 1);
+        $quba->start_all_questions();
+        \question_engine::save_questions_usage_by_activity($quba);
+        ai_queue::queue((int) $quba->get_id(), $slot, 0, \context_system::instance()->id);
+        $this->assertSame([(int) $attempt->uniqueid, (int) $quba->get_id()], $this->queued_usages());
+
+        question_delete_question($question->id);
+        $this->assertFalse(task_cleanup::response_exists((int) $quba->get_id(), $slot));
+        $this->assertTrue(task_cleanup::response_exists((int) $attempt->uniqueid, 1));
+        $this->assertSame([(int) $attempt->uniqueid], $this->queued_usages());
+    }
+
+    /**
      * A task that is already running is left alone.
      */
     public function test_running_task_kept(): void {

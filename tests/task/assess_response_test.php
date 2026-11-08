@@ -290,6 +290,24 @@ final class assess_response_test extends \advanced_testcase {
     }
 
     /**
+     * If the question of a preview was deleted after the task was queued,
+     * the task ends quietly. (Moodle 4.5 does not delete the preview with
+     * its question, and the preview can no longer be loaded.)
+     */
+    public function test_deleted_preview_question(): void {
+        $this->setUser($this->getDataGenerator()->create_user());
+        $questionid = $this->create_question('basic', ['aiassessment' => 1]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        question_delete_question($questionid);
+
+        $task = new assess_response();
+        $task->set_custom_data(['usageid' => $usageid, 'slot' => $slot, 'userid' => 0,
+                'contextid' => \context_system::instance()->id]);
+        $this->expectOutputRegex('/no longer exists/');
+        $task->execute();
+    }
+
+    /**
      * Teachers see why a response could not be assessed; students see that
      * a teacher will grade it.
      */

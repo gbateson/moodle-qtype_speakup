@@ -51,9 +51,9 @@ class reduce_response_files extends \core\task\adhoc_task {
             mtrace('qtype_speakup: large response files are not replaced on this site.');
             return;
         }
-        if (!$DB->record_exists('question_usages', ['id' => $usageid])) {
+        if (!\qtype_speakup\task_cleanup::response_exists($usageid, $slot)) {
             mtrace('qtype_speakup: the response at usage ' . $usageid . ' slot ' . $slot .
-                    ' no longer exists (e.g. its attempt was deleted).');
+                    ' no longer exists (e.g. its attempt, or the question of a preview, was deleted).');
             return;
         }
         $quba = \question_engine::load_questions_usage_by_activity($usageid);
