@@ -32,6 +32,9 @@ class provider_presets {
     /** The text of the prompt, as used in each provider's request: the rubric, then the transcript (if any). */
     const PROMPT = '{{RUBRIC}}\n\n{{TRANSCRIPT}}';
 
+    /** How speech providers should read audio prompts: a little slowly, e.g. for CEFR A1-A2 learners. */
+    const SPEECH_STYLE = 'Say this clearly, a little slower than normal conversation';
+
     /**
      * Get the presets.
      *
@@ -133,7 +136,7 @@ class provider_presets {
                 'model' => 'gemini-2.5-flash-preview-tts',
                 'returnpath' => 'candidates,0,content,parts,0,inlineData,data',
                 'requesttemplate' => self::json([
-                    'contents' => [['parts' => [['text' => '{{TEXT}}']]]],
+                    'contents' => [['parts' => [['text' => self::SPEECH_STYLE . ': {{TEXT}}']]]],
                     'generationConfig' => [
                         'responseModalities' => ['AUDIO'],
                         'speechConfig' => ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => '{{VOICE}}']]],
@@ -156,6 +159,7 @@ class provider_presets {
                 'requesttemplate' => self::json([
                     'model' => '{{MODEL}}',
                     'input' => '{{TEXT}}',
+                    'instructions' => self::SPEECH_STYLE . '.',
                     'voice' => '{{VOICE}}',
                     'response_format' => 'mp3',
                 ]),
