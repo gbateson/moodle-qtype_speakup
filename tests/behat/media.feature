@@ -112,6 +112,17 @@ Feature: Audio prompts and recording in SpeakUp questions
     Then I should not see "Not answered"
     And "source[src*='audioprompt.wav']" "css_element" should exist
 
+  @_file_upload
+  Scenario: A recording that is too big to upload is not uploaded, and the student is told what to do
+    Given the following config values are set as admin:
+      | maxbytes | 10240 |
+    When I am on the "speakup-005" "core_question > preview" page logged in as teacher
+    And I upload "question/type/speakup/tests/fixtures/audioprompt.wav" as the SpeakUp response
+    Then I should see "This file is 23 KB, but the largest file you can upload is 10 KB."
+    And I should see "Please upload a shorter recording"
+    And "source[src*='audioprompt.wav']" "css_element" should not exist
+    And ".qtype_speakup-upload-player audio[src]" "css_element" should not exist
+
   Scenario: Record an audio prompt on the question form
     When I am on the "speakup-001" "core_question > edit" page logged in as teacher
     And I click on "button.qtype_speakup-main-button" "css_element" in the "#qtype_speakup-audioprompt" "css_element"

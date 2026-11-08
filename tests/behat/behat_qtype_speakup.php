@@ -203,9 +203,10 @@ class behat_qtype_speakup extends behat_base {
         global $CFG;
         $input = $this->find('css', '.que.speakup .qtype_speakup-upload-input');
         $input->attachFile($CFG->dirroot . '/' . $filepath);
+        // Wait until the file is shown, or the upload is refused.
         $this->spin(function() {
             return $this->evaluate_script("return !!document.querySelector(
-                    '.que.speakup .qtype_speakup-upload-player:not(.hide)');");
+                    '.que.speakup .qtype_speakup-upload-player:not(.hide), .que.speakup .qtype_speakup-upload-message.text-danger');");
         }, [], 60);
         $this->wait_for_pending_js();
     }
@@ -283,10 +284,88 @@ class behat_qtype_speakup extends behat_base {
         $before = (int) $this->evaluate_script($count);
         $input = $this->find('css', '.que.speakup .qtype_speakup-image-input');
         $input->attachFile($CFG->dirroot . '/' . $filepath);
+        // Wait until the page is shown, or the upload is refused.
         $this->spin(function() use ($count, $before) {
-            return (int) $this->evaluate_script($count) > $before;
+            return (int) $this->evaluate_script($count) > $before
+                    || $this->evaluate_script('return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");');
         }, [], 60);
         $this->wait_for_pending_js();
+    }
+
+    /**
+     * Make a photo-like PNG image, and upload it as a page of an image
+     * response. A gradient with some noise is big as a PNG, but small as a
+     * JPEG, like a photo from a phone. The image is made in the browser, and
+     * given to the file input, since the browser may not be able to read
+     * files made on the server.
+     *
+     * @When /^I upload a (?P<width>\d+) by (?P<height>\d+) pixel photo as a SpeakUp page$/
+     * @param int $width
+     * @param int $height
+     */
+    public function i_upload_a_photo_as_a_speakup_page(int $width, int $height): void {
+        $count = 'return document.querySelectorAll(".que.speakup .qtype_speakup-image-item").length;';
+        $before = (int) $this->evaluate_script($count);
+        $this->execute_script("
+            (function() {
+                var canvas = document.createElement('canvas');
+                canvas.width = $width;
+                canvas.height = $height;
+                var context = canvas.getContext('2d');
+                var data = context.createImageData($width, $height);
+                var seed = 1;
+                for (var y = 0; y < $height; y++) {
+                    for (var x = 0; x < $width; x++) {
+                        seed = (seed * 16807) % 2147483647;
+                        var noise = seed % 5;
+                        var i = (y * $width + x) * 4;
+                        data.data[i] = Math.floor(200 * x / $width) + noise;
+                        data.data[i + 1] = Math.floor(200 * y / $height) + noise;
+                        data.data[i + 2] = 120 + noise;
+                        data.data[i + 3] = 255;
+                    }
+                }
+                context.putImageData(data, 0, 0);
+                canvas.toBlob(function(blob) {
+                    var input = document.querySelector('.que.speakup .qtype_speakup-image-input');
+                    var transfer = new DataTransfer();
+                    transfer.items.add(new File([blob], 'photo.png', {type: 'image/png'}));
+                    input.files = transfer.files;
+                    input.dispatchEvent(new Event('change', {bubbles: true}));
+                }, 'image/png');
+            })();
+        ");
+        // Wait until the page is shown, or the upload is refused.
+        $this->spin(function() use ($count, $before) {
+            return (int) $this->evaluate_script($count) > $before
+                    || $this->evaluate_script('return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");');
+        }, [], 60);
+        $this->wait_for_pending_js();
+    }
+
+    /**
+     * Check the size of a page's picture, e.g. after it was rotated.
+     *
+     * @Then /^the SpeakUp page (?P<page>\d+) picture should be (?P<width>\d+) by (?P<height>\d+) pixels$/
+     * @param int $page counting from 1.
+     * @param int $width
+     * @param int $height
+     */
+    public function the_speakup_page_picture_should_be(int $page, int $width, int $height): void {
+        $script = 'return (function() { ' .
+                'var image = document.querySelectorAll(".que.speakup .qtype_speakup-image-item img")[' . ($page - 1) . ']; ' .
+                'return image ? (image.complete ? image.naturalWidth + "x" + image.naturalHeight : "loading") + " " + ' .
+                'image.getAttribute("src") : "no picture"; })();';
+        $actual = '';
+        try {
+            $this->spin(function() use ($script, $width, $height, &$actual) {
+                $actual = (string) $this->evaluate_script($script);
+                return strpos($actual, $width . 'x' . $height . ' ') === 0;
+            }, [], 10);
+        } catch (\Exception $e) {
+            throw new \Behat\Mink\Exception\ExpectationException("Page $page picture is \"$actual\", not {$width}x{$height}.",
+                    $this->getSession());
+        }
     }
 
     /**

@@ -44,7 +44,7 @@ final class questiontype_test extends \advanced_testcase {
             'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
             'showitems', 'showcomment', 'showtranscript', 'showstats', 'statsitems', 'audioprompttranscript',
             'audiopromptvoice', 'prompttranscriptdisplay', 'transcriptpenalty', 'recordafterprompt', 'maxpromptplays',
-            'maxresponses', 'silencestop', 'maxfiles'];
+            'maxresponses', 'silencestop', 'maxfiles', 'aiaudioonly'];
 
     /**
      * Create a test question in a new category.
@@ -265,6 +265,20 @@ final class questiontype_test extends \advanced_testcase {
 
         $this->assertNull($noprompt->audioprompttranscript);
         $this->assertSame(SPEAKUP_GRADING_MANUAL, $noprompt->gradingmethod);
+    }
+
+    /**
+     * Video questions can send only the sound to the AI, and this is
+     * exported and imported.
+     */
+    public function test_gift_audio_only(): void {
+        $this->resetAfterTest();
+        $questions = $this->read_gift("::Talk::Record a video.{\nSPEAKUP\nMEDIA=video\nAUDIOONLY=yes\n}\n");
+        $this->assertEquals(SPEAKUP_MEDIA_VIDEO, $questions[0]->mediatype);
+        $this->assertSame(1, $questions[0]->aiaudioonly);
+
+        $questions = $this->read_gift("::Talk::Record a video.{\nSPEAKUP\nMEDIA=video\nAIAUDIOONLY=no\n}\n");
+        $this->assertSame(0, $questions[0]->aiaudioonly);
     }
 
     /**

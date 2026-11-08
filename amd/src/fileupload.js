@@ -74,7 +74,8 @@ export const init = (questionId, settings) => {
             return;
         }
         if (settings.maxUploadSize >= 0 && file.size > settings.maxUploadSize) {
-            showMessage(getString('uploadtoobig', displaySize(settings.maxUploadSize)), 'text-danger');
+            showMessage(getString('uploadtoobigmedia', {size: displaySize(file.size), limit: displaySize(settings.maxUploadSize)}),
+                    'text-danger');
             return;
         }
 
@@ -212,9 +213,15 @@ export const init = (questionId, settings) => {
      * @return {string}
      */
     function displaySize(bytes) {
-        if (bytes >= 1048576) {
+        if (bytes >= 10 * 1048576) {
             return Math.round(bytes / 1048576) + ' MB';
         }
-        return Math.round(bytes / 1024) + ' KB';
+        if (bytes >= 1048576) {
+            return (Math.round(bytes / 104857.6) / 10) + ' MB';
+        }
+        if (bytes >= 1024) {
+            return Math.round(bytes / 1024) + ' KB';
+        }
+        return bytes + ' bytes';
     }
 };

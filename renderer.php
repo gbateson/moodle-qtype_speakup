@@ -503,7 +503,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         ];
         $this->page->requires->strings_for_js([
             'fileuploaded', 'uploaddifferentfile', 'uploadfailed', 'uploadprogress',
-            'uploadtoobig', 'uploadtoolong', 'uploadwrongtype',
+            'uploadtoobigmedia', 'uploadtoolong', 'uploadwrongtype',
         ], 'qtype_speakup');
         $this->page->requires->js_call_amd('qtype_speakup/fileupload', 'init',
                 [$qa->get_outer_question_div_unique_id(), $settings]);
@@ -535,8 +535,9 @@ class qtype_speakup_renderer extends qtype_renderer {
             'maxFiles' => $maxfiles,
         ];
         $this->page->requires->strings_for_js([
-            'fileuploaded', 'pageremoved', 'pagex', 'removepage', 'removepagex', 'toomanyfiles', 'uploadanotherimage',
-            'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobig', 'uploadwrongtypeimage',
+            'fileuploaded', 'imageshrunk', 'imagetoobig', 'pagerotated', 'pageremoved', 'pagex', 'removepage',
+            'removepagex', 'rotateleft', 'rotateleftx', 'rotateright', 'rotaterightx', 'toomanyfiles', 'uploadanotherimage',
+            'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobigpdf', 'uploadwrongtypeimage',
         ], 'qtype_speakup');
         $this->page->requires->js_call_amd('qtype_speakup/imageupload', 'init',
                 [$qa->get_outer_question_div_unique_id(), $settings]);

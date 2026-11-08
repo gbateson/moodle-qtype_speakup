@@ -93,6 +93,9 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int for image responses: the most files (e.g. pages) a student can upload. */
     public $maxfiles;
 
+    /** @var int for video responses: 1 = send only the sound to the AI provider. */
+    public $aiaudioonly;
+
     /** @var int how the audio prompt transcript is shown: one of the SPEAKUP_PROMPTTRANSCRIPT_* constants. */
     public $prompttranscriptdisplay;
 

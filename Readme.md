@@ -105,7 +105,8 @@ that are left out get their usual defaults.
   exported.
 - `MEDIA` takes `audio`, `video` or `image`. Image responses (e.g. scans
   of handwriting) can have `MAXFILES=1` to `5`, and leave out the settings
-  for recordings, such as `TIMELIMIT`.
+  for recordings, such as `TIMELIMIT`. Video responses can have
+  `AIAUDIOONLY=yes` (or `AUDIOONLY=yes`), to send only the sound to the AI.
 - `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)` and
   `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
   case|nocase)`. Repeat the line, or put several in one line, for more.

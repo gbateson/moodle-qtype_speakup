@@ -321,6 +321,15 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'aiassessment', 'notchecked');
 
+        // For video responses: whether the AI also sees the video (e.g. to
+        // assess gestures and eye contact), or only hears the sound.
+        $name = 'aiaudioonly';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+        $mform->hideIf($name, 'mediatype', 'neq', SPEAKUP_MEDIA_VIDEO);
+
         // Who sees each grading detail, for automated grading. As in
         // qtype_essayautograde: nobody, students only, teachers only, or both.
         $name = 'showheader';

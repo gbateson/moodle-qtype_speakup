@@ -122,6 +122,7 @@ class qtype_speakup extends question_type {
             'maxresponses',
             'silencestop',
             'maxfiles',
+            'aiaudioonly',
         ];
     }
 
@@ -455,6 +456,7 @@ class qtype_speakup extends question_type {
             'SILENCE' => 'silencestop',
             'FILES' => 'maxfiles',
             'PAGES' => 'maxfiles',
+            'AUDIOONLY' => 'aiaudioonly',
             'TARGETITEM' => 'targetitem',
             'TARGETITEMS' => 'targetitem',
             'ITEM' => 'targetitem',
@@ -611,6 +613,9 @@ class qtype_speakup extends question_type {
                 // The provider that transcribes uploaded files.
                 $settings['PROVIDER'] = $providername;
             }
+        }
+        if ($o->mediatype === SPEAKUP_MEDIA_VIDEO && !empty($o->aiaudioonly)) {
+            $settings['AIAUDIOONLY'] = 'yes';
         }
         foreach ($settings as $name => $value) {
             $lines[] = $name . '=' . self::gift_escape((string) $value);
@@ -789,7 +794,7 @@ class qtype_speakup extends question_type {
             'maxfiles' => [1, SPEAKUP_MAX_IMAGE_FILES, null],
         ];
 
-        if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats'])) {
+        if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats', 'aiaudioonly'])) {
             if (!array_key_exists($word, $yesno)) {
                 return get_string('giftexpectyesno', $plugin);
             }

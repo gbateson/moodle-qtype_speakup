@@ -79,6 +79,7 @@ class qtype_speakup_test_helper extends question_test_helper {
             'maxresponses' => 0,
             'silencestop' => 0,
             'maxfiles' => 1,
+            'aiaudioonly' => 0,
         ];
     }
 

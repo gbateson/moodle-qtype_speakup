@@ -250,6 +250,12 @@ $string['recordingsubmitted'] = 'Recording submitted';
 $string['awaitingtranscription'] = 'Your recording has been received and is being processed. This can take a minute or two.';
 $string['awaitingaiassessment'] = 'Your recording has been transcribed and sent for assessment.';
 $string['aiassessmentpending'] = 'Your response is waiting to be assessed. Your grade and feedback will appear here when they are ready.';
+$string['aiaudioonly'] = 'Send only the sound of videos to the AI';
+$string['aiaudioonly_help'] = 'If checked, only the sound of a video response is sent to the AI provider, to be transcribed and assessed. This is quicker and costs less, and works with providers that accept audio but not video. Use it when only what the student says is assessed, and the video is there to show who is speaking.
+
+Leave it unchecked if the AI should also assess what it can see, e.g. gestures and eye contact.
+
+Teachers always see the whole video. Taking out the sound needs ffmpeg on the server (see the SpeakUp site settings); without it, the whole video is sent.';
 $string['aiassessmentfailed'] = 'Your response could not be processed. It will be graded manually by your teacher.';
 $string['aiassessmentfailedreason'] = 'The response could not be assessed, so it needs to be graded manually. Reason: {$a}';
 $string['aiassessmentretrying'] = 'Assessing the response failed, and will be tried again later. Reason: {$a}';
@@ -290,6 +296,8 @@ $string['nofileuploaded'] = 'No file uploaded.';
 $string['fileuploaded'] = 'File uploaded.';
 $string['uploadwrongtype'] = 'Please choose an audio or video file.';
 $string['uploadtoobig'] = 'This file is too big. The largest file you can upload is {$a}.';
+$string['uploadtoobigmedia'] = 'This file is {$a->size}, but the largest file you can upload is {$a->limit}. Please upload a shorter recording, or make the file smaller, e.g. by recording at a lower quality.';
+$string['uploadtoobigpdf'] = '"{$a->name}" is {$a->size}, but the largest file you can upload is {$a->limit}. Please make it smaller, e.g. by scanning at a lower resolution, or in black and white.';
 $string['uploadtoolong'] = 'This file is {$a->duration} seconds long, but the time limit is {$a->limit} seconds. It has been uploaded, but it will be marked as too long.';
 $string['notmediafile'] = 'The uploaded file is not an audio or video file. Please upload a different file.';
 $string['uploadprogress'] = 'Uploading ({$a})';
@@ -492,6 +500,13 @@ $string['pageremoved'] = 'Page removed.';
 $string['pagex'] = 'Page {$a}';
 $string['removepage'] = 'Remove';
 $string['removepagex'] = 'Remove page {$a}';
+$string['imageshrunk'] = '"{$a->name}" was too big to upload ({$a->before}), so it was made smaller ({$a->after}).';
+$string['imagetoobig'] = '"{$a->name}" is {$a->size}, and could not be made small enough to upload. The largest file you can upload is {$a->limit}.';
+$string['pagerotated'] = 'The page was rotated.';
+$string['rotateleft'] = 'Rotate left';
+$string['rotateleftx'] = 'Rotate page {$a} left';
+$string['rotateright'] = 'Rotate right';
+$string['rotaterightx'] = 'Rotate page {$a} right';
 $string['toomanyfiles'] = 'You can upload up to {$a} files.';
 $string['uploadanotherimage'] = 'Upload another page';
 $string['uploadimage'] = 'Upload an image or PDF';

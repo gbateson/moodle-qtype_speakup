@@ -485,5 +485,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091163, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026091165) {
+        // For video responses: send only the sound to the AI provider.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('aiaudioonly', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'maxfiles');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026091165, 'qtype', 'speakup');
+    }
+
     return true;
 }

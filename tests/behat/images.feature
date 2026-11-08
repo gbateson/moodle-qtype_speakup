@@ -64,6 +64,46 @@ Feature: Image responses, e.g. scans of handwriting
     And "a.qtype_speakup-image-pdf" "css_element" should exist
     And "img.qtype_speakup-image-thumb" "css_element" should exist
 
+  @_file_upload
+  Scenario: Students can rotate a page
+    When I am on the "speakup-002" "core_question > preview" page logged in as teacher
+    And I upload "question/type/speakup/tests/fixtures/handwriting.png" as a SpeakUp page
+    Then the SpeakUp page 1 picture should be 400 by 200 pixels
+    And I click on "Rotate page 1 right" "button"
+    And I should see "The page was rotated."
+    And the SpeakUp page 1 picture should be 200 by 400 pixels
+    And I click on "Rotate page 1 left" "button"
+    And I should see "The page was rotated."
+    And the SpeakUp page 1 picture should be 400 by 200 pixels
+    # The rotated page is the one that is saved.
+    And I click on "Rotate page 1 right" "button"
+    And I should see "The page was rotated."
+    And I press "Submit and finish"
+    And the SpeakUp page 1 picture should be 200 by 400 pixels
+
+  @_file_upload
+  Scenario: A photo that is too big to upload is made smaller, and one that is small enough is not
+    Given the following config values are set as admin:
+      | maxbytes | 204800 |
+    When I am on the "speakup-002" "core_question > preview" page logged in as teacher
+    And I upload "question/type/speakup/tests/fixtures/handwriting.png" as a SpeakUp page
+    Then "img.qtype_speakup-image-thumb[src*='01-handwriting.png']" "css_element" should exist
+    And I upload a 1200 by 900 pixel photo as a SpeakUp page
+    And I should see "\"photo.png\" was too big to upload"
+    And I should see "so it was made smaller"
+    And "img.qtype_speakup-image-thumb[src*='02-photo.jpg']" "css_element" should exist
+    And the SpeakUp page 2 picture should be 1200 by 900 pixels
+
+  @_file_upload
+  Scenario: A PDF that is too big to upload is not uploaded, and the student is told what to do
+    Given the following config values are set as admin:
+      | maxbytes | 100 |
+    When I am on the "speakup-002" "core_question > preview" page logged in as teacher
+    And I upload "question/type/speakup/tests/fixtures/handwriting.pdf" as a SpeakUp page
+    Then I should see "\"handwriting.pdf\" is 441 bytes" in the ".qtype_speakup-image-message" "css_element"
+    And I should see "e.g. by scanning at a lower resolution"
+    And "a.qtype_speakup-image-pdf" "css_element" should not exist
+
   Scenario: Choosing a preset fills in the AI provider form
     When I log in as "admin"
     And I visit "/question/type/speakup/manageaiproviders.php"
