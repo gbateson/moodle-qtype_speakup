@@ -748,6 +748,17 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
         }
 
+        // Other questions named in the rubric's placeholders, e.g.
+        // {{xyz/questiontext.rubric}}, must be in this question's category,
+        // or a category above it.
+        if ($usesai && !empty($data['airubric']) && !empty($data['category'])) {
+            $categoryid = (int) explode(',', $data['category'])[0];
+            $missing = \qtype_speakup\rubric_placeholders::get_missing_questions($data['airubric'], $categoryid);
+            if ($missing) {
+                $errors['airubric'] = get_string('err_rubricquestion', 'qtype_speakup', implode(', ', $missing));
+            }
+        }
+
         return $errors;
     }
 

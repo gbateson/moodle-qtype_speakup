@@ -25,6 +25,14 @@ namespace qtype_speakup;
  * - {{questiontext#task}}       the element with id="task"
  * - {{questiontext div.x}}      the first <div> with class="x"
  * - {{questiontext.rubric:ja}}  as above, but in Japanese
+ * - {{xyz/questiontext.rubric}} as above, but from the question text of
+ *                               another question, whose ID number is "xyz"
+ *
+ * Another question is found by its ID number: in this question's category,
+ * or else the category above it, and so on up to the top of the question
+ * bank. So a rubric that many questions share, e.g. in a Description
+ * question, can be written once, and refined in one place. Its latest
+ * "Ready" version is used.
  *
  * The selector after "questiontext" is a simple CSS selector: a tag name,
  * .class, #id, or a tag followed by .class or #id.
@@ -42,8 +50,11 @@ namespace qtype_speakup;
  */
 class rubric_placeholders {
 
-    /** Matches {{questiontext<selector>:<lang>}}, where selector and lang are optional. */
-    const PATTERN = '/\{\{\s*questiontext\s*([^}:]*?)\s*(?::\s*([a-z_-]*)\s*)?\}\}/i';
+    /** Matches {{<idnumber>/questiontext<selector>:<lang>}}, where idnumber, selector and lang are optional. */
+    const PATTERN = '/\{\{\s*(?:([^{}\/]+?)\s*\/\s*)?questiontext\s*([^}:]*?)\s*(?::\s*([a-z_-]*)\s*)?\}\}/i';
+
+    /** The most levels of categories to look up, in case of a loop in bad data. */
+    const MAX_DEPTH = 50;
 
     /** Language used when a placeholder doesn't give one. */
     const DEFAULT_LANG = 'en';
@@ -53,16 +64,75 @@ class rubric_placeholders {
      *
      * @param string $rubric the rubric, as entered by the teacher.
      * @param string $questiontext the question text (HTML).
+     * @param int $categoryid the question's category, where other questions
+     *      named in placeholders are looked for (and the categories above it).
      * @return string
+     * @throws \moodle_exception if another question named in a placeholder cannot be found.
      */
-    public static function expand(string $rubric, string $questiontext): string {
+    public static function expand(string $rubric, string $questiontext, int $categoryid = 0): string {
         if (stripos($rubric, '{{') === false) {
             return $rubric;
         }
-        return preg_replace_callback(self::PATTERN, function (array $match) use ($questiontext): string {
-            $lang = ($match[2] ?? '') !== '' ? $match[2] : self::DEFAULT_LANG;
-            return self::extract($questiontext, $match[1], $lang);
+        return preg_replace_callback(self::PATTERN, function (array $match) use ($questiontext, $categoryid): string {
+            $idnumber = $match[1] ?? '';
+            if ($idnumber !== '') {
+                $questiontext = self::find_question_text($idnumber, $categoryid);
+                if ($questiontext === null) {
+                    throw new \moodle_exception('errorrubricquestion', 'qtype_speakup', '', $idnumber);
+                }
+            }
+            $lang = ($match[3] ?? '') !== '' ? $match[3] : self::DEFAULT_LANG;
+            return self::extract($questiontext, $match[2], $lang);
         }, $rubric);
+    }
+
+    /**
+     * Get the ID numbers of other questions named in a rubric's placeholders
+     * that cannot be found, e.g. to warn the teacher on the question form.
+     *
+     * @param string $rubric
+     * @param int $categoryid the question's category.
+     * @return string[]
+     */
+    public static function get_missing_questions(string $rubric, int $categoryid): array {
+        $missing = [];
+        if (preg_match_all(self::PATTERN, $rubric, $matches)) {
+            foreach (array_unique(array_filter($matches[1], 'strlen')) as $idnumber) {
+                if (self::find_question_text($idnumber, $categoryid) === null) {
+                    $missing[] = $idnumber;
+                }
+            }
+        }
+        return $missing;
+    }
+
+    /**
+     * Find the question text of the question with an ID number: in a
+     * category, or else the category above it, and so on up to the top of
+     * the question bank. The latest "Ready" version is used.
+     *
+     * @param string $idnumber
+     * @param int $categoryid
+     * @return string|null the question text (HTML), or null if there is no such question.
+     */
+    public static function find_question_text(string $idnumber, int $categoryid): ?string {
+        global $DB;
+        $sql = 'SELECT q.questiontext
+                  FROM {question_bank_entries} qbe
+                  JOIN {question_versions} qv ON qv.questionbankentryid = qbe.id
+                  JOIN {question} q ON q.id = qv.questionid
+                 WHERE qbe.questioncategoryid = :categoryid AND qbe.idnumber = :idnumber AND qv.status = :status
+              ORDER BY qv.version DESC';
+        $status = \core_question\local\bank\question_version_status::QUESTION_STATUS_READY;
+        for ($depth = 0; $categoryid && $depth < self::MAX_DEPTH; $depth++) {
+            $records = $DB->get_records_sql($sql,
+                    ['categoryid' => $categoryid, 'idnumber' => $idnumber, 'status' => $status], 0, 1);
+            if ($records) {
+                return (string) reset($records)->questiontext;
+            }
+            $categoryid = (int) $DB->get_field('question_categories', 'parent', ['id' => $categoryid]);
+        }
+        return null;
     }
 
     /**

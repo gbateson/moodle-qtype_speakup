@@ -24,7 +24,7 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers    \qtype_speakup\rubric_placeholders
  */
-final class rubric_placeholders_test extends \basic_testcase {
+final class rubric_placeholders_test extends \advanced_testcase {
 
     /** @var string a question text with several parts. */
     const QUESTIONTEXT = '<p>Listen and answer.</p>' .
@@ -90,5 +90,89 @@ final class rubric_placeholders_test extends \basic_testcase {
      */
     public function test_extract_empty(): void {
         $this->assertSame('', rubric_placeholders::extract('', ''));
+    }
+
+    /**
+     * Create a Description question, as a shared rubric.
+     *
+     * @param int $categoryid
+     * @param string $idnumber
+     * @param string $rubric the text of its rubric element.
+     * @return \stdClass the question.
+     */
+    protected function create_rubric_question(int $categoryid, string $idnumber, string $rubric): \stdClass {
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        return $generator->create_question('description', 'info', [
+            'category' => $categoryid,
+            'idnumber' => $idnumber,
+            'questiontext' => ['text' => '<p>Read this.</p><div class="rubric">' . $rubric . '</div>', 'format' => FORMAT_HTML],
+        ]);
+    }
+
+    /**
+     * Another question's text is found by its ID number, in the same
+     * category, or the nearest category above it.
+     */
+    public function test_other_question(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $top = $generator->create_question_category();
+        $middle = $generator->create_question_category(['parent' => $top->id, 'contextid' => $top->contextid]);
+        $bottom = $generator->create_question_category(['parent' => $middle->id, 'contextid' => $top->contextid]);
+        $other = $generator->create_question_category();
+
+        $this->create_rubric_question($top->id, 'shared', 'Top rubric.');
+        $this->create_rubric_question($bottom->id, 'local', 'Bottom rubric.');
+        $this->create_rubric_question($other->id, 'elsewhere', 'Other rubric.');
+
+        $rubric = 'Use: {{shared/questiontext.rubric}}';
+        $this->assertSame('Use: Top rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $bottom->id));
+        $this->assertSame('Use: Top rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $top->id));
+        $this->assertSame('Bottom rubric.',
+                rubric_placeholders::expand('{{ local / questiontext.rubric }}', self::QUESTIONTEXT, $bottom->id));
+        $this->assertStringContainsString('Read this.',
+                rubric_placeholders::expand('{{local/questiontext}}', self::QUESTIONTEXT, $bottom->id));
+        // The question's own text is still used without an ID number.
+        $this->assertSame('Score fluency.',
+                rubric_placeholders::expand('{{questiontext.rubric}}', self::QUESTIONTEXT, $bottom->id));
+
+        // A nearer question with the same ID number is used instead.
+        $this->create_rubric_question($middle->id, 'shared', 'Middle rubric.');
+        $this->assertSame('Use: Middle rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $bottom->id));
+        $this->assertSame('Use: Top rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $top->id));
+
+        // Questions below, or in other category trees, are not found.
+        $this->assertSame([], rubric_placeholders::get_missing_questions($rubric, $bottom->id));
+        $this->assertSame(['local', 'elsewhere'], rubric_placeholders::get_missing_questions(
+                '{{local/questiontext}} {{elsewhere/questiontext}} {{shared/questiontext.rubric:ja}}', $top->id));
+
+        $this->expectException(\moodle_exception::class);
+        rubric_placeholders::expand('{{elsewhere/questiontext.rubric}}', self::QUESTIONTEXT, $top->id);
+    }
+
+    /**
+     * The latest "Ready" version of the other question is used.
+     */
+    public function test_other_question_versions(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $generator->create_question_category();
+        $question = $this->create_rubric_question($category->id, 'shared', 'First.');
+        $rubric = '{{shared/questiontext.rubric}}';
+
+        $generator->update_question($question, null,
+                ['questiontext' => ['text' => '<div class="rubric">Second.</div>', 'format' => FORMAT_HTML]]);
+        $this->assertSame('Second.', rubric_placeholders::expand($rubric, '', $category->id));
+
+        $generator->update_question($question, null, [
+            'questiontext' => ['text' => '<div class="rubric">Draft.</div>', 'format' => FORMAT_HTML],
+            'status' => \core_question\local\bank\question_version_status::QUESTION_STATUS_DRAFT,
+        ]);
+        $this->assertSame('Second.', rubric_placeholders::expand($rubric, '', $category->id));
     }
 }

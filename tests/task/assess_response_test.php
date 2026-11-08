@@ -256,6 +256,39 @@ final class assess_response_test extends \advanced_testcase {
     }
 
     /**
+     * The rubric can include the text of another question, e.g. a shared
+     * Description question. If it cannot be found, the assessment fails,
+     * and teachers are told why, rather than the AI getting no rubric.
+     */
+    public function test_shared_rubric(): void {
+        global $DB;
+        $this->setUser($this->getDataGenerator()->create_user());
+        $provider = \qtype_speakup_test_helper::create_provider();
+        $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id,
+                'airubric' => 'Rubric: {{shared/questiontext.rubric}}', 'phrasematch' => ['', '', ''], 'itemcount' => [0]]);
+        $categoryid = (int) $DB->get_field_sql('SELECT qbe.questioncategoryid FROM {question_bank_entries} qbe
+                JOIN {question_versions} qv ON qv.questionbankentryid = qbe.id WHERE qv.questionid = ?', [$questionid]);
+
+        // No such question yet.
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        $this->redirectMessages();
+        $qa = $this->assess($usageid, $slot, 5);
+        $record = $this->get_record($qa);
+        $this->assertSame('failed', $record->aistatus);
+        $this->assertSame(get_string('errorrubricquestion', 'qtype_speakup', 'shared'), $record->aierror);
+
+        // Now the shared rubric exists.
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $generator->create_question('description', 'info', ['category' => $categoryid, 'idnumber' => 'shared',
+                'questiontext' => ['text' => '<div class="rubric">Score fluency.</div>', 'format' => FORMAT_HTML]]);
+        [$usageid, $slot] = $this->attempt($questionid, 'Hello.');
+        self::mock_chat_reply("Good.\nSCORE: 80");
+        $qa = $this->assess($usageid, $slot);
+        $this->assertSame('done', $this->get_record($qa)->aistatus);
+    }
+
+    /**
      * Some HTTP errors may go away (e.g. the provider is busy), and others
      * won't (e.g. a wrong API key).
      */

@@ -139,7 +139,7 @@ class assess_response extends \core\task\adhoc_task {
                 // Fill in any {{questiontext...}} placeholders, and add any
                 // notes and instructions the AI needs.
                 $rubric = rubric_placeholders::expand((string) $question->airubric,
-                        (string) $question->questiontext);
+                        (string) $question->questiontext, (int) $question->category);
                 if ($question->is_too_long($duration)) {
                     $rubric .= "\n\n" . get_string('aipromptoverlong', 'qtype_speakup', (object) [
                         'duration' => round($duration),

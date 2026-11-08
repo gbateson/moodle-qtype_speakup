@@ -59,6 +59,29 @@ To send several files in one request, a provider's request template uses
 each file. The "Preset" menu on the provider form fills in working settings
 for Gemini, ChatGPT and Claude, and for Gemini's and OpenAI's speech.
 
+## Shared rubrics
+
+A question's AI rubric can include all or part of its question text, e.g.
+`{{questiontext.rubric}}` for the element with `class="rubric"`, in
+English, or `{{questiontext.rubric:ja}}` in Japanese.
+
+To write a rubric once for many questions, put it in another question,
+e.g. a Description question at the start of the quiz, which students also
+see, and give that question an ID number, e.g. `quickfire-rubric`. Then
+each SpeakUp question's rubric can use
+`{{quickfire-rubric/questiontext.rubric}}`: the question, then its text,
+then the part with `class="rubric"`.
+
+The question is looked for by its ID number in the SpeakUp question's own
+category, then in the category above it, and so on to the top of the
+question bank, so a rubric in a parent category serves all its
+subcategories, and a subcategory can have its own. The latest "Ready"
+version is used, so a rubric can be refined over time. The question form
+says if no such question can be found; if it has gone when a response is
+assessed, the assessment fails, and teachers are told why. In GIFT, give
+the Description its ID number with `// [id:quickfire-rubric]` on the line
+before it.
+
 ## Large files
 
 Students' files are uploaded as they are, except that images bigger than
