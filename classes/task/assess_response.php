@@ -107,6 +107,15 @@ class assess_response extends \core\task\adhoc_task {
             $files = array_values($qa->get_last_qt_files('recording', $data->contextid));
             $file = reset($files) ?: null;
             $isimage = $question->is_image();
+            // Say what is being done, so that if something goes badly wrong
+            // (e.g. the server runs out of memory), the log shows where.
+            foreach ($files as $f) {
+                mtrace('qtype_speakup: response file: ' . $f->get_filename() . ' (' . $f->get_mimetype() . ', ' .
+                        display_size($f->get_filesize()) . ')');
+            }
+            if (!$isimage && $file) {
+                mtrace('qtype_speakup: reading the length of the recording ...');
+            }
             $duration = $isimage ? null
                     : \qtype_speakup_question::best_duration($file, $qa->get_last_qt_var('browserduration'));
             $aifraction = null;
@@ -136,6 +145,7 @@ class assess_response extends \core\task\adhoc_task {
                             'qtype_speakup', $question->get_language_name());
                 }
 
+                mtrace('qtype_speakup: asking "' . $provider->name . '" to assess the response ...');
                 [$aifraction, $feedback] = ai_caller::assess(
                         $provider, (int) $data->contextid, (int) $data->userid,
                         $rubric, $transcript, $multimodal ? $files : null);
@@ -156,6 +166,7 @@ class assess_response extends \core\task\adhoc_task {
                 if (!$provider) {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
+                mtrace('qtype_speakup: asking "' . $provider->name . '" to transcribe the response ...');
                 $aitranscript = ai_caller::transcribe($provider, $files, $question->get_language_name(), $isimage);
             }
 

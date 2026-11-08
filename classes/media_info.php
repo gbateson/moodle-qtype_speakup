@@ -27,6 +27,14 @@ namespace qtype_speakup;
 class media_info {
 
     /**
+     * The most memory getID3 is told it may use, in bytes. It reads some
+     * files (e.g. MP4 recordings from Safari) in proportion to PHP's
+     * memory limit, and with no limit, it may read all of a huge table and
+     * use all the server's memory.
+     */
+    const MAX_MEMORY = 256 * 1024 * 1024;
+
+    /**
      * Get the length of an audio or video file, in seconds.
      *
      * This is a best effort: getID3 often can't read the length of WebM
@@ -50,6 +58,7 @@ class media_info {
         }
         try {
             $getid3 = new \getID3();
+            $getid3->memory_limit = self::memory_limit();
             $info = $getid3->analyze($tempfile);
         } catch (\Throwable $e) {
             $info = [];
@@ -61,5 +70,17 @@ class media_info {
             return round((float) $info['playtime_seconds'], 1);
         }
         return null;
+    }
+
+    /**
+     * How much memory getID3 may use: PHP's memory limit, but no more than
+     * MAX_MEMORY, even if PHP has no limit (as is common on the command
+     * line, e.g. when cron runs).
+     *
+     * @return int bytes.
+     */
+    public static function memory_limit(): int {
+        $limit = get_real_size((string) ini_get('memory_limit'));
+        return ($limit > 0 && $limit < self::MAX_MEMORY) ? (int) $limit : self::MAX_MEMORY;
     }
 }
