@@ -55,6 +55,20 @@ class ai_queue {
     }
 
     /**
+     * Queue making a response's large files smaller, for a question graded by hand.
+     *
+     * @param int $usageid question usage id.
+     * @param int $slot slot of the question in the usage.
+     * @param int $contextid the usage's context.
+     */
+    public static function queue_reduce_files(int $usageid, int $slot, int $contextid): void {
+        $task = new task\reduce_response_files();
+        $task->set_attempts_available(1);
+        $task->set_custom_data(['usageid' => $usageid, 'slot' => $slot, 'contextid' => $contextid]);
+        \core\task\manager::queue_adhoc_task($task, true);
+    }
+
+    /**
      * Queue AI assessment of a finished preview, if it needs one.
      *
      * Call this only when the attempt has no AI result yet.

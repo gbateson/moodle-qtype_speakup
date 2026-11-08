@@ -18,6 +18,7 @@ namespace qtype_speakup;
 
 use qtype_speakup\task\assess_response;
 use qtype_speakup\task\generate_audio_prompt;
+use qtype_speakup\task\reduce_response_files;
 
 /**
  * Remove queued background tasks that are no longer needed, e.g. because
@@ -36,15 +37,16 @@ use qtype_speakup\task\generate_audio_prompt;
 class task_cleanup {
 
     /**
-     * Remove the tasks that assess the responses in a question usage.
+     * Remove the tasks that assess the responses in a question usage, or make their files smaller.
      *
      * @param int $usageid
      * @return int how many tasks were removed.
      */
     public static function remove_assessments(int $usageid): int {
-        return self::remove(assess_response::class, function(\stdClass $data) use ($usageid): bool {
+        $match = function(\stdClass $data) use ($usageid): bool {
             return (int) ($data->usageid ?? 0) === $usageid;
-        });
+        };
+        return self::remove(assess_response::class, $match) + self::remove(reduce_response_files::class, $match);
     }
 
     /**
@@ -67,9 +69,10 @@ class task_cleanup {
      */
     public static function remove_orphans(): int {
         global $DB;
-        $count = self::remove(assess_response::class, function(\stdClass $data) use ($DB): bool {
+        $nousage = function(\stdClass $data) use ($DB): bool {
             return !$DB->record_exists('question_usages', ['id' => (int) ($data->usageid ?? 0)]);
-        });
+        };
+        $count = self::remove(assess_response::class, $nousage) + self::remove(reduce_response_files::class, $nousage);
         $count += self::remove(generate_audio_prompt::class, function(\stdClass $data) use ($DB): bool {
             return !$DB->record_exists('question', ['id' => (int) ($data->questionid ?? 0)]);
         });

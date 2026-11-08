@@ -59,6 +59,39 @@ To send several files in one request, a provider's request template uses
 each file. The "Preset" menu on the provider form fills in working settings
 for Gemini, ChatGPT and Claude, and for Gemini's and OpenAI's speech.
 
+## Large files
+
+Students' files are uploaded as they are, except that images bigger than
+the upload limit are made smaller in the browser until they fit, and HEIC
+photos are turned into JPEG. Audio, video and PDF files bigger than the
+limit are refused, with a message saying how big they are and what to do.
+Students can rotate images before submitting.
+
+After the quiz is submitted, large files (by default, over 5 MB) are made
+smaller in the background, by `\qtype_speakup\file_reducer`: in the
+assessment task, before the files are sent to the AI, or, for questions
+graded by hand, in the task `reduce_response_files`.
+
+- Audio becomes mono MP3 (ffmpeg).
+- Video becomes MP4 (H.264) at 720p (ffmpeg).
+- Images become JPEG, at most 2000 pixels wide or tall (PHP's GD).
+- PDFs have their images at 150 dpi (Ghostscript, from Moodle's "Path to
+  ghostscript" setting).
+
+A file is only replaced if the result is clearly smaller. If PHP cannot run
+programs (`exec()`), or a tool is missing, files are kept as they are; the
+plugin's settings page shows what is available. On Ubuntu or Debian:
+
+    sudo apt install ffmpeg ghostscript
+
+With "Replace the original files" unchecked, the originals are kept, and
+smaller copies are made only for the AI, then deleted. Video questions with
+"Send only the sound of videos to the AI" send only the sound (as MP3),
+which also needs ffmpeg; teachers still see the whole video.
+
+The tests for audio and video need ffmpeg at `/usr/bin/ffmpeg`, and are
+skipped without it.
+
 ## GIFT format
 
 SpeakUp questions can be imported and exported in GIFT. The settings go

@@ -461,6 +461,23 @@ $string['errorttsnotext'] = 'there is no text.';
 $string['errorttstoolong'] = 'the text is longer than {$a} characters.';
 $string['taskgenerateaudioprompt'] = 'Generate audio prompts from their transcripts';
 $string['taskassessresponse'] = 'Assess SpeakUp responses';
+$string['taskreduceresponsefiles'] = 'Make large SpeakUp response files smaller';
+
+// Making large response files smaller.
+$string['pathtoffmpeg'] = 'Path to ffmpeg';
+$string['pathtoffmpeg_desc'] = 'ffmpeg makes audio and video files smaller. On Ubuntu and Debian, install it with "sudo apt install ffmpeg"; it is then usually /usr/bin/ffmpeg.';
+$string['reducecondition_exec'] = 'PHP can run programs (the exec() function is enabled)';
+$string['reducecondition_ffmpeg'] = 'ffmpeg was found, for audio and video files';
+$string['reducecondition_gd'] = 'PHP\'s GD library is available, for images';
+$string['reducecondition_ghostscript'] = 'Ghostscript was found, for PDF files ("Path to ghostscript", in Site administration > Server > System paths)';
+$string['reducefiles'] = 'Make large response files smaller';
+$string['reducefiles_desc'] = 'Make students\' large audio, video, image and PDF files smaller, in the background, after the quiz is submitted. Audio becomes mono MP3, video becomes MP4 at 720p, images become JPEG at most 2000 pixels wide or tall, and PDFs have their images at 150 dpi. A file is only replaced if the result is clearly smaller. Files whose tools are missing (see above) are kept as they are.';
+$string['reducefilesheading'] = 'Large response files';
+$string['reducefilesheading_desc'] = 'Students often upload very large files, e.g. long videos or photos straight from a phone. Making them smaller saves space, makes them quicker for teachers to open, and means AI providers are less likely to refuse them. This uses programs on the server:';
+$string['reducethreshold'] = 'Make files smaller if they are bigger than';
+$string['reducethreshold_desc'] = 'Smaller files are kept as they are.';
+$string['replaceoriginals'] = 'Replace the original files';
+$string['replaceoriginals_desc'] = 'If checked, a large file is replaced by the smaller one, which saves space. If not, the original file is kept, and the smaller one is only made for the AI provider, when the response is assessed.';
 $string['ttsheading'] = 'Text-to-speech';
 $string['ttsheading_desc'] = 'A speech provider can generate audio prompts from their transcripts, e.g. for questions imported from GIFT, or questions saved with a transcript but no audio prompt. The audio is generated in the background, usually within a few minutes. Speech providers are set up on the "Manage AI providers" page, with the capability "Speech (text-to-speech)".';
 $string['ttsproviderid'] = 'Speech provider';

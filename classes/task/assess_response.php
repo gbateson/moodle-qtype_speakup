@@ -18,6 +18,7 @@ namespace qtype_speakup\task;
 
 use qtype_speakup\ai_caller;
 use qtype_speakup\ai_provider;
+use qtype_speakup\file_reducer;
 use qtype_speakup\rubric_placeholders;
 use qtype_speakup\task_failure;
 
@@ -99,6 +100,11 @@ class assess_response extends \core\task\adhoc_task {
             $record->id = $DB->insert_record('qtype_speakup_response', $record);
         }
 
+        // Replace large files by smaller ones first, if the site does so,
+        // since the smaller ones are quicker to send, and less likely to be too
+        // big for the AI provider.
+        file_reducer::reduce_response($qa, (int) $data->contextid);
+
         $fraction = null;
         $feedback = '';
         try {
@@ -148,7 +154,7 @@ class assess_response extends \core\task\adhoc_task {
                 mtrace('qtype_speakup: asking "' . $provider->name . '" to assess the response ...');
                 [$aifraction, $feedback] = ai_caller::assess(
                         $provider, (int) $data->contextid, (int) $data->userid,
-                        $rubric, $transcript, $multimodal ? $files : null);
+                        $rubric, $transcript, $multimodal ? $this->get_ai_files($question, $files, $qa, $data) : null);
 
                 if ($multimodal) {
                     [$aitranscript, $feedback] = ai_caller::split_transcript($feedback);
@@ -167,7 +173,8 @@ class assess_response extends \core\task\adhoc_task {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
                 mtrace('qtype_speakup: asking "' . $provider->name . '" to transcribe the response ...');
-                $aitranscript = ai_caller::transcribe($provider, $files, $question->get_language_name(), $isimage);
+                $aitranscript = ai_caller::transcribe($provider, $this->get_ai_files($question, $files, $qa, $data),
+                        $question->get_language_name(), $isimage);
             }
 
             // The grade combines the target phrases and items with the AI's
@@ -222,6 +229,8 @@ class assess_response extends \core\task\adhoc_task {
             $count = task_failure::notify_assessment_failed($qa, $usageid, $slot, (int) $data->userid, $reason);
             mtrace('qtype_speakup: ' . $count . ' teacher(s) were sent a message about this.');
             return;
+        } finally {
+            file_reducer::delete_ai_files((int) $data->contextid, (int) $qa->get_database_id());
         }
 
         $record->timemodified = time();
@@ -270,5 +279,22 @@ class assess_response extends \core\task\adhoc_task {
                         ' - skipping quiz grade resync.');
             }
         }
+    }
+
+    /**
+     * Get the files to send to the AI: smaller copies of large files, if the
+     * site keeps the originals, and only the sound of videos, if the question
+     * asks for that.
+     *
+     * @param \qtype_speakup_question $question
+     * @param \stored_file[] $files
+     * @param \question_attempt $qa
+     * @param \stdClass $data the task's custom data.
+     * @return \stored_file[]
+     */
+    protected function get_ai_files(\qtype_speakup_question $question, array $files, \question_attempt $qa,
+            \stdClass $data): array {
+        $audioonly = ($question->mediatype === SPEAKUP_MEDIA_VIDEO) && !empty($question->aiaudioonly);
+        return file_reducer::get_ai_files($files, (int) $data->contextid, (int) $qa->get_database_id(), $audioonly);
     }
 }

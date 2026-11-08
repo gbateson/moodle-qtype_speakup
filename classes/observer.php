@@ -52,17 +52,18 @@ class observer {
             if (!($question instanceof \qtype_speakup_question)) {
                 continue;
             }
-            if (!$question->is_graded_later()) {
-                continue;
-            }
-
             $qa = $quba->get_question_attempt($slot);
             if (!$question->is_complete_response($qa->get_last_qt_data())) {
                 // Nothing recorded for this slot - nothing to assess.
                 continue;
             }
 
-            ai_queue::queue((int) $attempt->uniqueid, (int) $slot, (int) $attempt->userid, (int) $event->contextid);
+            if ($question->is_graded_later()) {
+                // This also makes large files smaller, first.
+                ai_queue::queue((int) $attempt->uniqueid, (int) $slot, (int) $attempt->userid, (int) $event->contextid);
+            } else if (file_reducer::is_enabled() && file_reducer::replaces_originals()) {
+                ai_queue::queue_reduce_files((int) $attempt->uniqueid, (int) $slot, (int) $event->contextid);
+            }
         }
     }
 

@@ -44,4 +44,22 @@ final class ai_queue_test extends \advanced_testcase {
         $this->assertEquals(2, $data->userid);
         $this->assertEquals(3, $data->contextid);
     }
+
+    /**
+     * Making a response's files smaller is queued once, and removed with its attempt.
+     */
+    public function test_queue_reduce_files(): void {
+        $this->resetAfterTest();
+        ai_queue::queue_reduce_files(10, 1, 3);
+        ai_queue::queue_reduce_files(10, 1, 3);
+
+        $tasks = \core\task\manager::get_adhoc_tasks(task\reduce_response_files::class);
+        $this->assertCount(1, $tasks);
+        $data = reset($tasks)->get_custom_data();
+        $this->assertEquals(10, $data->usageid);
+        $this->assertEquals(3, $data->contextid);
+
+        $this->assertSame(1, task_cleanup::remove_assessments(10));
+        $this->assertCount(0, \core\task\manager::get_adhoc_tasks(task\reduce_response_files::class));
+    }
 }

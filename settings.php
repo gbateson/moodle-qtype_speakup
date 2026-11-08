@@ -74,6 +74,46 @@ if ($hassiteconfig) {
         PARAM_TEXT
     ));
 
+    // Making large response files smaller, in the background.
+    $status = '';
+    if (during_initial_install() === false && !empty($CFG->version)) {
+        $status = \qtype_speakup\file_reducer::get_status_html();
+    }
+    $settings->add(new admin_setting_heading(
+        'qtype_speakup/reducefilesheading',
+        get_string('reducefilesheading', 'qtype_speakup'),
+        get_string('reducefilesheading_desc', 'qtype_speakup') . $status
+    ));
+    $settings->add(new admin_setting_configcheckbox(
+        'qtype_speakup/reducefiles',
+        get_string('reducefiles', 'qtype_speakup'),
+        get_string('reducefiles_desc', 'qtype_speakup'),
+        1
+    ));
+    $sizes = [];
+    foreach ([1, 2, 5, 10, 20, 50] as $mb) {
+        $sizes[$mb] = $mb . ' MB';
+    }
+    $settings->add(new admin_setting_configselect(
+        'qtype_speakup/reducethreshold',
+        get_string('reducethreshold', 'qtype_speakup'),
+        get_string('reducethreshold_desc', 'qtype_speakup'),
+        \qtype_speakup\file_reducer::DEFAULT_THRESHOLD,
+        $sizes
+    ));
+    $settings->add(new admin_setting_configcheckbox(
+        'qtype_speakup/replaceoriginals',
+        get_string('replaceoriginals', 'qtype_speakup'),
+        get_string('replaceoriginals_desc', 'qtype_speakup'),
+        1
+    ));
+    $settings->add(new admin_setting_configexecutable(
+        'qtype_speakup/pathtoffmpeg',
+        get_string('pathtoffmpeg', 'qtype_speakup'),
+        get_string('pathtoffmpeg_desc', 'qtype_speakup'),
+        '/usr/bin/ffmpeg'
+    ));
+
     // The Moodle app: SpeakUp works there when the site meets some
     // conditions; otherwise the app opens the quiz in the browser.
     $status = '';
