@@ -81,15 +81,34 @@ class mobile_support {
      * @return string HTML
      */
     public static function get_status_html(): string {
+        $links = [
+            'mobileservice' => self::admin_link('optionalsubsystems', get_string('advancedfeatures', 'admin'),
+                    'id_s__enablemobilewebservice'),
+            'framembedding' => self::admin_link('httpsecurity', get_string('httpsecurity', 'admin'),
+                    'id_s__allowframembedding'),
+        ];
         $items = '';
         foreach (self::get_conditions() as $name => $met) {
             $icon = $met ? '✔' : '✘';
             $class = $met ? 'text-success' : 'text-danger';
             $items .= \html_writer::tag('li', \html_writer::span($icon, $class . ' me-1') .
-                    get_string('mobilecondition_' . $name, 'qtype_speakup'));
+                    get_string('mobilecondition_' . $name, 'qtype_speakup', $links[$name] ?? null));
         }
         $summary = get_string(self::is_supported() ? 'mobilesupported' : 'mobilenotsupported', 'qtype_speakup');
         return \html_writer::tag('p', $summary) . \html_writer::tag('ul', $items, ['class' => 'list-unstyled']);
+    }
+
+    /**
+     * Link to a page of the site's settings, opening in a new window (the same one for every link).
+     *
+     * @param string $section the settings page's name, e.g. 'httpsecurity'
+     * @param string $text the link's text
+     * @param string|null $anchor the id of a setting on the page, to go straight to it
+     * @return string HTML
+     */
+    public static function admin_link(string $section, string $text, ?string $anchor = null): string {
+        $url = new \moodle_url('/admin/settings.php', ['section' => $section], $anchor);
+        return \html_writer::link($url, $text, ['target' => 'qtypespeakup']);
     }
 
     /**

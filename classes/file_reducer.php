@@ -158,12 +158,15 @@ class file_reducer {
             'ghostscript' => self::get_ghostscript() !== null,
             'gd' => function_exists('imagecreatefromstring'),
         ];
+        $links = [
+            'ghostscript' => mobile_support::admin_link('systempaths', get_string('systempaths', 'admin')),
+        ];
         $items = '';
         foreach ($conditions as $name => $met) {
             $icon = $met ? '✔' : '✘';
             $class = $met ? 'text-success' : 'text-danger';
             $items .= \html_writer::tag('li', \html_writer::span($icon, $class . ' me-1') .
-                    get_string('reducecondition_' . $name, 'qtype_speakup'));
+                    get_string('reducecondition_' . $name, 'qtype_speakup', $links[$name] ?? null));
         }
         return \html_writer::tag('ul', $items, ['class' => 'list-unstyled']);
     }
