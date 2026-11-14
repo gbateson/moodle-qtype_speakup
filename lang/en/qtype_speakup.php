@@ -178,6 +178,7 @@ $string['itemunknown'] = 'unknown';
 $string['noitemtranscript'] = 'No transcript is available for this response, so the target items could not be counted.';
 $string['err_itempercent'] = 'Choose a percent for this item.';
 $string['err_phrasepercent'] = 'Choose a percent for this phrase.';
+$string['err_rubricplaceholders'] = 'These placeholders cannot be filled in: {$a}. Check their spelling, and that the question has a target for each item type in {{target...}}.';
 $string['err_rubricquestion'] = 'There is no question with the ID number "{$a}" in this question\'s category, or in the categories above it.';
 $string['err_itemcount'] = 'Enter a target greater than 0 for this item.';
 $string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
@@ -234,6 +235,18 @@ You can include all or part of the question text, as plain text, with these plac
 * `{{questiontext div.rubric}}` - the first `div` with `class="rubric"`
 
 To share a rubric between many questions, write it once in another question, e.g. a Description question at the start of the quiz, and give that question an ID number, e.g. `quickfire-rubric`. Then put the ID number and a slash in front, e.g. `{{quickfire-rubric/questiontext.rubric}}`, or `{{quickfire-rubric/questiontext}}` for its whole question text. The question is looked for in this question\'s category, then in the category above it, and so on, so a rubric in a parent category can be used by all the questions in its subcategories. Its latest "Ready" version is used, so changes to it apply to responses assessed from then on.
+
+You can also include the question\'s settings, in words:
+
+* `{{questionname}}` - the question name
+* `{{audioprompt}}` - the transcript of the audio prompt
+* `{{timelimit}}` - e.g. "30 seconds"
+* `{{promptplays}}` - e.g. "once", "twice"
+* `{{responses}}` - e.g. "1 response"
+* `{{language}}` - e.g. "English (en-US)"
+* `{{target.words}}` - the target for words, e.g. "30 words" (or another item type, e.g. `{{target.longwords}}`)
+
+The names used in GIFT also work, e.g. `{{AUDIO}}` and `{{TIMELIMIT}}`, and case does not matter. In a shared rubric, these are filled in with each question\'s own settings.
 
 Multilang content (`lang="xx"`) is sent to the AI in English, so every student is graded against the same rubric. For another language, add it after a colon, e.g. `{{questiontext.rubric:ja}}`. `<summary>` labels and media players are left out. To keep part of the question text away from students, put it in an element with the `d-none` class, e.g. `<div class="rubric d-none">...</div>`.';
 $string['aiproviderid'] = 'AI provider';
@@ -467,6 +480,31 @@ $string['taskgenerateaudioprompt'] = 'Generate audio prompts from their transcri
 $string['taskassessresponse'] = 'Assess SpeakUp responses';
 $string['taskreduceresponsefiles'] = 'Make large SpeakUp response files smaller';
 
+// Settings in the AI rubric, in English words (see qtype_speakup_question::get_rubric_values()).
+$string['rubricitemchars'] = '{$a} characters';
+$string['rubricitemcharspersentence'] = '{$a} characters per sentence';
+$string['rubricitemlexicaldensity'] = 'a lexical density of {$a}%';
+$string['rubricitemlongwords'] = '{$a} long words';
+$string['rubricitemlongwordspersentence'] = '{$a} long words per sentence';
+$string['rubricitemsentences'] = '{$a} sentences';
+$string['rubricitemspeechrate'] = '{$a} words per minute';
+$string['rubricitemuniquewords'] = '{$a} unique words';
+$string['rubricitemwords'] = '{$a} words';
+$string['rubricitemwordspersentence'] = '{$a} words per sentence';
+$string['rubricplays1'] = 'once';
+$string['rubricplays2'] = 'twice';
+$string['rubricplaysany'] = 'as many times as they liked';
+$string['rubricplaysn'] = '{$a} times';
+$string['rubricresponses1'] = '1 response';
+$string['rubricresponses2'] = '2 responses';
+$string['rubricresponsesany'] = 'any number of responses';
+$string['rubricresponsesn'] = '{$a} responses';
+$string['rubrictimeminute'] = '1 minute';
+$string['rubrictimeminutes'] = '{$a} minutes';
+$string['rubrictimenolimit'] = 'no time limit';
+$string['rubrictimesecond'] = '1 second';
+$string['rubrictimeseconds'] = '{$a} seconds';
+
 // Making large response files smaller.
 $string['pathtoffmpeg'] = 'Path to ffmpeg';
 $string['pathtoffmpeg_desc'] = 'ffmpeg makes audio and video files smaller. On Ubuntu and Debian, install it with "sudo apt install ffmpeg"; it is then usually /usr/bin/ffmpeg.';
@@ -494,6 +532,9 @@ $string['ttsvoices_desc'] = 'One per line, the language code, "=", and the voice
 // GIFT import and export.
 $string['giftbadparts'] = 'not recognised: {$a}';
 $string['giftbadvalue'] = '{$a->name}={$a->value} ({$a->error})';
+$string['giftexpectarchetype'] = 'expected the ID number of a SpeakUp question, e.g. quickfire-archetype';
+$string['giftarchetypenotspeakup'] = 'ARCHETYPE={$a}: that question is not a SpeakUp question, so its settings were not used.';
+$string['giftnoarchetype'] = 'ARCHETYPE={$a}: there is no question with this ID number in this category, or the categories above it, so the usual defaults were used. An archetype in the same GIFT file must come before the questions that use it.';
 $string['giftexpectlanguage'] = 'expected a language code, e.g. en-US';
 $string['giftexpectnumber'] = 'expected a whole number from {$a->min} to {$a->max}';
 $string['giftexpectoneof'] = 'expected one of: {$a}';

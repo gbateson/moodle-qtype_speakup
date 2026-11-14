@@ -329,4 +329,48 @@ final class question_test extends \advanced_testcase {
         $this->assertTrue($question->is_allowed_file_type('audio/mp3'));
         $this->assertFalse($question->is_allowed_file_type('image/png'));
     }
+
+    /**
+     * The question's settings are given in English words, for the
+     * placeholders in the AI rubric.
+     */
+    public function test_rubric_values(): void {
+        $question = $this->make();
+        $question->name = 'Favorite season';
+        $question->audioprompttranscript = " What's your favorite season? ";
+        $question->timelimitinseconds = 30;
+        $question->maxpromptplays = 1;
+        $question->maxresponses = 0;
+        $question->sttlanguage = 'en-US';
+        $question->targetitems = [
+            (object) ['itemtype' => 'words', 'itemcount' => '30.00', 'percent' => 25, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemcount' => '45.00', 'percent' => 5, 'multiplier' => 1],
+            (object) ['itemtype' => 'lexicaldensity', 'itemcount' => '42.5', 'percent' => 10, 'multiplier' => 1],
+        ];
+        $values = $question->get_rubric_values();
+        $this->assertSame('Favorite season', $values['questionname']);
+        $this->assertSame("What's your favorite season?", $values['audioprompt']);
+        $this->assertSame('30 seconds', $values['timelimit']);
+        $this->assertSame('once', $values['promptplays']);
+        $this->assertSame('any number of responses', $values['responses']);
+        $this->assertSame('English (en-US)', $values['language']);
+        $this->assertSame('30 words', $values['target.words']);
+        $this->assertSame('a lexical density of 42.5%', $values['target.lexicaldensity']);
+
+        $expected = [
+            [90, 2, 3, '1 minute 30 seconds', 'twice', '3 responses'],
+            [120, 3, 1, '2 minutes', '3 times', '1 response'],
+            [61, 0, 2, '1 minute 1 second', 'as many times as they liked', '2 responses'],
+            [0, 1, 1, 'no time limit', 'once', '1 response'],
+        ];
+        foreach ($expected as [$seconds, $plays, $responses, $time, $playwords, $responsewords]) {
+            $question->timelimitinseconds = $seconds;
+            $question->maxpromptplays = $plays;
+            $question->maxresponses = $responses;
+            $values = $question->get_rubric_values();
+            $this->assertSame($time, $values['timelimit']);
+            $this->assertSame($playwords, $values['promptplays']);
+            $this->assertSame($responsewords, $values['responses']);
+        }
+    }
 }

@@ -59,6 +59,26 @@ To send several files in one request, a provider's request template uses
 each file. The "Preset" menu on the provider form fills in working settings
 for Gemini, ChatGPT and Claude, and for Gemini's and OpenAI's speech.
 
+## Rubric placeholders
+
+A question's AI rubric can include its settings, in words, so that one
+rubric fits many questions:
+
+| Placeholder | Example |
+|---|---|
+| `{{questionname}}` | Favorite season |
+| `{{audioprompt}}` | What's your favorite season? (the audio prompt's transcript) |
+| `{{timelimit}}` | 30 seconds |
+| `{{promptplays}}` | once, twice, 3 times |
+| `{{responses}}` | 1 response |
+| `{{language}}` | English (en-US) |
+| `{{target.words}}` | 30 words (the first target for words; or another item type) |
+
+The names used in GIFT also work, e.g. `{{AUDIO}}`, `{{TIMELIMIT}}`,
+`{{MAXPROMPTPLAYS}}` and `{{TARGETITEM.words}}`, and case does not matter.
+The question form says if a placeholder cannot be filled in, e.g. because
+it is misspelled, or the question has no target for that item type.
+
 ## Shared rubrics
 
 A question's AI rubric can include all or part of its question text, e.g.
@@ -75,7 +95,9 @@ then the part with `class="rubric"`.
 The question is looked for by its ID number in the SpeakUp question's own
 category, then in the category above it, and so on to the top of the
 question bank, so a rubric in a parent category serves all its
-subcategories, and a subcategory can have its own. The latest "Ready"
+subcategories, and a subcategory can have its own. Placeholders for
+settings in a shared rubric, e.g. `{{timelimit}}`, are filled in with each
+question's own settings. The latest "Ready"
 version is used, so a rubric can be refined over time. The question form
 says if no such question can be found; if it has gone when a response is
 assessed, the assessment fails, and teachers are told why. In GIFT, give
@@ -169,6 +191,31 @@ that are left out get their usual defaults.
 - As usual in GIFT, a blank line ends the question, so write line breaks as
   `\n`, and escape `{`, `}`, `=`, `#`, `~` and `:` in values with a
   backslash (only `{` and `}` are essential).
+- `ARCHETYPE=idnumber` gives a question the settings of another SpeakUp
+  question, its archetype, for the settings it does not give itself. The
+  archetype is found by its ID number, in the question's category or a
+  category above it; it can be earlier in the same file (with
+  `// [id:idnumber]` on the line before it), or already in the question
+  bank. The question keeps its own name, question text and audio prompt,
+  and takes the archetype's target items and phrases only if it has none
+  of its own. The settings are copied when the question is imported, so
+  later changes to the archetype do not change it. For example:
+
+      // [id:quickfire-archetype]
+      ::Quickfire archetype::Settings shared by the quickfire questions.{
+      SPEAKUP
+      TIMELIMIT=30
+      RECORDAFTERPROMPT=yes
+      MAXPROMPTPLAYS=1
+      AI=Gemini, 70%
+      TARGETITEM=(words, 30, 30%, x1)
+      }
+
+      ::Favorite season::Listen, then answer.{
+      AUDIO: What's your favorite season?
+      ARCHETYPE=quickfire-archetype
+      }
+
 - GIFT cannot hold files, so the audio prompt file is not exported. When a
   question is imported (or saved) with a transcript but no audio prompt, the
   audio prompt is generated from the transcript in the background, by the

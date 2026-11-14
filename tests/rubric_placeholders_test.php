@@ -175,4 +175,39 @@ final class rubric_placeholders_test extends \advanced_testcase {
         ]);
         $this->assertSame('Second.', rubric_placeholders::expand($rubric, '', $category->id));
     }
+
+    /**
+     * Settings placeholders are filled in by name or by their GIFT name,
+     * whatever the case, and unknown ones are left as they are.
+     */
+    public function test_settings(): void {
+        $values = ['audioprompt' => 'What is your favorite season?', 'timelimit' => '30 seconds',
+            'promptplays' => 'once', 'target.words' => '30 words'];
+        $rubric = 'They heard "{{audioprompt}}" {{ PromptPlays }}, and answered in {{TIMELIMIT}}, '
+            . 'aiming for {{target.words}} ({{TARGETITEM.Words}}). {{AUDIO}} {{plays}} {{timelimitinseconds}} '
+            . '{{nothing}} {{target.chars}} {{questiontext.rubric}}';
+        $this->assertSame('They heard "What is your favorite season?" once, and answered in 30 seconds, '
+            . 'aiming for 30 words (30 words). What is your favorite season? once 30 seconds '
+            . '{{nothing}} {{target.chars}} Score fluency.',
+            rubric_placeholders::expand($rubric, self::QUESTIONTEXT, 0, $values));
+
+        $this->assertSame(['{{nothing}}', '{{target.chars}}', '{{RUBRIC}}', '{{foo.bar}}'],
+            rubric_placeholders::get_unknown_placeholders($rubric . ' {{RUBRIC}} {{foo.bar}} {{nothing}}', ['words']));
+        $this->assertSame(['{{nothing}}'], rubric_placeholders::get_unknown_placeholders($rubric, ['words', 'chars']));
+    }
+
+    /**
+     * Settings placeholders in a shared rubric are filled in with the
+     * settings of the question that uses it.
+     */
+    public function test_settings_in_shared_rubric(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $generator->create_question_category();
+        $this->create_rubric_question($category->id, 'shared', 'Answer in {{timelimit}}.');
+        $this->assertSame('Shared: Answer in 30 seconds.', rubric_placeholders::expand(
+            'Shared: {{shared/questiontext.rubric}}', '', $category->id, ['timelimit' => '30 seconds']));
+    }
 }

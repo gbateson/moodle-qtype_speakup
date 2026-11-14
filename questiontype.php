@@ -135,6 +135,12 @@ class qtype_speakup extends question_type {
     public function save_question_options($question) {
         global $DB;
 
+        // A question imported from GIFT with ARCHETYPE=idnumber takes the
+        // archetype's settings, for those it does not give itself.
+        if (!empty($question->giftarchetype)) {
+            $this->apply_gift_archetype($question);
+        }
+
         // Images (e.g. scans of handwriting) are always uploaded.
         if (($question->mediatype ?? '') === SPEAKUP_MEDIA_IMAGE) {
             $question->responsemethod = SPEAKUP_RESPONSE_UPLOAD;
@@ -461,6 +467,7 @@ class qtype_speakup extends question_type {
             'TARGETITEMS' => 'targetitem',
             'ITEM' => 'targetitem',
             'ITEMS' => 'targetitem',
+            'ARCHETYPE' => 'archetype',
             'TARGETPHRASE' => 'targetphrase',
             'TARGETPHRASES' => 'targetphrase',
             'PHRASE' => 'targetphrase',
@@ -734,6 +741,16 @@ class qtype_speakup extends question_type {
             }
         }
 
+        // Remember which settings were given, so that an archetype only
+        // fills in the others (see apply_gift_archetype()).
+        if (!empty($question->giftarchetype)) {
+            $fields = $this->extra_question_fields();
+            array_shift($fields); // Omit the table name.
+            $question->giftsettings = array_values(array_filter($fields, function ($field) use ($question) {
+                return property_exists($question, $field);
+            }));
+        }
+
         // Settings that were left out get their defaults, as on the question
         // form (whose default grading method differs from the database's).
         $formdefaults = ['gradingmethod' => SPEAKUP_GRADING_AUTO, 'aiproviderid' => null];
@@ -851,6 +868,16 @@ class qtype_speakup extends question_type {
 
             case 'aiprovider':
                 return $this->import_gift_provider($question, $value);
+
+            case 'archetype':
+                // The ID number of a SpeakUp question whose settings this
+                // question takes, for those it does not give itself. It is
+                // found when the question is saved (see apply_gift_archetype()).
+                if ($value === '') {
+                    return get_string('giftexpectarchetype', $plugin);
+                }
+                $question->giftarchetype = $value;
+                return null;
 
             case 'ai':
                 // "no", "yes", "yes, 50%", "Gemini", "Gemini, 100%" ...
@@ -974,6 +1001,63 @@ class qtype_speakup extends question_type {
         }
         $question->aiproviderid = (int) $id;
         return null;
+    }
+
+    /**
+     * Give a question imported from GIFT the settings of its archetype: a
+     * SpeakUp question with the ID number given by ARCHETYPE=..., in the
+     * question's category, or else the category above it, and so on up to the
+     * top of the question bank. An archetype earlier in the same GIFT file
+     * has been saved already, so it is found there too.
+     *
+     * The question keeps the settings it gives itself, and its own name,
+     * question text and audio prompt. It takes the archetype's target items
+     * and target phrases only if it has none of its own. The settings are
+     * copied, so later changes to the archetype do not change the question.
+     *
+     * @param stdClass $question the question being saved.
+     */
+    protected function apply_gift_archetype(stdClass $question): void {
+        global $DB;
+        $idnumber = $question->giftarchetype;
+        $categoryid = (int) explode(',', (string) ($question->category ?? 0))[0];
+        $archetype = \qtype_speakup\rubric_placeholders::find_question($idnumber, $categoryid);
+        if (!$archetype || (int) $archetype->id === (int) ($question->id ?? 0)) {
+            $this->gift_warning($question, get_string('giftnoarchetype', 'qtype_speakup', $idnumber));
+            return;
+        }
+        if ($archetype->qtype !== $this->name()
+                || !$options = $DB->get_record('qtype_speakup_options', ['questionid' => $archetype->id])) {
+            $this->gift_warning($question, get_string('giftarchetypenotspeakup', 'qtype_speakup', $idnumber));
+            return;
+        }
+
+        $fields = $this->extra_question_fields();
+        array_shift($fields); // Omit the table name.
+        $given = $question->giftsettings ?? [];
+        foreach ($fields as $field) {
+            if ($field !== 'audioprompttranscript' && !in_array($field, $given) && property_exists($options, $field)) {
+                $question->$field = $options->$field;
+            }
+        }
+
+        if (empty($question->itemtype)) {
+            foreach ($DB->get_records('qtype_speakup_items', ['questionid' => $archetype->id], 'id ASC') as $item) {
+                $question->itemtype[] = $item->itemtype;
+                $question->itemcount[] = $item->itemcount;
+                $question->itempercent[] = $item->percent;
+                $question->itemmultiplier[] = $item->multiplier;
+            }
+        }
+        if (empty($question->phrasematch)) {
+            foreach ($DB->get_records('qtype_speakup_answers', ['questionid' => $archetype->id], 'id ASC') as $phrase) {
+                $question->phrasematch[] = $phrase->answertext;
+                $question->phrasepercent[] = $phrase->percent;
+                $question->phrasedivisor[] = $phrase->divisor;
+                $question->phrasefullmatch[] = $phrase->fullmatch;
+                $question->phrasecasesensitive[] = $phrase->casesensitive;
+            }
+        }
     }
 
     /**

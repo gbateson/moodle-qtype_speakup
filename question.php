@@ -466,6 +466,81 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
+     * Get the question's settings, in English words, for the placeholders
+     * in the AI rubric, e.g. {{timelimit}} (see rubric_placeholders).
+     *
+     * @return string[] e.g. 'timelimit' => '30 seconds', 'target.words' => '30 words'.
+     */
+    public function get_rubric_values(): array {
+        $values = [
+            'questionname' => (string) $this->name,
+            'audioprompt' => trim((string) $this->audioprompttranscript),
+            'timelimit' => self::rubric_time((int) $this->timelimitinseconds),
+            'promptplays' => self::rubric_count((int) $this->maxpromptplays, 'rubricplays'),
+            'responses' => self::rubric_count((int) $this->maxresponses, 'rubricresponses'),
+            'language' => $this->get_language_name(),
+        ];
+        // The first target for each item type, e.g. "30 words".
+        foreach ($this->targetitems as $item) {
+            $name = 'target.' . $item->itemtype;
+            if (!isset($values[$name]) && (float) $item->itemcount > 0) {
+                $values[$name] = self::rubric_string('rubricitem' . $item->itemtype,
+                        format_float((float) $item->itemcount, 2, false, true));
+            }
+        }
+        return $values;
+    }
+
+    /**
+     * Get a string in English, for the AI rubric, which is in English
+     * whatever the site's language is.
+     *
+     * @param string $name
+     * @param mixed $a
+     * @return string
+     */
+    protected static function rubric_string(string $name, $a = null): string {
+        return get_string_manager()->get_string($name, 'qtype_speakup', $a, 'en');
+    }
+
+    /**
+     * Get a time limit in words, e.g. "30 seconds" or "1 minute 30 seconds".
+     *
+     * @param int $seconds
+     * @return string
+     */
+    protected static function rubric_time(int $seconds): string {
+        if ($seconds <= 0) {
+            return self::rubric_string('rubrictimenolimit');
+        }
+        $parts = [];
+        if ($minutes = intdiv($seconds, 60)) {
+            $parts[] = self::rubric_string($minutes == 1 ? 'rubrictimeminute' : 'rubrictimeminutes', $minutes);
+        }
+        if ($seconds = $seconds % 60) {
+            $parts[] = self::rubric_string($seconds == 1 ? 'rubrictimesecond' : 'rubrictimeseconds', $seconds);
+        }
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Get a limit in words, e.g. "once", "twice" or "3 times" for prompt plays.
+     *
+     * @param int $count 0 for unlimited.
+     * @param string $prefix "rubricplays" or "rubricresponses".
+     * @return string
+     */
+    protected static function rubric_count(int $count, string $prefix): string {
+        if ($count <= 0) {
+            return self::rubric_string($prefix . 'any');
+        }
+        if ($count <= 2) {
+            return self::rubric_string($prefix . $count);
+        }
+        return self::rubric_string($prefix . 'n', $count);
+    }
+
+    /**
      * Get the response language, for the AI, e.g. "English (en-US)".
      *
      * @return string

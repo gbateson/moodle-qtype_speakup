@@ -130,3 +130,14 @@ Feature: Test editing a SpeakUp question
     And I set the field "AI assessment rubric / instructions" to "{{shared-rubric/questiontext.rubric}}"
     And I press "id_submitbutton"
     And I should not see "There is no question with the ID number"
+
+  Scenario: Placeholders for the question's settings must be spelled right
+    When I am on the "speakup-001" "core_question > edit" page logged in as teacher
+    And I set the following fields to these values:
+      | Use AI assessment                    | 1                                                     |
+      | AI assessment rubric / instructions | Answer in {{timelimt}}, aiming for {{target.chars}}. |
+    And I press "id_submitbutton"
+    Then I should see "These placeholders cannot be filled in: {{timelimt}}, {{target.chars}}."
+    And I set the field "AI assessment rubric / instructions" to "Answer in {{TimeLimit}}, aiming for {{target.words}}."
+    And I press "id_submitbutton"
+    And I should not see "These placeholders cannot be filled in"

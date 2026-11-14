@@ -386,4 +386,122 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertSame(SPEAKUP_MEDIA_IMAGE, $imported->mediatype);
         $this->assertSame(2, $imported->maxfiles);
     }
+
+    /**
+     * Import some GIFT into a category, as from the "Import" page.
+     *
+     * @param string $gift
+     * @param \stdClass $category
+     * @return string the import's output, e.g. warnings.
+     */
+    protected function import_gift(string $gift, \stdClass $category): string {
+        $file = make_request_directory() . '/questions.txt';
+        file_put_contents($file, $gift);
+        $format = new \qformat_gift();
+        $format->setCategory($category);
+        $format->setContexts([\context::instance_by_id($category->contextid)]);
+        $format->setCourse(get_site());
+        $format->setFilename($file);
+        $format->setRealfilename('questions.txt');
+        $format->setMatchgrades('error');
+        $format->setStoponerror(true);
+        $format->set_display_progress(false);
+        ob_start();
+        $this->assertTrue($format->importpreprocess());
+        $this->assertTrue($format->importprocess());
+        return ob_get_clean();
+    }
+
+    /**
+     * Get the saved settings of an imported question, by name.
+     *
+     * @param string $name
+     * @return \stdClass
+     */
+    protected function imported(string $name): \stdClass {
+        global $DB;
+        $id = $DB->get_field('question', 'id', ['name' => $name], MUST_EXIST);
+        return question_bank::load_question_data($id);
+    }
+
+    /**
+     * A question imported from GIFT with ARCHETYPE=idnumber takes the
+     * settings of that question, from the same file or from the question
+     * bank, for those it does not give itself.
+     */
+    public function test_gift_archetype(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        \qtype_speakup_test_helper::create_provider(['name' => 'Gemini']);
+        /** @var \core_question_generator $generator */
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $top = $generator->create_question_category();
+        $sub = $generator->create_question_category(['parent' => $top->id, 'contextid' => $top->contextid]);
+
+        $output = $this->import_gift('
+// [id:quickfire-archetype]
+::Archetype::Shared settings.{
+SPEAKUP
+TIMELIMIT=30
+MAXPROMPTPLAYS=1
+GRADING=auto
+AI=Gemini, 70%
+RUBRIC=Answer in \\{\\{timelimit\\}\\}.
+TARGETITEM=(words, 30, 30%, x1)
+TARGETPHRASE=("because", 10%, /1, partial, nocase)
+}
+
+::Season::Listen, then answer.{
+AUDIO: What is your favorite season?
+ARCHETYPE=quickfire-archetype
+}
+
+::Weekend::Listen, then answer.{
+AUDIO: What did you do last weekend?
+ARCHETYPE=quickfire-archetype
+TIMELIMIT=45
+TARGETITEM=(words, 40, 20%, x1)
+}
+
+::Lost::Listen, then answer.{
+AUDIO: Where is it?
+ARCHETYPE=no-such-question
+}
+', $top);
+
+        $archetype = $this->imported('Archetype');
+        $season = $this->imported('Season');
+        $this->assertEquals(30, $season->options->timelimitinseconds);
+        $this->assertEquals(1, $season->options->maxpromptplays);
+        $this->assertEquals(1, $season->options->aiassessment);
+        $this->assertEquals(70, $season->options->aiweighting);
+        $this->assertEquals($archetype->options->aiproviderid, $season->options->aiproviderid);
+        $this->assertSame('Answer in {{timelimit}}.', $season->options->airubric);
+        $this->assertSame('What is your favorite season?', $season->options->audioprompttranscript);
+        $this->assertSame('Listen, then answer.', $season->questiontext);
+        $this->assertEquals([30], array_values(array_map(fn($i) => (float) $i->itemcount, $season->options->targetitems)));
+        $this->assertCount(1, $season->options->expectedanswers);
+
+        // Its own settings win, and its own target items replace the archetype's.
+        $weekend = $this->imported('Weekend');
+        $this->assertEquals(45, $weekend->options->timelimitinseconds);
+        $this->assertEquals(1, $weekend->options->maxpromptplays);
+        $this->assertEquals([40], array_values(array_map(fn($i) => (float) $i->itemcount, $weekend->options->targetitems)));
+        $this->assertCount(1, $weekend->options->expectedanswers);
+
+        // Not found: a warning, and the usual defaults.
+        $this->assertStringContainsString('ARCHETYPE=no-such-question', $output);
+        $this->assertEquals(0, $this->imported('Lost')->options->aiassessment);
+
+        // An archetype already in the question bank, in a category above.
+        $this->import_gift('
+::Hometown::Listen, then answer.{
+AUDIO: Tell me about your hometown.
+ARCHETYPE=quickfire-archetype
+}
+', $sub);
+        $hometown = $this->imported('Hometown');
+        $this->assertEquals(30, $hometown->options->timelimitinseconds);
+        $this->assertEquals(70, $hometown->options->aiweighting);
+    }
 }
