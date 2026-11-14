@@ -321,29 +321,32 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
-     * Create an AI provider, for tests.
+     * Create an AI provider in the AI bridge, for tests, shared with the
+     * whole site. The AI policy is turned off, so that requests can be sent.
      *
      * @param array $data fields that differ from a text provider called "Test AI".
      * @return stdClass the provider record.
      */
     public static function create_provider(array $data = []): stdClass {
+        set_config('requirepolicy', 0, 'tool_aibridge');
+        $apikey = $data['apikey'] ?? 'secret-key';
+        unset($data['apikey'], $data['providertype']);
         $data = (object) array_merge([
             'name' => 'Test AI',
-            'providertype' => \qtype_speakup\ai_provider::TYPE_EXTERNAL,
+            'ownerid' => get_admin()->id,
+            'contextid' => SYSCONTEXTID,
             'capability' => \qtype_speakup\ai_provider::CAPABILITY_TEXT,
             'url' => 'https://api.example.com/v1/chat',
-            'apikey' => 'secret-key',
             'headers' => '',
             'model' => 'test-model',
             'returnpath' => 'choices,0,message,content',
             'requesttemplate' => '{"model": "{{MODEL}}", "messages": [{"role": "system", "content": "{{RUBRIC}}"}, ' .
                     '{"role": "user", "content": "{{TRANSCRIPT}}"}]}',
-            'uploadstyle' => \qtype_speakup\ai_provider::UPLOAD_NONE,
+            'uploadstyle' => \tool_aibridge\provider::UPLOAD_NONE,
             'enabled' => 1,
             'sortorder' => 0,
         ], $data);
-        $id = \qtype_speakup\ai_provider::save($data);
-        return \qtype_speakup\ai_provider::get($id);
+        return \tool_aibridge\provider::save($data, $apikey)->get_record();
     }
 
     /**
@@ -374,7 +377,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         return self::create_provider(array_merge([
             'name' => 'Test multimodal',
             'capability' => \qtype_speakup\ai_provider::CAPABILITY_MULTIMODAL,
-            'uploadstyle' => \qtype_speakup\ai_provider::UPLOAD_INLINE_BASE64,
+            'uploadstyle' => \tool_aibridge\provider::UPLOAD_INLINE_BASE64,
             'returnpath' => 'candidates,0,content,parts,0,text',
             'requesttemplate' => '{"contents": [{"parts": [{{FILE_PARTS}} {"text": "{{RUBRIC}}"}]}]}',
             'filetemplate' => '{"inline_data": {"mime_type": "{{FILE_MIMETYPE}}", "data": "{{FILE_BASE64}}"}}',

@@ -132,47 +132,5 @@
       </KEYS>
     </TABLE>
 
-    <TABLE NAME="qtype_speakup_ai_providers" COMMENT="Admin-configured AI providers, selectable per question. Credentials live here (admin-only), never on individual questions.">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"
-            COMMENT="Display name shown to teachers in the question-editing form, e.g. 'OpenAI GPT-4o'."/>
-        <FIELD NAME="providertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="external" SEQUENCE="false"
-            COMMENT="'core' (Moodle's own AI subsystem) or 'external' (arbitrary REST API)."/>
-        <FIELD NAME="capability" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="text" SEQUENCE="false"
-            COMMENT="'text' or 'multimodal'. Always 'text' for providertype=core, since core's generate_text action cannot accept files."/>
-        <FIELD NAME="corename" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=core: the specific core AI provider plugin name (e.g. aiprovider_openai), or blank for 'any available'."/>
-        <FIELD NAME="url" TYPE="char" LENGTH="1333" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: the API endpoint URL."/>
-        <FIELD NAME="username" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: optional username, for APIs that need one alongside the key."/>
-        <FIELD NAME="apikey" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: the API key/secret. Admin-only - never exposed to the question-editing form."/>
-        <FIELD NAME="headers" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: extra HTTP headers as JSON, e.g. {&quot;Authorization&quot;:&quot;Bearer ...&quot;}."/>
-        <FIELD NAME="model" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: model identifier to include in the request, if applicable."/>
-        <FIELD NAME="returnpath" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: comma-separated key path to extract the answer from the JSON response, e.g. 'choices,0,message,content'."/>
-        <FIELD NAME="requesttemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For providertype=external: JSON request body template, with tokens {{RUBRIC}}, {{TRANSCRIPT}}, {{AUDIO_BASE64}}, {{AUDIO_MIMETYPE}} substituted at call time. Lets each provider's own request shape be configured without hard-coding any one vendor's API."/>
-        <FIELD NAME="filetemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For multimodal providers: the JSON for one file, repeated for each file at {{FILE_PARTS}} in the request template. Either one part, or an object of MIME type (e.g. image/*) => part."/>
-        <FIELD NAME="uploadstyle" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false"
-            COMMENT="For providertype=external + capability=multimodal: how the audio/video file is sent - 'inline_base64' or 'upload_reference'. 'none' for text-only providers."/>
-        <FIELD NAME="uploadurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For uploadstyle=upload_reference: the endpoint used to upload the file itself, before referencing it in the main request (e.g. Gemini's resumable-upload endpoint). Separate from 'url' since the upload and generate endpoints are often different paths on the same host. Supports the {{APIKEY}} token."/>
-        <FIELD NAME="uploadprotocol" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false"
-            COMMENT="For uploadstyle=upload_reference: which provider-specific upload protocol implementation to use (see classes/upload/). A real upload-then-reference flow is not expressible generically the way the main JSON request template is, so each supported protocol is its own PHP class, selected here by name."/>
-        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
-        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-      </KEYS>
-    </TABLE>
   </TABLES>
 </XMLDB>

@@ -181,7 +181,7 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
                          SET uploadprotocol = ?
                        WHERE uploadstyle = ?
                          AND (uploadprotocol IS NULL OR uploadprotocol = '')",
-                [\qtype_speakup\upload\uploader_factory::PROTOCOL_GEMINI, 'upload_reference']);
+                ['gemini', 'upload_reference']);
 
         upgrade_plugin_savepoint(true, 2026091147, 'qtype', 'speakup');
     }
@@ -494,6 +494,15 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026091165, 'qtype', 'speakup');
+    }
+
+    if ($oldversion < 2026111401) {
+        // SpeakUp now uses the AI bridge (tool_aibridge): move its own AI
+        // providers there. If the bridge is being installed in this upgrade,
+        // this is done when it is installed (see provider_migration).
+        \qtype_speakup\provider_migration::run();
+
+        upgrade_plugin_savepoint(true, 2026111401, 'qtype', 'speakup');
     }
 
     return true;

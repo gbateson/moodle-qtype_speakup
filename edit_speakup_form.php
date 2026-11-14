@@ -257,13 +257,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         // or uploads without AI assessment".
         $name = 'transcriptionproviderid';
         $label = get_string($name, $plugin);
-        $providermenu = \qtype_speakup\ai_provider::get_menu(true);
-        if (empty($providermenu)) {
-            $mform->addElement('static', $name, $label, get_string('noaiproviders', $plugin));
-        } else {
-            $mform->addElement('select', $name, $label, ['' => get_string('choosedots')] + $providermenu);
-            $mform->setType($name, PARAM_INT);
-        }
+        $this->add_provider_menu($name, $label, true);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
@@ -306,17 +300,7 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         $name = 'aiproviderid';
         $label = get_string($name, $plugin);
-        $providermenu = \qtype_speakup\ai_provider::get_menu(true);
-        if (empty($providermenu)) {
-            // No providers configured yet - show a disabled placeholder
-            // rather than an empty select, with a pointer to where an
-            // admin sets these up (Manage AI providers, under Site
-            // administration > Plugins > Question types).
-            $mform->addElement('static', $name, $label, get_string('noaiproviders', $plugin));
-        } else {
-            $mform->addElement('select', $name, $label, ['' => get_string('choosedots')] + $providermenu);
-            $mform->setType($name, PARAM_INT);
-        }
+        $this->add_provider_menu($name, $label, false);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         $mform->hideIf($name, 'aiassessment', 'notchecked');
@@ -409,7 +393,7 @@ class qtype_speakup_edit_form extends question_edit_form {
      * @param string $plugin
      */
     protected function add_audio_prompt($mform, string $plugin) {
-        global $CFG, $OUTPUT, $PAGE;
+        global $CFG, $OUTPUT, $PAGE, $USER;
 
         $name = 'audioprompt';
         $mform->addElement('hidden', $name);
@@ -444,7 +428,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Without an audio prompt, one is generated from the transcript when
         // the question is saved, if a speech provider is set up (see
         // classes/task/generate_audio_prompt.php).
-        if (\qtype_speakup\ai_provider::get_tts_provider()) {
+        if (\qtype_speakup\ai_provider::is_tts_available($this->context, (int) $USER->id)) {
             $questionid = (int) ($this->question->id ?? 0);
             if ($questionid && \qtype_speakup\task\generate_audio_prompt::is_pending($questionid)) {
                 $note = get_string('audiopromptpending', $plugin);
@@ -526,6 +510,37 @@ class qtype_speakup_edit_form extends question_edit_form {
                 ['audiopromptdeleted', 'fileuploaded', 'uploadfile', 'uploadwrongtypeaudio', 'uploadtoobig']);
         $PAGE->requires->strings_for_js(array_unique($strings), 'qtype_speakup');
         $PAGE->requires->js_call_amd('qtype_speakup/audioprompt', 'init', [$id, $settings]);
+    }
+
+    /**
+     * Add a menu of the AI providers that can be used where the question is,
+     * from the AI bridge, with "Automatic" first. If there are none, say where
+     * to set one up.
+     *
+     * @param string $name
+     * @param string $label
+     * @param bool $multimodalonly only providers that receive the files themselves.
+     */
+    protected function add_provider_menu(string $name, string $label, bool $multimodalonly): void {
+        $mform = $this->_form;
+        $plugin = 'qtype_speakup';
+        if (!\qtype_speakup\ai_provider::is_available($this->context, $multimodalonly)) {
+            $url = \qtype_speakup\ai_provider::get_manage_url($this->context);
+            $mform->addElement('static', $name, $label, get_string('noaiproviders', $plugin, $url->out()));
+            return;
+        }
+        $menu = [0 => get_string('aiproviderauto', $plugin)]
+                + \qtype_speakup\ai_provider::get_menu($this->context, $multimodalonly);
+        // Keep the question's own provider, even if it is not shared here.
+        $current = (int) ($this->question->options->aiproviderid ?? 0);
+        if ($current && !isset($menu[$current])) {
+            $providername = \qtype_speakup\ai_provider::get_name($current);
+            if ($providername !== '') {
+                $menu[$current] = $providername;
+            }
+        }
+        $mform->addElement('select', $name, $label, $menu);
+        $mform->setType($name, PARAM_INT);
     }
 
     /**
@@ -720,13 +735,6 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
         }
 
-        if ($usesai) {
-            $providermenu = \qtype_speakup\ai_provider::get_menu(true);
-            if (!empty($providermenu) && empty($data['aiproviderid'])) {
-                $errors['aiproviderid'] = get_string('err_aiproviderrequired', 'qtype_speakup');
-            }
-        }
-
         // An uploaded file has no live browser transcript. So, for
         // automated grading, it needs an AI provider that receives the file
         // itself and can transcribe it: with AI assessment, the AI
@@ -735,13 +743,11 @@ class qtype_speakup_edit_form extends question_edit_form {
             $field = ($usesai ? 'aiproviderid' : 'transcriptionproviderid');
             if (!isset($errors[$field])) {
                 $providerid = (int) ($data[$field] ?? 0);
-                if (empty(\qtype_speakup\ai_provider::get_menu(true))) {
+                if (!\qtype_speakup\ai_provider::is_available($this->context, true)) {
                     $errors[$isimage ? 'mediatype' : 'responsemethod'] = get_string('err_uploadneedsprovider', 'qtype_speakup');
-                } else if (empty($providerid)) {
-                    $errors[$field] = get_string('err_transcriptionproviderrequired', 'qtype_speakup');
-                } else {
+                } else if ($providerid) {
                     $provider = \qtype_speakup\ai_provider::get($providerid);
-                    if ($provider && $provider->capability !== \qtype_speakup\ai_provider::CAPABILITY_MULTIMODAL) {
+                    if ($provider && $provider->get_capability() !== \qtype_speakup\ai_provider::CAPABILITY_MULTIMODAL) {
                         $errors[$field] = get_string('err_uploadneedsmultimodal', 'qtype_speakup');
                     }
                 }

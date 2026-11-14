@@ -112,18 +112,15 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
     }
 
     /**
-     * Get the id of the AI provider with this name on this site.
+     * Get the id of the AI provider with this name on this site (in the AI
+     * bridge, not counting teachers' personal providers).
      *
      * @param string|null $name
      * @return int|null the id, or null if there is no such provider.
      */
     protected static function get_provider_id(?string $name): ?int {
-        global $DB;
-        if ($name === null || trim($name) === '') {
-            return null;
-        }
-        $id = $DB->get_field('qtype_speakup_ai_providers', 'id', ['name' => $name], IGNORE_MULTIPLE);
-        return $id ? (int) $id : null;
+        $id = \qtype_speakup\ai_provider::find_by_name((string) $name);
+        return $id ? $id : null;
     }
 
     /**

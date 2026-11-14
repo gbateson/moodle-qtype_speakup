@@ -103,18 +103,3 @@ Feature: Image responses, e.g. scans of handwriting
     Then I should see "\"handwriting.pdf\" is 441 bytes" in the ".qtype_speakup-image-message" "css_element"
     And I should see "e.g. by scanning at a lower resolution"
     And "a.qtype_speakup-image-pdf" "css_element" should not exist
-
-  Scenario: Choosing a preset fills in the AI provider form
-    When I log in as "admin"
-    And I visit "/question/type/speakup/manageaiproviders.php"
-    And I press "Add a new AI provider"
-    And I set the field "Preset" to "Claude (Anthropic)"
-    Then the following fields match these values:
-      | Name              | Claude                               |
-      | Capability        | Multimodal (audio, video and image files)|
-      | API URL           | https://api.anthropic.com/v1/messages |
-      | Response key path | content,0,text                       |
-    And I set the field "API key" to "my-secret-key"
-    And I press "Save changes"
-    And I should see "AI provider saved."
-    And I should see "Claude"

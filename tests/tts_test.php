@@ -37,66 +37,15 @@ final class tts_test extends \advanced_testcase {
     const MP3 = "ID3\x04\x00\x00\x00\x00\x00\x00audio";
 
     /**
-     * Data for test_identify_audio().
+     * Generate speech with a provider, as the admin, in the site's context.
      *
+     * @param \stdClass $provider
+     * @param string $text
+     * @param string $voice
      * @return array
      */
-    public static function identify_audio_provider(): array {
-        return [
-            'mp3 with ID3' => [self::MP3, '', 'mp3', 'audio/mpeg'],
-            'mp3 frame' => ["\xFF\xFB\x90\x00abcdefgh", '', 'mp3', 'audio/mpeg'],
-            'wav' => ["RIFF\x00\x00\x00\x00WAVEfmt ", '', 'wav', 'audio/wav'],
-            'ogg' => ['OggS' . str_repeat("\0", 8), '', 'ogg', 'audio/ogg'],
-            'flac' => ['fLaC' . str_repeat("\0", 8), '', 'flac', 'audio/flac'],
-            'm4a' => ["\0\0\0\x20ftypM4A ", '', 'm4a', 'audio/mp4'],
-            'webm' => ["\x1A\x45\xDF\xA3" . str_repeat("\0", 8), '', 'webm', 'audio/webm'],
-            'pcm' => [str_repeat("\x01\x02", 50), 'audio/L16;codec=pcm;rate=16000', 'wav', 'audio/wav'],
-        ];
-    }
-
-    /**
-     * Test recognising the kind of audio.
-     *
-     * @dataProvider identify_audio_provider
-     * @param string $audio
-     * @param string $mimetype
-     * @param string $extension
-     * @param string $expectedmimetype
-     */
-    public function test_identify_audio(string $audio, string $mimetype, string $extension, string $expectedmimetype): void {
-        [$result, $resultextension, $resultmimetype] = tts::identify_audio($audio, $mimetype);
-        $this->assertSame($extension, $resultextension);
-        $this->assertSame($expectedmimetype, $resultmimetype);
-        if ($mimetype === '') {
-            $this->assertSame($audio, $result);
-        }
-    }
-
-    /**
-     * Text, such as an error page, is not audio.
-     */
-    public function test_identify_audio_not_audio(): void {
-        $this->expectException(\moodle_exception::class);
-        tts::identify_audio('{"error": "quota exceeded"}', 'application/json');
-    }
-
-    /**
-     * Raw PCM samples get a valid WAV header, at the given rate.
-     */
-    public function test_pcm_to_wav(): void {
-        $pcm = str_repeat("\x00\x01", 24000);
-        $wav = tts::pcm_to_wav($pcm, 24000);
-        $this->assertSame(44 + strlen($pcm), strlen($wav));
-        $header = unpack('a4riff/Vsize/a4wave/a4fmt/Vfmtsize/vformat/vchannels/Vrate/Vbyterate/vblockalign/vbits/a4data/Vdatasize',
-                $wav);
-        $this->assertSame('RIFF', $header['riff']);
-        $this->assertSame('WAVE', $header['wave']);
-        $this->assertSame(1, $header['format']);
-        $this->assertSame(1, $header['channels']);
-        $this->assertSame(24000, $header['rate']);
-        $this->assertSame(48000, $header['byterate']);
-        $this->assertSame(16, $header['bits']);
-        $this->assertSame(strlen($pcm), $header['datasize']);
+    protected function generate(\stdClass $provider, string $text = 'Hello.', string $voice = ''): array {
+        return tts::generate((int) $provider->id, SYSCONTEXTID, (int) get_admin()->id, $text, $voice, 'en-US');
     }
 
     /**
@@ -127,10 +76,12 @@ final class tts_test extends \advanced_testcase {
         $provider = \qtype_speakup_test_helper::create_speech_provider();
 
         \curl::mock_response(self::MP3);
-        [$audio, $extension, $mimetype] = tts::generate($provider, 'Hello.', 'alloy', 'en-US');
+        [$audio, $extension, $mimetype] = $this->generate($provider, 'Hello.', 'alloy');
         $this->assertSame(self::MP3, $audio);
         $this->assertSame('mp3', $extension);
         $this->assertSame('audio/mpeg', $mimetype);
+        $this->assertEquals(1, $GLOBALS['DB']->count_records('tool_aibridge_log',
+                ['component' => 'qtype_speakup', 'purpose' => 'audioprompt']));
     }
 
     /**
@@ -149,23 +100,9 @@ final class tts_test extends \advanced_testcase {
             'mimeType' => 'audio/L16;codec=pcm;rate=24000',
             'data' => base64_encode($pcm),
         ]]]]]]]));
-        [$audio, $extension] = tts::generate($provider, 'Hello.', 'Kore', 'en-US');
+        [$audio, $extension] = $this->generate($provider, 'Hello.', 'Kore');
         $this->assertSame('wav', $extension);
-        $this->assertSame(tts::pcm_to_wav($pcm, 24000), $audio);
-    }
-
-    /**
-     * A provider that replies with base64 MP3 in JSON (e.g. Google Cloud).
-     */
-    public function test_generate_json_mp3(): void {
-        $this->resetAfterTest();
-        \qtype_speakup_test_helper::allow_any_curl_url();
-        $provider = \qtype_speakup_test_helper::create_speech_provider(['returnpath' => 'audioContent']);
-
-        \curl::mock_response(json_encode(['audioContent' => base64_encode(self::MP3)]));
-        [$audio, $extension] = tts::generate($provider, 'Hello.', '', 'en-US');
-        $this->assertSame(self::MP3, $audio);
-        $this->assertSame('mp3', $extension);
+        $this->assertSame(\tool_aibridge\audio::pcm_to_wav($pcm, 24000), $audio);
     }
 
     /**
@@ -177,7 +114,7 @@ final class tts_test extends \advanced_testcase {
         return [
             'not a speech provider' => [['capability' => ai_provider::CAPABILITY_TEXT], 'Hello.', null],
             'no text' => [[], '  ', null],
-            'text too long' => [[], str_repeat('a', tts::MAX_TEXT_LENGTH + 1), null],
+            'text too long' => [[], str_repeat('a', 4001), null],
             'not audio' => [[], 'Hello.', '<html>Error</html>'],
             'json without audio' => [['returnpath' => 'audioContent'], 'Hello.', '{"error": "bad"}'],
             'bad template' => [['requesttemplate' => '{"input": {{TEXT}}}'], 'Hello.', null],
@@ -195,14 +132,11 @@ final class tts_test extends \advanced_testcase {
     public function test_generate_errors(array $providerdata, string $text, ?string $response): void {
         $this->resetAfterTest();
         \qtype_speakup_test_helper::allow_any_curl_url();
-        $provider = \qtype_speakup_test_helper::create_speech_provider();
-        foreach ($providerdata as $field => $value) {
-            $provider->$field = $value;
-        }
+        $provider = \qtype_speakup_test_helper::create_speech_provider($providerdata);
         if ($response !== null) {
             \curl::mock_response($response);
         }
-        $this->expectException(\moodle_exception::class);
-        tts::generate($provider, $text, '', 'en-US');
+        $this->expectException(ai_request_exception::class);
+        $this->generate($provider, $text);
     }
 }

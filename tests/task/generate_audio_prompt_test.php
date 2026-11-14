@@ -127,7 +127,7 @@ final class generate_audio_prompt_test extends \advanced_testcase {
 
     /**
      * The task does nothing if the transcript changed, or the question
-     * already has an audio prompt, or there is no speech provider any more.
+     * already has an audio prompt, or audio prompts are turned off.
      */
     public function test_execute_skips(): void {
         global $DB;
@@ -148,9 +148,9 @@ final class generate_audio_prompt_test extends \advanced_testcase {
         $this->run_tasks($qdata->id);
         $this->assertSame(['mine.mp3'], $this->get_prompt_files($qdata));
 
-        // No speech provider any more.
+        // Audio prompts are turned off.
         $qdata = $this->create_question();
-        set_config('ttsproviderid', 0, 'qtype_speakup');
+        set_config('ttsproviderid', \qtype_speakup\provider_migration::TTS_NONE, 'qtype_speakup');
         $this->run_tasks($qdata->id);
         $this->assertSame([], $this->get_prompt_files($qdata));
 
@@ -183,7 +183,7 @@ final class generate_audio_prompt_test extends \advanced_testcase {
         $this->assertCount(1, $messages);
         $this->assertEquals($user->id, $messages[0]->useridto);
         $this->assertSame('audiopromptfailed', $messages[0]->eventtype);
-        $this->assertStringContainsString(get_string('errorttsnotaudio', 'qtype_speakup'), $messages[0]->fullmessage);
+        $this->assertStringContainsString(get_string('errornotaudio', 'tool_aibridge'), $messages[0]->fullmessage);
     }
 
     /**

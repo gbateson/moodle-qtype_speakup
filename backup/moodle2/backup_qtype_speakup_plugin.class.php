@@ -74,7 +74,7 @@ class backup_qtype_speakup_plugin extends backup_qtype_plugin {
         $options->set_source_sql("
                 SELECT o.*, p.name AS aiprovidername
                   FROM {qtype_speakup_options} o
-             LEFT JOIN {qtype_speakup_ai_providers} p ON p.id = o.aiproviderid
+             LEFT JOIN {tool_aibridge_providers} p ON p.id = o.aiproviderid
                  WHERE o.questionid = ?", [backup::VAR_PARENTID]);
         $phrase->set_source_table('qtype_speakup_answers', ['questionid' => backup::VAR_PARENTID], 'id ASC');
         $item->set_source_table('qtype_speakup_items', ['questionid' => backup::VAR_PARENTID], 'id ASC');

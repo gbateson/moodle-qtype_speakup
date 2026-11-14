@@ -55,7 +55,10 @@ class generate_audio_prompt extends \core\task\adhoc_task {
     public static function queue_if_needed(int $questionid, int $contextid, ?string $transcript): bool {
         global $USER;
         $transcript = trim((string) $transcript);
-        if ($transcript === '' || !ai_provider::get_tts_provider()) {
+        if ($transcript === '' || empty($USER->id)) {
+            return false;
+        }
+        if (!ai_provider::is_tts_available(\context::instance_by_id($contextid), (int) $USER->id)) {
             return false;
         }
         if (self::has_audio_prompt($questionid, $contextid)) {
@@ -68,9 +71,7 @@ class generate_audio_prompt extends \core\task\adhoc_task {
             'contextid' => $contextid,
             'transcripthash' => sha1($transcript),
         ]);
-        if (!empty($USER->id)) {
-            $task->set_userid($USER->id);
-        }
+        $task->set_userid($USER->id);
         return (bool) \core\task\manager::queue_adhoc_task($task, true);
     }
 
@@ -122,16 +123,20 @@ class generate_audio_prompt extends \core\task\adhoc_task {
             mtrace("Question $questionid already has an audio prompt.");
             return;
         }
-        $provider = ai_provider::get_tts_provider();
-        if (!$provider) {
-            mtrace('No speech provider is set up, so the audio prompt of question ' . $questionid . ' was not generated.');
+        if (ai_provider::get_tts_providerid() < 0) {
+            mtrace('Audio prompts are not made on this site, so the audio prompt of question ' . $questionid .
+                    ' was not generated.');
             return;
         }
-
+        // Tasks queued before SpeakUp used the AI bridge have no user: use the question's author.
+        $userid = (int) $this->get_userid();
+        if (!$userid) {
+            $userid = (int) $DB->get_field('question', 'modifiedby', ['id' => $questionid]);
+        }
         $voice = tts::choose_voice($options->audiopromptvoice ?? '', $options->sttlanguage ?? '');
         try {
-            [$audio, $extension, $mimetype] = tts::generate($provider, $transcript, $voice,
-                    (string) ($options->sttlanguage ?? ''));
+            [$audio, $extension, $mimetype] = tts::generate(ai_provider::get_tts_providerid(), $contextid,
+                    $userid, $transcript, $voice, (string) ($options->sttlanguage ?? ''));
         } catch (\Throwable $e) {
             $reason = task_failure::describe($e);
             if (task_failure::retry($e, $this)) {

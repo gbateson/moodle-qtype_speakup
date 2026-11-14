@@ -45,6 +45,36 @@ are original to this project.
 - **Media type**: `SPEAKUP_MEDIA_AUDIO` or `SPEAKUP_MEDIA_VIDEO`, also set per
   question in `qtype_speakup_options`.
 
+## AI providers
+
+SpeakUp sends responses to the AI, and makes audio prompts, through the
+[AI bridge](https://github.com/gbateson/moodle-tool_aibridge)
+(`tool_aibridge`), which must be installed. Providers, and their API keys,
+are set up there, by the site, or by teachers for their courses; the
+bridge also has the AI policy, rate limits and a log of AI requests.
+
+- On the question form, "AI provider" lists the providers shared where the
+  question is (not teachers' personal providers, since responses are
+  assessed for students). "Automatic" lets the bridge choose: Moodle's own
+  AI, if the site has set it up, or else the providers shared there,
+  nearest first. With files to send, only providers that take files are used.
+- Students who have not accepted the AI policy are asked to, above the
+  recorder. Until they do, their responses are not sent to the AI, and a
+  teacher grades them instead.
+- Requests that fail for a while (no connection, a busy provider, rate
+  limits) are tried again later; others are reported to teachers at once.
+- The speech provider for audio prompts is set in SpeakUp's settings:
+  "None", "Any speech provider", or one of the bridge's speech providers
+  shared with the whole site.
+- Request templates get `{{PROMPT}}`: the rubric, the instructions for the
+  score, and the transcript. Templates written for SpeakUp's own providers
+  can still use `{{RUBRIC}}` and `{{TRANSCRIPT}}`.
+
+When SpeakUp is upgraded, its own providers are moved to the bridge, as
+providers for the whole site, with their API keys encrypted. Providers that
+used Moodle's own AI become "Automatic". If the bridge is installed in the
+same upgrade, the move is done when the bridge is installed.
+
 ## Image responses
 
 With the response type "Image", students upload one or more images or PDFs
@@ -55,9 +85,10 @@ provider transcribes the handwriting, page by page, and assesses it; the
 target phrases and items are checked in that transcript.
 
 To send several files in one request, a provider's request template uses
-`{{FILE_PARTS}}`, which is replaced by its "file part template" once for
-each file. The "Preset" menu on the provider form fills in working settings
-for Gemini, ChatGPT and Claude, and for Gemini's and OpenAI's speech.
+`{{FILE_PARTS}}`, which is replaced by its "file template" once for each
+file. The AI bridge's presets fill in working settings for Gemini, ChatGPT
+and Claude (with files), Gemini for large files (uploaded first), and
+OpenAI's, Gemini's and ElevenLabs' speech.
 
 ## Rubric placeholders
 
@@ -220,7 +251,7 @@ that are left out get their usual defaults.
   question is imported (or saved) with a transcript but no audio prompt, the
   audio prompt is generated from the transcript in the background, by the
   speech provider set in the plugin's settings (Site administration >
-  Plugins > Question types > SpeakUp).
+  Plugins > Question types > SpeakUp), as the teacher who saved it.
 
 ## The Moodle app
 
@@ -263,8 +294,8 @@ called. From Moodle's root directory:
     php admin/tool/phpunit/cli/init.php
     vendor/bin/phpunit --testsuite qtype_speakup_testsuite
 
-Behat features are in `tests/behat/`. AI providers can be created with
-`Given the following "qtype_speakup > providers" exist:`, and a question
+Behat features are in `tests/behat/`. AI providers can be created in the
+AI bridge with `Given the following "qtype_speakup > providers" exist:`, and a question
 can be given an audio prompt (a 1.5-second tone) with
 `Given the following "qtype_speakup > audio prompts" exist:`.
 
@@ -312,6 +343,7 @@ should be "recording"" are in `tests/behat/behat_qtype_speakup.php`.
 
 ## Installation (development)
 
+    git clone https://github.com/gbateson/moodle-tool_aibridge.git admin/tool/aibridge
     git clone https://github.com/gbateson/moodle-qtype_speakup.git question/type/speakup
     echo /question/type/speakup/ >> .git/info/exclude
 

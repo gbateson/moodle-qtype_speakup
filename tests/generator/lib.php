@@ -44,7 +44,7 @@ class qtype_speakup_generator extends component_generator_base {
         if (($data['capability'] ?? '') === \qtype_speakup\ai_provider::CAPABILITY_SPEECH) {
             $provider = qtype_speakup_test_helper::create_speech_provider($data);
             if (!$tts) {
-                set_config('ttsproviderid', 0, 'qtype_speakup');
+                set_config('ttsproviderid', \qtype_speakup\provider_migration::TTS_NONE, 'qtype_speakup');
             }
             return $provider;
         }

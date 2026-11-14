@@ -308,8 +308,8 @@ class qtype_speakup extends question_type {
         }
 
         if (!empty($question->options->aiproviderid)) {
-            $name = $DB->get_field('qtype_speakup_ai_providers', 'name', ['id' => $question->options->aiproviderid]);
-            if ($name !== false) {
+            $name = \qtype_speakup\ai_provider::get_name((int) $question->options->aiproviderid);
+            if ($name !== '') {
                 $output .= '    <aiprovider>' . $format->xml_escape($name) . "</aiprovider>\n";
             }
         }
@@ -378,9 +378,10 @@ class qtype_speakup extends question_type {
         $qo->aiproviderid = null;
         $providername = trim($format->getpath($data, ['#', 'aiprovider', 0, '#'], ''));
         if ($providername !== '') {
-            $providerid = $DB->get_field('qtype_speakup_ai_providers', 'id', ['name' => $providername], IGNORE_MULTIPLE);
+            $context = empty($format->category->contextid) ? null : \context::instance_by_id($format->category->contextid);
+            $providerid = \qtype_speakup\ai_provider::find_by_name($providername, $context);
             if ($providerid) {
-                $qo->aiproviderid = (int) $providerid;
+                $qo->aiproviderid = $providerid;
             }
         }
 
@@ -610,7 +611,7 @@ class qtype_speakup extends question_type {
 
         $providername = '';
         if (!empty($o->aiproviderid)) {
-            $providername = (string) $DB->get_field('qtype_speakup_ai_providers', 'name', ['id' => $o->aiproviderid]);
+            $providername = \qtype_speakup\ai_provider::get_name((int) $o->aiproviderid);
         }
         if (!empty($o->aiassessment)) {
             $settings['AI'] = (($providername === '') ? 'yes' : $providername) . ', ' . (int) $o->aiweighting . '%';
@@ -762,11 +763,7 @@ class qtype_speakup extends question_type {
                         ? $formdefaults[$field] : $this->get_field_default($field);
             }
         }
-        // AI assessment needs a provider: if none was named, use the first one.
-        if (!empty($question->aiassessment) && empty($question->aiproviderid)) {
-            $menu = \qtype_speakup\ai_provider::get_menu(true);
-            $question->aiproviderid = $menu ? (int) array_key_first($menu) : null;
-        }
+        // If no provider was named, the AI bridge chooses one ("Automatic").
         return $question;
     }
 
@@ -994,8 +991,8 @@ class qtype_speakup extends question_type {
      * @return string|null an explanation, if there is no provider with this name.
      */
     protected function import_gift_provider(stdClass $question, string $name): ?string {
-        global $DB;
-        $id = $DB->get_field('qtype_speakup_ai_providers', 'id', ['name' => $name], IGNORE_MULTIPLE);
+        $context = empty($question->context) ? null : $question->context;
+        $id = \qtype_speakup\ai_provider::find_by_name($name, ($context instanceof \context) ? $context : null);
         if (!$id) {
             return get_string('giftnoprovider', 'qtype_speakup', $name);
         }

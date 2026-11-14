@@ -47,6 +47,27 @@ class qtype_speakup_renderer extends qtype_renderer {
     protected $hidequestiontext = false;
 
     /**
+     * If the response is sent to the AI, and the student has not yet accepted
+     * the AI bridge's policy, say so, with a link to the policy. Responses are
+     * not sent to the AI until it is accepted.
+     *
+     * @param qtype_speakup_question $question
+     * @param question_display_options $options
+     * @return string
+     */
+    protected function ai_policy_notice(qtype_speakup_question $question, question_display_options $options): string {
+        global $USER;
+        if (!$question->sends_to_ai() || \tool_aibridge\policy::has_accepted((int) $USER->id)) {
+            return '';
+        }
+        $returnurl = $this->page->has_set_url() ? $this->page->url : null;
+        $url = \tool_aibridge\policy::get_url($options->context, $returnurl);
+        $link = html_writer::link($url, get_string('aipolicylink', 'qtype_speakup'));
+        return $this->output->notification(get_string('aipolicynotice', 'qtype_speakup', $link),
+                \core\output\notification::NOTIFY_WARNING, false);
+    }
+
+    /**
      * Show the response part of a question (the audio prompt and the
      * recorder or uploader), for the Moodle app's frame (see respond.php).
      *
@@ -115,6 +136,7 @@ class qtype_speakup_renderer extends qtype_renderer {
                 // Warning for browsers that can't record.
                 $output .= $this->cannot_work_warnings();
             }
+            $output .= $this->ai_policy_notice($question, $options);
         }
 
         if ($qa->get_state() == question_state::$invalid) {

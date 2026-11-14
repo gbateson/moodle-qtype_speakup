@@ -28,15 +28,15 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026111400;
+$plugin->version   = 2026111401;
 $plugin->requires  = 2024042200; // Moodle 4.4+ / 5.0 branch, matching recordrtc's minimum.
 $plugin->component = 'qtype_speakup';
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->release   = '0.1.0 (dev)';
 
-// No $plugin->dependencies entry: question-type base classes are part of
-// Moodle core, not a separate installable plugin, so there is nothing to
-// declare here. (Do NOT add 'qtype' => ... as a dependency - it is a plugin
-// *type* prefix, not a real plugin component, and Moodle will try to look it
-// up via the remote plugins-directory API and fail if there's no outbound
-// internet access, e.g. inside a Docker container.)
+// AI requests go through the AI bridge. (Do not add 'qtype' => ... as a
+// dependency: it is a plugin type, not a plugin, and Moodle would look it up
+// in the plugins directory.)
+$plugin->dependencies = [
+    'tool_aibridge' => 2026111406,
+];

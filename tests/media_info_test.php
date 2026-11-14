@@ -45,7 +45,7 @@ final class media_info_test extends \advanced_testcase {
     public function test_get_duration_wav(): void {
         $this->resetAfterTest();
         // 2.5 seconds of 16-bit mono samples at 16 kHz.
-        $wav = tts::pcm_to_wav(str_repeat("\0\0", 40000), 16000);
+        $wav = \tool_aibridge\audio::pcm_to_wav(str_repeat("\0\0", 40000), 16000);
         $this->assertSame(2.5, media_info::get_duration($this->make_file('a.wav', $wav)));
     }
 

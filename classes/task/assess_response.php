@@ -128,13 +128,14 @@ class assess_response extends \core\task\adhoc_task {
             $aitranscript = null;
 
             if ($question->uses_ai()) {
-                $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
-                if (!$provider) {
+                $providerid = (int) $question->aiproviderid;
+                if ($providerid && !ai_provider::get($providerid)) {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
-                // Only a multimodal provider receives the recording itself,
-                // and so can transcribe it.
-                $multimodal = ($file && $provider->capability === ai_provider::CAPABILITY_MULTIMODAL);
+                // Only a provider that takes files receives the recording
+                // itself, and so can transcribe it. With "Automatic", the
+                // files are sent if any such provider can be used.
+                $multimodal = ai_provider::takes_files($providerid, (int) $data->contextid, (int) $data->userid, $files);
 
                 // Fill in any {{questiontext...}} placeholders, and add any
                 // notes and instructions the AI needs.
@@ -151,10 +152,10 @@ class assess_response extends \core\task\adhoc_task {
                             'qtype_speakup', $question->get_language_name());
                 }
 
-                mtrace('qtype_speakup: asking "' . $provider->name . '" to assess the response ...');
-                [$aifraction, $feedback] = ai_caller::assess(
-                        $provider, (int) $data->contextid, (int) $data->userid,
-                        $rubric, $transcript, $multimodal ? $this->get_ai_files($question, $files, $qa, $data) : null);
+                $providername = $providerid ? ai_provider::get_name($providerid) : get_string('aiproviderauto', 'qtype_speakup');
+                mtrace('qtype_speakup: asking "' . $providername . '" to assess the response ...');
+                [$aifraction, $feedback] = ai_caller::assess($providerid, (int) $data->contextid, (int) $data->userid,
+                        $rubric, $transcript, $multimodal ? $this->get_ai_files($question, $files, $qa, $data) : []);
 
                 if ($multimodal) {
                     [$aitranscript, $feedback] = ai_caller::split_transcript($feedback);
@@ -168,13 +169,14 @@ class assess_response extends \core\task\adhoc_task {
                 // Without AI assessment, an uploaded file still needs a
                 // transcript, for the target phrases and items. The
                 // transcription provider is stored in aiproviderid.
-                $provider = $question->aiproviderid ? ai_provider::get((int) $question->aiproviderid) : false;
-                if (!$provider) {
+                $providerid = (int) $question->aiproviderid;
+                if ($providerid && !ai_provider::get($providerid)) {
                     throw new \moodle_exception('errorproviderconfig', 'qtype_speakup');
                 }
-                mtrace('qtype_speakup: asking "' . $provider->name . '" to transcribe the response ...');
-                $aitranscript = ai_caller::transcribe($provider, $this->get_ai_files($question, $files, $qa, $data),
-                        $question->get_language_name(), $isimage);
+                $providername = $providerid ? ai_provider::get_name($providerid) : get_string('aiproviderauto', 'qtype_speakup');
+                mtrace('qtype_speakup: asking "' . $providername . '" to transcribe the response ...');
+                $aitranscript = ai_caller::transcribe($providerid, (int) $data->contextid, (int) $data->userid,
+                        $this->get_ai_files($question, $files, $qa, $data), $question->get_language_name(), $isimage);
             }
 
             // The grade combines the target phrases and items with the AI's

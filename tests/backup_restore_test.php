@@ -165,7 +165,7 @@ final class backup_restore_test extends \advanced_testcase {
         ]);
 
         $backupid = $this->backup($course->id);
-        $DB->set_field('qtype_speakup_ai_providers', 'name', 'Renamed', ['id' => $provider->id]);
+        $DB->set_field('tool_aibridge_providers', 'name', 'Renamed', ['id' => $provider->id]);
 
         $newcourseid = restore_dbops::create_new_course('Restored', 'RESTORED', $course->category);
         $this->restore($backupid, $newcourseid, backup::TARGET_NEW_COURSE);

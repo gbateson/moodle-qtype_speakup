@@ -45,3 +45,14 @@ function qtype_speakup_pluginfile($course, $cm, $context, $filearea, $args, $for
     require_once($CFG->libdir . '/questionlib.php');
     question_pluginfile($course, $context, 'qtype_speakup', $filearea, $args, $forcedownload, $options);
 }
+
+/**
+ * Called by the AI bridge (tool_aibridge) when it is installed: move
+ * SpeakUp's own AI providers there, if that could not be done when SpeakUp
+ * was upgraded (see \qtype_speakup\provider_migration).
+ */
+function qtype_speakup_aibridge_installed() {
+    if (get_config('qtype_speakup', 'movetoaibridge')) {
+        \qtype_speakup\provider_migration::run();
+    }
+}

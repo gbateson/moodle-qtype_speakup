@@ -132,7 +132,7 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var string instructions sent to the AI assessment engine, if used. */
     public $airubric;
 
-    /** @var int|null id of the qtype_speakup_ai_providers row to use for AI assessment, if any. */
+    /** @var int|null the AI bridge provider for AI assessment or transcription, or empty for "Automatic". */
     public $aiproviderid;
 
     /**
@@ -166,6 +166,15 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     public function uses_ai(): bool {
         return $this->is_automated() && !empty($this->aiassessment);
+    }
+
+    /**
+     * Is the response sent to the AI, to be assessed or transcribed?
+     *
+     * @return bool
+     */
+    public function sends_to_ai(): bool {
+        return $this->uses_ai() || ($this->is_automated() && $this->is_upload());
     }
 
     /**

@@ -54,9 +54,8 @@ Uploaded files have no live transcript. So, unless they are graded manually, the
 $string['responsemethod_record'] = 'Record';
 $string['responsemethod_upload'] = 'Upload';
 $string['transcriptionproviderid'] = 'Transcription provider';
-$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so without AI assessment, this AI provider transcribes them first, and the transcript is then graded by the target phrases. The provider must be one that receives the audio or video file itself.';
-$string['err_transcriptionproviderrequired'] = 'Uploaded files need an AI provider to transcribe them. Please choose one.';
-$string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider to transcribe them, but none are configured yet. Choose "Record", or "Manual" grading, or ask an administrator to add an AI provider.';
+$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so without AI assessment, this AI provider transcribes them first, and the transcript is then graded by the target phrases. The provider must be one that receives the audio or video file itself. "Automatic" lets the AI bridge choose one.';
+$string['err_uploadneedsprovider'] = 'Uploaded files need an AI provider that receives the files themselves, to transcribe them, but none is shared here. Choose "Record", or "Manual" grading, or add a provider in the AI bridge.';
 $string['err_uploadneedsmultimodal'] = 'Uploaded files have no live transcript, so they need an AI provider that receives the audio or video file itself. Choose a different provider, or "Record".';
 $string['audioprompt'] = 'Audio prompt (optional)';
 $string['audioprompt_help'] = 'An optional audio prompt the student hears instead of, or as well as, the written question text. Record it here, or upload an audio file. It is shown as an audio player under the question text.';
@@ -250,10 +249,13 @@ The names used in GIFT also work, e.g. `{{AUDIO}}` and `{{TIMELIMIT}}`, and case
 
 Multilang content (`lang="xx"`) is sent to the AI in English, so every student is graded against the same rubric. For another language, add it after a colon, e.g. `{{questiontext.rubric:ja}}`. `<summary>` labels and media players are left out. To keep part of the question text away from students, put it in an element with the `d-none` class, e.g. `<div class="rubric d-none">...</div>`.';
 $string['aiproviderid'] = 'AI provider';
-$string['aiproviderid_help'] = 'Which admin-configured AI provider to use for assessing this question. Providers (and their credentials) are set up separately by a site administrator under Site administration > Plugins > Question types > Manage AI providers - you only choose which one to use here.';
-$string['noaiproviders'] = 'No AI providers are configured yet. An administrator can add one under Site administration > Plugins > Question types > Manage AI providers.';
-$string['err_aiproviderrequired'] = 'Please choose an AI provider, or configure one first under Site administration > Plugins > Question types > Manage AI providers.';
+$string['aiproviderid_help'] = 'The AI provider that assesses responses to this question. Providers, and their API keys, are set up in the AI bridge, by the site or by teachers for their courses; here you only choose one. "Automatic" lets the AI bridge choose: Moodle\'s own AI, if the site has set it up, or else the providers shared here, nearest first.
 
+Only providers shared where the question is are listed, not personal providers, since responses are assessed for students.';
+$string['aiproviderauto'] = 'Automatic';
+$string['aipolicynotice'] = 'Your response will be sent to an AI service, to be assessed or transcribed. Please {$a} first; until you do, your response cannot be sent, and a teacher will grade it instead.';
+$string['aipolicylink'] = 'read and accept the AI policy';
+$string['noaiproviders'] = 'No AI providers are shared here yet. Teachers and administrators can add one on the <a href="{$a}">AI providers</a> page of the AI bridge.';
 // Attempt / player UI.
 $string['norecording'] = 'No recording submitted.';
 $string['recordyouranswer'] = 'Record your answer';
@@ -364,93 +366,23 @@ $string['privacy:metadata:externalai:audio'] = 'The audio recording, if the conf
 // Errors.
 $string['errornotimelimit'] = 'You must set a time limit greater than zero.';
 $string['err_invalidregex'] = 'This does not look like a valid regular expression: {$a}';
-$string['speakup:manageaiproviders'] = 'Manage AI providers for SpeakUp questions';
-
 // AI provider admin management page.
 $string['aiprovidersheading'] = 'AI providers';
-$string['aiprovidersheading_desc'] = 'Configure AI providers here (URLs, API keys, etc). Teachers setting up a question can then simply pick a provider by name - they never see or enter credentials directly.';
-$string['manageaiproviders'] = 'Manage AI providers';
-$string['manageaiproviders_intro'] = 'These providers can be selected when a teacher sets a SpeakUp question\'s grading method to include AI assessment. Credentials entered here are never shown on the question editing form.';
-$string['addprovider'] = 'Add a new AI provider';
-$string['editprovider'] = 'Edit AI provider';
-$string['providersaved'] = 'AI provider saved.';
-$string['providerdeleted'] = 'AI provider "{$a}" deleted.';
-$string['confirmdeleteprovider'] = 'Delete the AI provider "{$a}"? Any question currently set to use it will fall back to manual grading for its AI portion.';
+$string['aiprovidersheading_desc'] = 'SpeakUp sends responses and audio prompts to AI providers through the AI bridge (tool_aibridge). Providers, and their API keys, are set up there, by the site or by teachers for their courses. The AI bridge also has the AI policy, the rate limits and the log of AI requests.';
+$string['manageaiproviders'] = 'AI providers (AI bridge)';
 $string['name'] = 'Name';
-$string['providertype'] = 'Provider type';
-$string['providertype_help'] = 'Moodle\'s own core AI subsystem (configured under Site administration > AI), or an arbitrary external REST API.';
-$string['aiprovidertype_core'] = 'Moodle core AI subsystem';
-$string['aiprovidertype_external'] = 'External AI provider';
-$string['capability'] = 'Capability';
-$string['capability_help'] = 'Whether this provider can only assess a text transcript, or can accept the files themselves: audio or video (for assessing tone, pronunciation, gesture, etc), or images and PDFs (e.g. scans of handwriting). Moodle\'s core AI subsystem is always text-only, since its generate_text action cannot accept files.
-
-A speech provider turns text into speech, to generate audio prompts from their transcripts. Its request template uses the tokens `{{TEXT}}`, `{{VOICE}}` and `{{LANGUAGE}}` (e.g. en-US). If its reply is the audio itself (e.g. OpenAI), leave the return path empty. If its reply is JSON, set the return path to the base64-encoded audio (e.g. `audioContent` for Google Cloud, or `candidates,0,content,parts,0,inlineData,data` for Gemini).';
-$string['aicapability_text'] = 'Text only (transcript)';
-$string['aicapability_multimodal'] = 'Multimodal (audio, video and image files)';
-$string['corename'] = 'Core provider name (optional)';
-$string['corename_help'] = 'The specific core AI provider plugin to use, e.g. `aiprovider_openai`. Leave blank to use whichever core AI provider is available.';
-$string['url'] = 'API URL';
-$string['url_help'] = 'The full API endpoint URL, exactly as this provider expects it. The `{{MODEL}}` and `{{APIKEY}}` tokens (see the request body template help) can be used here too - useful for a provider that puts the model name in its URL path, e.g. `https://generativelanguage.googleapis.com/v1beta/models/{{MODEL}}:generateContent`.';
-$string['username'] = 'Username (optional)';
-$string['apikey'] = 'API key';
-$string['headers'] = 'Extra HTTP headers';
-$string['headers_help'] = 'JSON object of extra HTTP headers to send, e.g. `{"Authorization": "Bearer {{APIKEY}}"}` or `{"x-goog-api-key": "{{APIKEY}}"}`. The `{{MODEL}}` and `{{APIKEY}}` tokens (see the request body template help) also work here. Leave blank to fall back to `Authorization: Bearer <API key>` automatically, or leave entirely empty for a provider that needs no auth header.';
-$string['model'] = 'Model';
-$string['returnpath'] = 'Response key path';
-$string['returnpath_help'] = 'Comma-separated path to the answer within the provider\'s JSON response, e.g. `choices,0,message,content` for an OpenAI-style chat completion response. For a speech provider, this is the path to the base64-encoded audio; leave it empty if the reply is the audio itself.';
-$string['requesttemplate'] = 'Request body template';
-$string['requesttemplate_help'] = 'The JSON request body to send, exactly as this provider expects it. The easiest way to start is to choose a preset at the top of this form.
-
-These tokens are replaced when a request is sent:
-
-* `{{RUBRIC}}`: the assessment instructions.
-* `{{TRANSCRIPT}}`: the transcript, if any.
-* `{{MODEL}}` and `{{APIKEY}}`: the model and API key from this form. These also work in the URL and headers.
-* `{{FILE_PARTS}}`: for multimodal providers, the response\'s files (a recording, or up to 5 images or PDFs). The file part template below is repeated once for each file, and each copy is followed by a comma. So put `{{FILE_PARTS}}` just before another item in a list, without a comma after it, e.g. `"parts": [{{FILE_PARTS}} {"text": "{{RUBRIC}}"}]`. With no files, the list is still valid.
-* `{{FILE_BASE64}}`, `{{FILE_MIMETYPE}}`, `{{FILE_URI}}` and `{{FILE_NAME}}`: for a provider that only takes one file, the file itself, without a file part template. (`{{AUDIO_BASE64}}`, `{{AUDIO_MIMETYPE}}` and `{{AUDIO_FILE_URI}}` still work too.)
-
-For a speech provider: `{{TEXT}}`, `{{VOICE}}` and `{{LANGUAGE}}`.
-
-Example for Gemini:
-`{"contents": [{"parts": [{{FILE_PARTS}} {"text": "{{RUBRIC}}\\n\\n{{TRANSCRIPT}}"}]}]}`';
-$string['err_requesttemplaterequired'] = 'A request body template is required for an external provider.';
-
 // AI calling (classes/ai_caller.php).
 $string['aipromptinstructions'] = 'Assess the response according to the instructions above, out of 100. If the recording or transcript does not actually attempt the task (e.g. it is silent, off-topic, or the student is asking about the task itself rather than doing it), still give a score reflecting that (typically 0, or low if a partial genuine attempt is present) and explain why in the feedback - never omit the score. End your reply with a line reading exactly "SCORE: N" where N is a whole number from 0 to 100, after any explanatory feedback. This line is mandatory in every response, with no exceptions.';
 $string['aiprompttranscribe'] = 'First, transcribe exactly what the student says in the recording (or in the audio track of the video). The student is expected to speak {$a}. Do not correct any mistakes in grammar, vocabulary or pronunciation: write what the student actually says, with punctuation. Begin your reply with a line reading exactly "TRANSCRIPT:", followed by the transcript. Then write a line reading exactly "FEEDBACK:", followed by your feedback.';
 $string['aiprompttranscribeonly'] = 'Transcribe exactly what the speaker says in this recording (or in the audio track of this video). The speaker is expected to speak {$a}. Do not correct any mistakes in grammar, vocabulary or pronunciation: write what is actually said, with punctuation. Reply with the transcript only.';
 $string['aipromptoverlong'] = 'Note: the recording is {$a->duration} seconds long, but the time limit for this task was {$a->limit} seconds.';
 $string['aiprompttranscriptlabel'] = 'Transcript of the student\'s spoken response:';
-$string['errorcoreaiunavailable'] = 'Moodle\'s core AI subsystem is not available on this site.';
 $string['errornotranscript'] = 'No transcript is available to assess (the student\'s browser may not have supported live transcription).';
 $string['erroraiprovider'] = 'The AI provider returned an error: {$a}';
 $string['errorproviderconfig'] = 'No AI provider is configured for this question, or the configured provider could not be found.';
-$string['uploadprotocol'] = 'Upload protocol';
-$string['uploadprotocol_help'] = 'Which provider-specific "upload the file first" protocol to use. A real upload-then-reference flow works differently for every provider that offers one, so each supported protocol is implemented separately - if the provider you need is not listed, use "Inline" upload instead (works for any provider, up to that provider\'s own request-size limit).';
-$string['uploadprotocol_gemini'] = 'Google Gemini (resumable upload)';
-$string['uploadurl'] = 'Upload URL';
-$string['uploadurl_help'] = 'The endpoint used to upload the file itself, before referencing it in the main request - separate from the main API URL above, since the upload and assessment endpoints are often different paths on the same host. Supports the `{{APIKEY}}` token. For Gemini: `https://generativelanguage.googleapis.com/upload/v1beta/files?key={{APIKEY}}`.';
-$string['err_uploadprotocolrequired'] = 'Please choose which upload protocol this provider uses.';
-$string['err_uploadurlrequired'] = 'An upload URL is required for the "upload first, then reference" style.';
-$string['erroruploadprotocolunknown'] = 'This provider\'s configured upload protocol ({$a}) is not recognised.';
-$string['err_templateneedsfileuri'] = 'With the "upload first, then reference" style, the template must include the {{FILE_URI}} token (or {{FILE_PARTS}}, with {{FILE_URI}} in the file part template), or the uploaded files will never be sent.';
-$string['err_templateneedsbase64'] = 'With the "inline" upload style, the template must include the {{FILE_BASE64}} token (or {{FILE_PARTS}}, with {{FILE_BASE64}} in the file part template), or the files will never be sent.';
-$string['errortemplatemissingaudio'] = 'This provider is configured as multimodal, but its request template does not include the token for its upload style ({$a}), so the recording would not be sent. Edit the provider\'s request template.';
-$string['errorrequestnotvalidjson'] = 'The provider\'s request template does not produce valid JSON once the rubric/transcript are inserted. Check the template for unescaped special characters.';
-$string['erroraiproviderresponse'] = 'The AI provider\'s response could not be understood (invalid JSON, or the configured response key path did not match).';
+$string['errorpolicynotaccepted'] = 'The student has not accepted the AI policy, so the response was not sent to the AI.';
+$string['errornoproviders'] = 'No AI provider could take this request here. Check that a provider is shared in this course (or the whole site), and that it can receive files, if the response is uploaded.';
 $string['erroraiscoreunparseable'] = 'The AI did not return a score in the expected format.';
-$string['uploadstyle'] = 'File upload style';
-$string['uploadstyle_help'] = 'How the audio/video file is sent to a multimodal provider: inline (base64-encoded directly in the request body) or as a separate upload referenced by id/URL in the main request. Only relevant for multimodal providers.';
-$string['uploadstyle_none'] = 'N/A (text only)';
-$string['uploadstyle_inline_base64'] = 'Inline (base64-encoded in request body)';
-$string['uploadstyle_upload_reference'] = 'Upload first, then reference by id/URL';
-$string['enabled'] = 'Enabled';
-$string['err_urlrequired'] = 'A URL is required for an external provider.';
-$string['err_invalidurl'] = 'This does not look like a valid URL.';
-$string['err_invalidjson'] = 'This does not look like valid JSON.';
-$string['err_invalidcorename'] = 'This should look like a Moodle AI provider component name, e.g. aiprovider_openai.';
-$string['erroraiconfigmissing'] = 'AI holistic assessment is selected but no AI assessment engine is configured. Contact your administrator.';
-
 // Privacy API (classes/privacy/provider.php).
 $string['privacy:metadata:qtype_speakup_response'] = 'Per-attempt information about a spoken response: its transcript, and the AI\'s assessment of it.';
 $string['privacy:metadata:qtype_speakup_response:questionattemptid'] = 'The question attempt this response belongs to.';
@@ -459,23 +391,17 @@ $string['privacy:metadata:qtype_speakup_response:aifeedback'] = 'Feedback genera
 $string['privacy:metadata:qtype_speakup_response:aiscore'] = 'The score (0-1) generated by the AI provider for this response.';
 $string['privacy:metadata:qtype_speakup_response:timecreated'] = 'The time this record was created.';
 $string['privacy:metadata:qtype_speakup_response:timemodified'] = 'The time this record was last updated.';
-$string['privacy:metadata:ai_provider'] = 'For questions using AI assessment, the student\'s recording and/or its transcript is sent to an external AI service (either Moodle\'s own core AI subsystem, or an external provider such as OpenAI or Google Gemini, as configured by the site or question administrator) for transcription, assessment, and/or feedback generation. The transcripts of audio prompts, written by teachers, are sent to the speech provider to generate the audio; these contain no data about students.';
+$string['privacy:metadata:ai_provider'] = 'For questions using AI assessment, the student\'s recording and/or its transcript is sent, through the AI bridge, to an AI service (Moodle\'s own AI subsystem, or a provider such as OpenAI or Google Gemini, as set up by the site or the teacher) for transcription, assessment and feedback. The transcripts of audio prompts, written by teachers, are sent to the speech provider to generate the audio; these contain no data about students.';
 $string['privacy:metadata:ai_provider:transcript'] = 'A transcript of the student\'s spoken response, sent to the AI provider to be assessed.';
 $string['privacy:metadata:ai_provider:recording'] = 'The student\'s audio/video recording, or the images of their written work, sent to the AI provider for providers that can process them directly.';
 
 // Text-to-speech: generating audio prompts from their transcripts.
-$string['aicapability_speech'] = 'Speech (text-to-speech)';
 $string['audiopromptgeneratenote'] = 'If there is no audio prompt when you save the question, it will be generated from this transcript.';
 $string['audiopromptnotready'] = 'The audio prompt is being prepared. Please try again in a few minutes.';
 $string['audiopromptpending'] = 'The audio prompt is being generated from this transcript. It should be ready in a few minutes.';
 $string['audiopromptvoice'] = 'Voice';
 $string['audiopromptvoice_help'] = 'The voice used to generate the audio prompt from its transcript, e.g. "alloy" for OpenAI or "Kore" for Gemini. Leave this empty to use the site\'s voice for the question\'s language, or else the site\'s default voice.';
-$string['err_templateneedstext'] = 'A speech provider\'s request template must include the {{TEXT}} token.';
-$string['errortts'] = 'Speech could not be generated: {$a}';
-$string['errorttsnotaudio'] = 'the speech provider\'s reply was not audio.';
 $string['errorrubricquestion'] = 'The AI rubric uses the question text of the question with the ID number "{$a}", but there is no such question in this question\'s category, or in the categories above it.';
-$string['errorttsnotext'] = 'there is no text.';
-$string['errorttstoolong'] = 'the text is longer than {$a} characters.';
 $string['taskgenerateaudioprompt'] = 'Generate audio prompts from their transcripts';
 $string['taskassessresponse'] = 'Assess SpeakUp responses';
 $string['taskreduceresponsefiles'] = 'Make large SpeakUp response files smaller';
@@ -521,9 +447,10 @@ $string['reducethreshold_desc'] = 'Smaller files are kept as they are.';
 $string['replaceoriginals'] = 'Replace the original files';
 $string['replaceoriginals_desc'] = 'If checked, a large file is replaced by the smaller one, which saves space. If not, the original file is kept, and the smaller one is only made for the AI provider, when the response is assessed.';
 $string['ttsheading'] = 'Text-to-speech';
-$string['ttsheading_desc'] = 'A speech provider can generate audio prompts from their transcripts, e.g. for questions imported from GIFT, or questions saved with a transcript but no audio prompt. The audio is generated in the background, usually within a few minutes. Speech providers are set up on the "Manage AI providers" page, with the capability "Speech (text-to-speech)".';
+$string['ttsheading_desc'] = 'A speech provider can generate audio prompts from their transcripts, e.g. for questions imported from GIFT, or questions saved with a transcript but no audio prompt. The audio is generated in the background, usually within a few minutes. Speech providers are set up in the AI bridge, with the capability "Speech".';
 $string['ttsproviderid'] = 'Speech provider';
-$string['ttsproviderid_desc'] = 'The provider that generates audio prompts from their transcripts. Choose "None" to turn this off.';
+$string['ttsproviderid_desc'] = 'The provider that generates audio prompts from their transcripts. "Any speech provider" uses the speech providers that the teacher can use where the question is. Choose "None" to turn this off.';
+$string['ttsprovidersany'] = 'Any speech provider';
 $string['ttsvoice'] = 'Default voice';
 $string['ttsvoice_desc'] = 'The voice used for audio prompts, if neither the question nor the voices for each language below give one, e.g. "alloy" for OpenAI or "Kore" for Gemini. Leave this empty to use the provider\'s own default.';
 $string['ttsvoices'] = 'Voices for each language';
@@ -575,35 +502,6 @@ $string['uploadimage'] = 'Upload an image or PDF';
 $string['uploadwrongtypeimage'] = 'Please choose an image or a PDF file.';
 
 // AI provider presets, and file part templates.
-$string['err_filetemplaterequired'] = 'The request template includes {{FILE_PARTS}}, so a file part template is needed.';
-$string['errorfiletemplatejson'] = 'The AI provider\'s file part template is not valid JSON.';
-$string['errorfiletemplatemissing'] = 'The AI provider\'s request template includes {{FILE_PARTS}}, but it has no file part template.';
-$string['errorproviderfiletype'] = 'The AI provider\'s file part template has no part for {$a} files, so it cannot be sent this response.';
-$string['errortemplatemultiplefiles'] = 'This response has more than one file, but the AI provider\'s request template only takes one. Use {{FILE_PARTS}} and a file part template instead.';
-$string['filetemplate'] = 'File part template';
-$string['filetemplate_help'] = 'For multimodal providers: the JSON for one file, e.g. one image. It is repeated once for each of the response\'s files, at `{{FILE_PARTS}}` in the request template. In it, these tokens are replaced by each file\'s details: `{{FILE_BASE64}}` (the file, base64-encoded), `{{FILE_MIMETYPE}}` (e.g. image/jpeg), `{{FILE_NAME}}`, and, if files are uploaded first, `{{FILE_URI}}`.
-
-Example for Gemini, which takes audio, video, images and PDFs in the same way:
-`{"inline_data": {"mime_type": "{{FILE_MIMETYPE}}", "data": "{{FILE_BASE64}}"}}`
-
-Some providers need a different part for different kinds of file. Then give an object of MIME types and parts. `image/*` matches any image, and `*` matches any file. Example for Claude:
-`{"image/*": {"type": "image", "source": {"type": "base64", "media_type": "{{FILE_MIMETYPE}}", "data": "{{FILE_BASE64}}"}}, "application/pdf": {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": "{{FILE_BASE64}}"}}}`
-
-A file with no matching part cannot be sent to this provider.';
-$string['preset'] = 'Preset';
-$string['preset_help'] = 'Fill in this form with the settings for a common AI provider. Then add your API key, and change anything you need to, e.g. the model. Models change often, so check the provider\'s documentation for the latest ones.
-
-* **Gemini**: assesses audio, video, images and PDFs.
-* **Gemini (large files)**: uploads files to Gemini first, for long recordings.
-* **ChatGPT** and **Claude**: assess images and PDFs (e.g. handwriting), and transcripts, but not audio files.
-* **Gemini speech** and **OpenAI speech**: generate audio prompts from their transcripts.';
-$string['preset_claude'] = 'Claude (Anthropic)';
-$string['preset_gemini'] = 'Gemini (Google)';
-$string['preset_geminitts'] = 'Gemini speech (text-to-speech)';
-$string['preset_geminiupload'] = 'Gemini (Google), large files';
-$string['preset_openai'] = 'ChatGPT (OpenAI)';
-$string['preset_openaitts'] = 'OpenAI speech (text-to-speech)';
-
 // The Moodle app.
 $string['mobileapp'] = 'Allow SpeakUp questions in the Moodle app';
 $string['mobileapp_desc'] = 'If this is on, and the site meets the conditions above, students can answer SpeakUp questions in the Moodle app. Otherwise, the app offers to open quizzes with SpeakUp questions in the browser.';

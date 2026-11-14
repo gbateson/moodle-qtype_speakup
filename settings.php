@@ -25,15 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    // $settings is a pre-created admin_settingpage for this plugin, added
-    // automatically under the "Question types" admin category.
-    //
-    // We register the management page below as a proper admin_externalpage
-    // too (capability-gated, appears in admin search, etc), but that adds
-    // it as a *separate, sibling* entry in the admin navigation tree - not
-    // content embedded inside this page. To avoid that being easy to miss,
-    // we also put a plain, unambiguous link to it directly here.
-    $manageurl = new moodle_url('/question/type/speakup/manageaiproviders.php');
+    // AI providers are set up in the AI bridge (tool_aibridge).
+    $manageurl = new moodle_url('/admin/tool/aibridge/index.php');
     $settings->add(new admin_setting_heading(
         'qtype_speakup/aiprovidersheading',
         get_string('aiprovidersheading', 'qtype_speakup'),
@@ -48,9 +41,12 @@ if ($hassiteconfig) {
         get_string('ttsheading', 'qtype_speakup'),
         get_string('ttsheading_desc', 'qtype_speakup')
     ));
-    $speechmenu = [0 => get_string('none')];
-    if (during_initial_install() === false && $DB->get_manager()->table_exists('qtype_speakup_ai_providers')) {
-        $speechmenu += \qtype_speakup\ai_provider::get_speech_menu(true);
+    $speechmenu = [
+        \qtype_speakup\provider_migration::TTS_NONE => get_string('none'),
+        0 => get_string('ttsprovidersany', 'qtype_speakup'),
+    ];
+    if (during_initial_install() === false && $DB->get_manager()->table_exists('tool_aibridge_providers')) {
+        $speechmenu += \qtype_speakup\ai_provider::get_speech_menu();
     }
     $settings->add(new admin_setting_configselect(
         'qtype_speakup/ttsproviderid',
@@ -130,12 +126,5 @@ if ($hassiteconfig) {
         get_string('mobileapp', 'qtype_speakup'),
         get_string('mobileapp_desc', 'qtype_speakup'),
         1
-    ));
-
-    $ADMIN->add('qtypesettings', new admin_externalpage(
-        'qtype_speakup_manageaiproviders',
-        get_string('manageaiproviders', 'qtype_speakup'),
-        $manageurl,
-        'qtype/speakup:manageaiproviders'
     ));
 }

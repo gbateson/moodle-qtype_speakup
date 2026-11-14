@@ -16,174 +16,199 @@
 
 namespace qtype_speakup;
 
+use tool_aibridge\action\generate_speech;
+use tool_aibridge\action\generate_text;
+use tool_aibridge\core_bridge;
+use tool_aibridge\manager;
+use tool_aibridge\provider;
+
 /**
- * CRUD helper for the admin-managed AI provider list.
+ * The AI providers that SpeakUp questions can use.
  *
- * Credentials (apikey, headers) only ever flow through here and the admin
- * management page - the question editing form only ever sees provider
- * ids and display names, never the secrets themselves.
+ * Providers are set up in the AI bridge (tool_aibridge), by the site, or by
+ * teachers for their courses. A question can name one, or leave the choice
+ * to the bridge ("Automatic", stored as an empty aiproviderid).
+ *
+ * The question form only offers providers that are shared where the
+ * question is, and not teachers' personal providers, since responses are
+ * assessed for students, who cannot use a teacher's personal provider.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class ai_provider {
+    /** Provider can only accept text. */
+    const CAPABILITY_TEXT = provider::CAPABILITY_TEXT;
 
-    /** Moodle's own AI subsystem (\core_ai\manager). Text-only: it has no action that accepts files. */
-    const TYPE_CORE = 'core';
-    /** An arbitrary external REST API, configured by URL/key/headers. */
-    const TYPE_EXTERNAL = 'external';
+    /** Provider can accept the recording, video or images themselves. */
+    const CAPABILITY_MULTIMODAL = provider::CAPABILITY_MULTIMODAL;
 
-    /** Provider can only accept a text transcript. */
-    const CAPABILITY_TEXT = 'text';
-    /** Provider can accept the actual audio/video file. */
-    const CAPABILITY_MULTIMODAL = 'multimodal';
-    /** Provider turns text into speech (text-to-speech), e.g. for audio prompts. */
-    const CAPABILITY_SPEECH = 'speech';
-
-    /** No file is ever sent (text-only providers). */
-    const UPLOAD_NONE = 'none';
-    /** The file is base64-encoded directly into the request body. */
-    const UPLOAD_INLINE_BASE64 = 'inline_base64';
-    /** The file is uploaded first, then referenced by an id/URL in a second request. */
-    const UPLOAD_REFERENCE = 'upload_reference';
+    /** Provider turns text into speech, e.g. for audio prompts. */
+    const CAPABILITY_SPEECH = provider::CAPABILITY_SPEECH;
 
     /**
-     * Get every configured provider, most recently added last unless a
-     * custom sortorder has been set.
+     * Get a provider.
      *
-     * @param bool $enabledonly if true, only return providers with enabled=1.
-     * @return \stdClass[] keyed by id.
-     */
-    public static function get_all(bool $enabledonly = false): array {
-        global $DB;
-        $conditions = $enabledonly ? ['enabled' => 1] : [];
-        return $DB->get_records('qtype_speakup_ai_providers', $conditions, 'sortorder ASC, id ASC');
-    }
-
-    /**
      * @param int $id
-     * @return \stdClass|false
+     * @return provider|null the provider, or null if there is none with this id.
      */
-    public static function get(int $id) {
+    public static function get(int $id): ?provider {
         global $DB;
-        return $DB->get_record('qtype_speakup_ai_providers', ['id' => $id]);
-    }
-
-    /**
-     * Options array suitable for a mform select element: id => name.
-     * Deliberately excludes every other field - this is the only thing
-     * the question editing form should ever see.
-     *
-     * Speech (text-to-speech) providers are left out, since they cannot
-     * assess or transcribe responses.
-     *
-     * @param bool $enabledonly
-     * @return array
-     */
-    public static function get_menu(bool $enabledonly = true): array {
-        $menu = [];
-        foreach (self::get_all($enabledonly) as $provider) {
-            if ($provider->capability === self::CAPABILITY_SPEECH) {
-                continue;
-            }
-            $label = $provider->name;
-            if ($provider->providertype === self::TYPE_CORE) {
-                $label .= ' (' . get_string('aiprovidertype_core', 'qtype_speakup') . ')';
-            }
-            $menu[$provider->id] = $label;
-        }
-        return $menu;
-    }
-
-    /**
-     * Options for choosing a speech (text-to-speech) provider: id => name.
-     *
-     * @param bool $enabledonly
-     * @return array
-     */
-    public static function get_speech_menu(bool $enabledonly = true): array {
-        $menu = [];
-        foreach (self::get_all($enabledonly) as $provider) {
-            if ($provider->providertype === self::TYPE_EXTERNAL && $provider->capability === self::CAPABILITY_SPEECH) {
-                $menu[$provider->id] = $provider->name;
-            }
-        }
-        return $menu;
-    }
-
-    /**
-     * Get the speech provider chosen in the site settings, for generating
-     * audio prompts from their transcripts.
-     *
-     * @return \stdClass|null the provider, or null if none is chosen, or
-     *      it no longer exists, is disabled or is not a speech provider.
-     */
-    public static function get_tts_provider(): ?\stdClass {
-        $id = (int) get_config('qtype_speakup', 'ttsproviderid');
-        if (!$id) {
+        if ($id <= 0 || !$DB->record_exists(provider::TABLE, ['id' => $id])) {
             return null;
         }
+        return provider::get($id);
+    }
+
+    /**
+     * Get the name of a provider.
+     *
+     * @param int $id
+     * @return string the name, or '' if there is no such provider.
+     */
+    public static function get_name(int $id): string {
         $provider = self::get($id);
-        if (!$provider || empty($provider->enabled) || $provider->providertype !== self::TYPE_EXTERNAL
-                || $provider->capability !== self::CAPABILITY_SPEECH) {
-            return null;
-        }
-        return $provider;
+        return $provider ? $provider->get_name() : '';
     }
 
     /**
-     * Insert or update a provider record.
+     * Get the providers that can assess or transcribe responses, for a menu.
      *
-     * @param \stdClass $data as gathered from provider_form - must already
-     *      have providertype/capability/uploadstyle validated by the form.
-     * @return int the id of the saved record.
+     * @param \context $context where the question is.
+     * @param bool $multimodalonly only providers that take files.
+     * @return string[] provider id => name.
      */
-    public static function save(\stdClass $data): int {
-        global $DB;
-
-        // Upload settings only apply to external multimodal providers. The
-        // form merely hides these fields otherwise, so their old values
-        // would still be submitted - clear them, so the stored record
-        // always matches what the admin actually sees on the form.
-        $providertype = $data->providertype ?? self::TYPE_EXTERNAL;
-        $capability = $data->capability ?? self::CAPABILITY_TEXT;
-        $uploadstyle = $data->uploadstyle ?? self::UPLOAD_NONE;
-        if ($providertype !== self::TYPE_EXTERNAL || $capability !== self::CAPABILITY_MULTIMODAL) {
-            $uploadstyle = self::UPLOAD_NONE;
+    public static function get_menu(\context $context, bool $multimodalonly = false): array {
+        $capabilities = $multimodalonly ? [self::CAPABILITY_MULTIMODAL] : [self::CAPABILITY_TEXT, self::CAPABILITY_MULTIMODAL];
+        $menu = [];
+        foreach (provider::get_shared($context, $capabilities) as $id => $provider) {
+            $menu[$id] = $provider->get_name();
         }
-        // Core AI can only generate text.
-        if ($providertype === self::TYPE_CORE) {
-            $data->capability = self::CAPABILITY_TEXT;
-        }
-        $data->uploadstyle = $uploadstyle;
-        if ($uploadstyle !== self::UPLOAD_REFERENCE) {
-            $data->uploadprotocol = null;
-            $data->uploadurl = null;
-        }
-
-        $data->timemodified = time();
-
-        if (!empty($data->id)) {
-            $DB->update_record('qtype_speakup_ai_providers', $data);
-            return $data->id;
-        }
-
-        $data->timecreated = $data->timemodified;
-        return $DB->insert_record('qtype_speakup_ai_providers', $data);
+        return $menu;
     }
 
     /**
-     * @param int $id
+     * Get the speech providers shared with the whole site, for a menu.
+     *
+     * @return string[] provider id => name.
      */
-    public static function delete(int $id): void {
+    public static function get_speech_menu(): array {
+        $menu = [];
+        foreach (provider::get_shared(\context_system::instance(), [self::CAPABILITY_SPEECH]) as $id => $provider) {
+            $menu[$id] = $provider->get_name();
+        }
+        return $menu;
+    }
+
+    /**
+     * Can responses be assessed with AI where a question is? This is so if a
+     * provider is shared there, or if Moodle's own AI can generate text.
+     *
+     * @param \context $context
+     * @param bool $multimodalonly only providers that take files.
+     * @return bool
+     */
+    public static function is_available(\context $context, bool $multimodalonly = false): bool {
+        if (!manager::is_enabled()) {
+            return false;
+        }
+        if (manager::is_external_allowed() && self::get_menu($context, $multimodalonly)) {
+            return true;
+        }
+        return !$multimodalonly && get_config('tool_aibridge', 'coreroute') !== core_bridge::ROUTE_NEVER
+                && core_bridge::is_action_available('\\core_ai\\aiactions\\generate_text');
+    }
+
+    /**
+     * Will a provider take the response's files? For "Automatic", this is so
+     * if any provider that takes files can be used.
+     *
+     * @param int $providerid the question's provider, or 0 for "Automatic".
+     * @param int $contextid where the response is assessed.
+     * @param int $userid the student.
+     * @param \stored_file[] $files
+     * @return bool
+     */
+    public static function takes_files(int $providerid, int $contextid, int $userid, array $files): bool {
+        if (empty($files)) {
+            return false;
+        }
+        if ($providerid) {
+            $provider = self::get($providerid);
+            return $provider && $provider->get_capability() === self::CAPABILITY_MULTIMODAL;
+        }
+        $action = new generate_text($contextid, $userid, '-', '', $files);
+        return (bool) manager::get_routes($action);
+    }
+
+    /**
+     * Find a provider by its name, e.g. when a question is imported. Providers
+     * shared where the question is come first, then any other provider that
+     * is not personal.
+     *
+     * @param string $name
+     * @param \context|null $context where the question is, if known.
+     * @return int the provider id, or 0 if there is none.
+     */
+    public static function find_by_name(string $name, ?\context $context = null): int {
         global $DB;
-        // Note: questions referencing this provider id are not cascaded or
-        // blocked here. A dangling reference just means that question's AI
-        // grading will fail gracefully at grade time (see #4 of the
-        // AI-design discussion: unavailable/broken provider -> drop to
-        // manual grading), which is preferable to silently blocking
-        // deletion of a provider an admin has legitimate reason to remove.
-        $DB->delete_records('qtype_speakup_ai_providers', ['id' => $id]);
+        $name = trim($name);
+        if ($name === '') {
+            return 0;
+        }
+        if ($context) {
+            foreach (self::get_menu($context) as $id => $providername) {
+                if (\core_text::strtolower($providername) === \core_text::strtolower($name)) {
+                    return $id;
+                }
+            }
+        }
+        $sql = "SELECT p.id
+                  FROM {" . provider::TABLE . "} p
+                  JOIN {context} ctx ON ctx.id = p.contextid
+                 WHERE p.name = :name AND ctx.contextlevel <> :userlevel AND p.capability <> :speech
+              ORDER BY ctx.depth, p.id";
+        $params = ['name' => $name, 'userlevel' => CONTEXT_USER, 'speech' => self::CAPABILITY_SPEECH];
+        $ids = $DB->get_fieldset_sql($sql, $params);
+        return $ids ? (int) reset($ids) : 0;
+    }
+
+    /**
+     * Get the speech provider chosen in the site settings, for audio prompts.
+     *
+     * @return int the provider id, 0 for any speech provider, or -1 for none (audio prompts are not made).
+     */
+    public static function get_tts_providerid(): int {
+        return (int) get_config('qtype_speakup', 'ttsproviderid');
+    }
+
+    /**
+     * Can audio prompts be made from transcripts, where a question is?
+     *
+     * @param \context $context
+     * @param int $userid the teacher.
+     * @return bool
+     */
+    public static function is_tts_available(\context $context, int $userid): bool {
+        $providerid = self::get_tts_providerid();
+        if ($providerid < 0) {
+            return false;
+        }
+        $action = new generate_speech($context->id, $userid, '-');
+        return (bool) manager::get_routes($action, $providerid);
+    }
+
+    /**
+     * Get the URL of the AI bridge's providers page, for a course if the
+     * context is in one, else for the site.
+     *
+     * @param \context $context
+     * @return \moodle_url
+     */
+    public static function get_manage_url(\context $context): \moodle_url {
+        $coursecontext = $context->get_course_context(false);
+        $contextid = $coursecontext ? $coursecontext->id : SYSCONTEXTID;
+        return new \moodle_url('/admin/tool/aibridge/index.php', ['contextid' => $contextid]);
     }
 }

@@ -48,9 +48,8 @@ use core_privacy\local\request\writer;
  *   is documented as containing no personal data. Not declared here for
  *   that reason.
  *
- * - qtype_speakup_ai_providers holds site-level admin configuration
- *   (including API credentials) for AI providers - not personal data
- *   about any user, so also not declared here.
+ * - AI providers are set up in the AI bridge (tool_aibridge), which logs
+ *   each request, and declares and exports that data itself.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -76,15 +75,11 @@ class provider implements
             'timemodified' => 'privacy:metadata:qtype_speakup_response:timemodified',
         ], 'privacy:metadata:qtype_speakup_response');
 
-        // This is the important one to be explicit about: for AI-graded
-        // questions, the student's recording and/or transcript is sent to
-        // an external AI service (chosen by the site/question
-        // administrator - could be Moodle's own core AI subsystem, or an
-        // external provider such as OpenAI or Google Gemini) for
-        // transcription, assessment, and/or feedback generation. That
-        // service is outside Moodle's own control once the request is
-        // sent, which is exactly what add_external_location_link() exists
-        // to disclose.
+        // For AI-graded questions, the student's recording and/or
+        // transcript is sent, through the AI bridge, to an AI service
+        // (Moodle's own AI subsystem, or a provider such as OpenAI or Google
+        // Gemini) for transcription, assessment and feedback. That service
+        // is outside Moodle's control once the request is sent.
         $collection->add_external_location_link('ai_provider', [
             'transcript' => 'privacy:metadata:ai_provider:transcript',
             'recording' => 'privacy:metadata:ai_provider:recording',
