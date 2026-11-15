@@ -18,6 +18,8 @@ namespace qtype_speakup\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use question_bank;
 use question_engine;
@@ -38,7 +40,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\privacy\provider
  */
 final class provider_test extends \core_privacy\tests\provider_testcase {
-
     /**
      * Make a user attempt a question in a context, and store a result for it.
      *
@@ -107,8 +108,10 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     public function test_get_contexts_for_userid(): void {
         $this->resetAfterTest();
         [$user1, $user2, $context1, $context2] = $this->setup_responses();
-        $this->assertEqualsCanonicalizing([$context1->id, $context2->id],
-                provider::get_contexts_for_userid($user1->id)->get_contextids());
+        $this->assertEqualsCanonicalizing(
+            [$context1->id, $context2->id],
+            provider::get_contexts_for_userid($user1->id)->get_contextids()
+        );
         $this->assertEquals([$context1->id], provider::get_contexts_for_userid($user2->id)->get_contextids());
     }
 
@@ -157,5 +160,31 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         provider::delete_data_for_all_users_in_context($context1);
         $transcripts = $DB->get_fieldset_select('qtype_speakup_response', 'transcript', '1 = 1');
         $this->assertSame(['User 1 in course 2'], array_values($transcripts));
+    }
+
+    /**
+     * Test finding the users with data in a context.
+     */
+    public function test_get_users_in_context(): void {
+        $this->resetAfterTest();
+        [$user1, $user2, $context1, $context2] = $this->setup_responses();
+        $userlist = new userlist($context1, 'qtype_speakup');
+        provider::get_users_in_context($userlist);
+        $this->assertEqualsCanonicalizing([$user1->id, $user2->id], $userlist->get_userids());
+        $userlist = new userlist($context2, 'qtype_speakup');
+        provider::get_users_in_context($userlist);
+        $this->assertEquals([$user1->id], $userlist->get_userids());
+    }
+
+    /**
+     * Test deleting some users' data in a context.
+     */
+    public function test_delete_data_for_users(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$user1, , $context1] = $this->setup_responses();
+        provider::delete_data_for_users(new approved_userlist($context1, 'qtype_speakup', [$user1->id]));
+        $transcripts = $DB->get_fieldset_select('qtype_speakup_response', 'transcript', '1 = 1');
+        $this->assertEqualsCanonicalizing(['User 1 in course 2', 'User 2 in course 1'], $transcripts);
     }
 }

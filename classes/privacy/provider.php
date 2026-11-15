@@ -17,9 +17,14 @@
 namespace qtype_speakup\privacy;
 
 use core_privacy\local\metadata\collection;
+use core_privacy\local\metadata\provider as metadata_provider;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
+use core_privacy\local\request\core_userlist_provider as userlist_provider;
+use core_privacy\local\request\plugin\provider as plugin_provider;
 use core_privacy\local\request\transform;
+use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
 /**
@@ -55,10 +60,7 @@ use core_privacy\local\request\writer;
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider implements
-        \core_privacy\local\metadata\provider,
-        \core_privacy\local\request\plugin\provider {
-
+class provider implements metadata_provider, plugin_provider, userlist_provider {
     /**
      * Describe the personal data stored by this plugin.
      *
@@ -112,6 +114,22 @@ class provider implements
     }
 
     /**
+     * Get the users who have personal data in a context: those who made the
+     * question attempts that have SpeakUp responses.
+     *
+     * @param userlist $userlist
+     */
+    public static function get_users_in_context(userlist $userlist): void {
+        $sql = "SELECT qas.userid
+                  FROM {qtype_speakup_response} sr
+                  JOIN {question_attempts} qa ON qa.id = sr.questionattemptid
+                  JOIN {question_usages} qu ON qu.id = qa.questionusageid
+                  JOIN {question_attempt_steps} qas ON qas.questionattemptid = qa.id
+                 WHERE qu.contextid = :contextid";
+        $userlist->add_from_sql('userid', $sql, ['contextid' => $userlist->get_context()->id]);
+    }
+
+    /**
      * Export all personal data for the approved contexts for a user.
      *
      * @param approved_contextlist $contextlist
@@ -133,8 +151,8 @@ class provider implements
                     'timemodified' => transform::datetime($record->timemodified),
                 ];
                 writer::with_context($context)->export_data(
-                        [get_string('pluginname', 'qtype_speakup'), $record->questionattemptid],
-                        $data
+                    [get_string('pluginname', 'qtype_speakup'), $record->questionattemptid],
+                    $data
                 );
             }
         }
@@ -161,6 +179,18 @@ class provider implements
         foreach ($contextlist->get_contexts() as $context) {
             $ids = self::get_response_ids_in_context($context->id, $userid);
             self::delete_response_records($ids);
+        }
+    }
+
+    /**
+     * Delete the personal data of some users in a context.
+     *
+     * @param approved_userlist $userlist
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
+        $contextid = $userlist->get_context()->id;
+        foreach ($userlist->get_userids() as $userid) {
+            self::delete_response_records(self::get_response_ids_in_context($contextid, (int) $userid));
         }
     }
 
