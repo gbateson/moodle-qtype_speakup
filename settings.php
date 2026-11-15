@@ -103,12 +103,6 @@ if ($hassiteconfig) {
         get_string('replaceoriginals_desc', 'qtype_speakup'),
         1
     ));
-    $settings->add(new admin_setting_configexecutable(
-        'qtype_speakup/pathtoffmpeg',
-        get_string('pathtoffmpeg', 'qtype_speakup'),
-        get_string('pathtoffmpeg_desc', 'qtype_speakup'),
-        '/usr/bin/ffmpeg'
-    ));
 
     // The Moodle app: SpeakUp works there when the site meets some
     // conditions; otherwise the app opens the quiz in the browser.

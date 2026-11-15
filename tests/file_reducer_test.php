@@ -46,7 +46,7 @@ final class file_reducer_test extends \advanced_testcase {
         set_config('reducefiles', 1, 'qtype_speakup');
         set_config('replaceoriginals', 1, 'qtype_speakup');
         set_config('reducethreshold', 1, 'qtype_speakup');
-        set_config('pathtoffmpeg', '/usr/bin/ffmpeg', 'qtype_speakup');
+        set_config('pathtoffmpeg', '/usr/bin/ffmpeg', 'tool_aibridge');
     }
 
     /**
@@ -189,7 +189,7 @@ final class file_reducer_test extends \advanced_testcase {
      * Without ffmpeg, audio and video are kept as they are.
      */
     public function test_reduce_without_ffmpeg(): void {
-        set_config('pathtoffmpeg', '/no/such/ffmpeg', 'qtype_speakup');
+        set_config('pathtoffmpeg', '/no/such/ffmpeg', 'tool_aibridge');
         $this->assertNull(file_reducer::get_ffmpeg());
         $wav = \tool_aibridge\audio::pcm_to_wav(str_repeat("\x10\x20", 400000), 16000);
         $this->assertNull(file_reducer::reduce($this->make_file('speech.wav', $wav)));

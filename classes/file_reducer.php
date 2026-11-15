@@ -18,7 +18,9 @@ namespace qtype_speakup;
 
 /**
  * Makes large response files smaller, in the background (see
- * task\assess_response and task\reduce_response_files).
+ * task\assess_response and task\reduce_response_files). The files are
+ * converted by the AI bridge's media converter (tool_aibridge), whose
+ * settings say where ffmpeg is.
  *
  * - Audio: ffmpeg, as mono MP3, which is plenty for speech.
  * - Video: ffmpeg, as MP4 (H.264), at most 1280 pixels wide or tall (720p).
@@ -45,26 +47,14 @@ class file_reducer {
     /** A smaller file is only kept if it is at most this fraction of the original's size. */
     const MIN_SAVING = 0.8;
 
-    /** The longest a program may run, in seconds. */
-    const TIMEOUT = 900;
-
     /** The bit rate of audio, mono. */
     const AUDIO_BITRATE = '48k';
-
-    /** The longest side of a video, in pixels (720p). */
-    const VIDEO_MAX_SIDE = 1280;
 
     /** The longest side of an image, in pixels. */
     const IMAGE_MAX_SIDE = 2000;
 
     /** The quality of JPEG images, 0 to 100. */
     const IMAGE_QUALITY = 80;
-
-    /** The most pixels an image may have to be made smaller here (larger ones would use too much memory). */
-    const IMAGE_MAX_PIXELS = 60000000;
-
-    /** Image types that GD can make smaller. (Not GIF, which may be animated.) */
-    const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp'];
 
     /** The file area for copies of files made only for the AI, deleted afterwards. */
     const AI_FILEAREA = 'aitemp';
@@ -105,21 +95,16 @@ class file_reducer {
      * @return bool
      */
     public static function can_exec(): bool {
-        if (!function_exists('exec')) {
-            return false;
-        }
-        $disabled = array_map('trim', explode(',', strtolower((string) ini_get('disable_functions'))));
-        return !in_array('exec', $disabled);
+        return \tool_aibridge\media_converter::can_exec();
     }
 
     /**
-     * Get the path to ffmpeg, if it can be run.
+     * Get the path to ffmpeg, from the AI bridge's settings, if it can be run.
      *
      * @return string|null
      */
     public static function get_ffmpeg(): ?string {
-        $path = (string) get_config('qtype_speakup', 'pathtoffmpeg');
-        return self::usable($path);
+        return \tool_aibridge\media_converter::get_ffmpeg();
     }
 
     /**
@@ -128,22 +113,7 @@ class file_reducer {
      * @return string|null
      */
     public static function get_ghostscript(): ?string {
-        global $CFG;
-        return self::usable((string) ($CFG->pathtogs ?? ''));
-    }
-
-    /**
-     * Get a program's path, if it can be run.
-     *
-     * @param string $path
-     * @return string|null
-     */
-    protected static function usable(string $path): ?string {
-        $path = trim($path);
-        if ($path === '' || !self::can_exec() || !is_file($path) || !is_executable($path)) {
-            return null;
-        }
-        return $path;
+        return \tool_aibridge\media_converter::get_ghostscript();
     }
 
     /**
@@ -152,23 +122,9 @@ class file_reducer {
      * @return string HTML
      */
     public static function get_status_html(): string {
-        $conditions = [
-            'exec' => self::can_exec(),
-            'ffmpeg' => self::get_ffmpeg() !== null,
-            'ghostscript' => self::get_ghostscript() !== null,
-            'gd' => function_exists('imagecreatefromstring'),
-        ];
-        $links = [
-            'ghostscript' => mobile_support::admin_link('systempaths', get_string('systempaths', 'admin')),
-        ];
-        $items = '';
-        foreach ($conditions as $name => $met) {
-            $icon = $met ? '✔' : '✘';
-            $class = $met ? 'text-success' : 'text-danger';
-            $items .= \html_writer::tag('li', \html_writer::span($icon, $class . ' me-1') .
-                    get_string('reducecondition_' . $name, 'qtype_speakup', $links[$name] ?? null));
-        }
-        return \html_writer::tag('ul', $items, ['class' => 'list-unstyled']);
+        $url = new \moodle_url('/admin/settings.php', ['section' => 'tool_aibridge_settings']);
+        return \tool_aibridge\media_converter::get_status_html() .
+            \html_writer::div(get_string('reducesettings', 'qtype_speakup', $url->out()), 'small');
     }
 
     /**
@@ -181,54 +137,18 @@ class file_reducer {
      *      sound of a video, which is always returned if it can be made).
      */
     public static function reduce(\stored_file $file, bool $audioonly = false): ?array {
-        $mimetype = (string) $file->get_mimetype();
-        $isaudio = (strpos($mimetype, 'audio/') === 0);
-        $isvideo = (strpos($mimetype, 'video/') === 0);
-        $basename = pathinfo($file->get_filename(), PATHINFO_FILENAME);
-
-        if ($isaudio || ($isvideo && $audioonly)) {
-            $extension = 'mp3';
-        } else if ($isvideo) {
-            $extension = 'mp4';
-        } else if (in_array($mimetype, self::IMAGE_TYPES)) {
-            $extension = 'jpg';
-        } else if ($mimetype === 'application/pdf') {
-            $extension = 'pdf';
-        } else {
-            return null;
-        }
-
-        $dir = make_request_directory();
-        $input = $dir . '/input.' . (pathinfo($file->get_filename(), PATHINFO_EXTENSION) ?: 'bin');
-        $output = $dir . '/output.' . $extension;
-        if (!$file->copy_content_to($input)) {
-            return null;
-        }
-
-        if ($isaudio || ($isvideo && $audioonly)) {
-            $done = self::run_ffmpeg(['-i', $input, '-vn', '-ac', '1', '-c:a', 'libmp3lame', '-b:a', self::AUDIO_BITRATE,
-                    $output]);
-        } else if ($isvideo) {
-            // At most 1280 pixels on the longest side, for landscape or portrait videos,
-            // with even sizes, as H.264 needs.
-            $side = self::VIDEO_MAX_SIDE;
-            $scale = "scale='if(gte(iw,ih),min($side,iw),-2)':'if(gte(iw,ih),-2,min($side,ih))'";
-            $done = self::run_ffmpeg(['-i', $input, '-vf', $scale, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28',
-                    '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '64k', '-ac', '1', '-movflags', '+faststart', $output]);
-        } else if ($extension === 'jpg') {
-            $done = self::reduce_image($input, $output, $mimetype);
-        } else {
-            $done = self::run_ghostscript($input, $output);
-        }
-
-        clearstatcache();
-        if (!$done || !is_file($output) || filesize($output) <= 0) {
-            return null;
-        }
-        if (!($isvideo && $audioonly) && filesize($output) > $file->get_filesize() * self::MIN_SAVING) {
-            return null;
-        }
-        return [$output, $basename . '.' . $extension, mimeinfo('type', 'file.' . $extension)];
+        return \tool_aibridge\media_converter::convert_file($file, [
+            'audioonly' => $audioonly,
+            'audioformat' => 'mp3',
+            'audiobitrate' => self::AUDIO_BITRATE,
+            'videoformat' => 'mp4',
+            'imageformat' => 'jpg',
+            'imagemaxside' => self::IMAGE_MAX_SIDE,
+            'imagequality' => self::IMAGE_QUALITY,
+            'reencode' => true,
+            'pdf' => true,
+            'minsaving' => self::MIN_SAVING,
+        ]);
     }
 
     /**
@@ -256,8 +176,9 @@ class file_reducer {
             try {
                 $result = self::reduce($file);
                 if (!$result) {
+                    $why = \tool_aibridge\media_converter::get_last_error();
                     mtrace('qtype_speakup: ' . $file->get_filename() . ' (' . display_size($file->get_filesize()) .
-                            ') could not be made smaller, so it was kept as it is.');
+                            ') could not be made smaller, so it was kept as it is.' . ($why === '' ? '' : ' ' . $why));
                     continue;
                 }
                 [$path, $filename, $mimetype] = $result;
@@ -354,110 +275,5 @@ class file_reducer {
      */
     public static function delete_ai_files(int $contextid, int $itemid): void {
         get_file_storage()->delete_area_files($contextid, 'qtype_speakup', self::AI_FILEAREA, $itemid);
-    }
-
-    /**
-     * Run ffmpeg.
-     *
-     * @param array $arguments
-     * @return bool whether it worked.
-     */
-    protected static function run_ffmpeg(array $arguments): bool {
-        $ffmpeg = self::get_ffmpeg();
-        if ($ffmpeg === null) {
-            return false;
-        }
-        return self::run(array_merge([$ffmpeg, '-nostdin', '-hide_banner', '-loglevel', 'error', '-y'], $arguments));
-    }
-
-    /**
-     * Make a PDF smaller with Ghostscript, with its images at 150 dpi.
-     *
-     * @param string $input
-     * @param string $output
-     * @return bool whether it worked.
-     */
-    protected static function run_ghostscript(string $input, string $output): bool {
-        $gs = self::get_ghostscript();
-        if ($gs === null) {
-            return false;
-        }
-        return self::run([$gs, '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.5', '-dPDFSETTINGS=/ebook',
-                '-dNOPAUSE', '-dQUIET', '-dBATCH', '-dSAFER', '-sOutputFile=' . $output, $input]);
-    }
-
-    /**
-     * Run a program, at low priority and with a time limit, if the server
-     * has "nice" and "timeout".
-     *
-     * @param array $command the program and its arguments.
-     * @return bool whether it worked.
-     */
-    protected static function run(array $command): bool {
-        $prefix = [];
-        if (is_executable('/usr/bin/timeout')) {
-            $prefix = ['/usr/bin/timeout', (string) self::TIMEOUT];
-        }
-        if (is_executable('/usr/bin/nice')) {
-            $prefix = array_merge($prefix, ['/usr/bin/nice', '-n', '10']);
-        }
-        $line = implode(' ', array_map('escapeshellarg', array_merge($prefix, $command))) . ' 2>&1';
-        $output = [];
-        $code = 0;
-        exec($line, $output, $code);
-        if ($code !== 0) {
-            mtrace('qtype_speakup: ' . basename($command[0]) . ' failed (' . $code . '): ' .
-                    \core_text::substr(implode(' ', array_slice($output, -3)), 0, 500));
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Make an image smaller with GD, as a JPEG, the right way up.
-     *
-     * @param string $input
-     * @param string $output
-     * @param string $mimetype
-     * @return bool whether it worked.
-     */
-    protected static function reduce_image(string $input, string $output, string $mimetype): bool {
-        if (!function_exists('imagecreatefromstring')) {
-            return false;
-        }
-        $size = @getimagesize($input);
-        if (!$size || $size[0] * $size[1] > self::IMAGE_MAX_PIXELS) {
-            return false;
-        }
-        raise_memory_limit(MEMORY_HUGE);
-        $image = @imagecreatefromstring(file_get_contents($input));
-        if (!$image) {
-            return false;
-        }
-
-        // Phones save photos sideways, and say how to turn them in the EXIF data,
-        // which a JPEG made by GD does not have.
-        if ($mimetype === 'image/jpeg' && function_exists('exif_read_data')) {
-            $exif = @exif_read_data($input);
-            $angle = [3 => 180, 6 => 270, 8 => 90][(int) ($exif['Orientation'] ?? 1)] ?? 0;
-            if ($angle && ($rotated = imagerotate($image, $angle, 0))) {
-                imagedestroy($image);
-                $image = $rotated;
-            }
-        }
-
-        $width = imagesx($image);
-        $height = imagesy($image);
-        $scale = min(1, self::IMAGE_MAX_SIDE / max($width, $height));
-        $newwidth = max(1, (int) round($width * $scale));
-        $newheight = max(1, (int) round($height * $scale));
-        $canvas = imagecreatetruecolor($newwidth, $newheight);
-        // A white background, for images with transparent parts.
-        imagefill($canvas, 0, 0, imagecolorallocate($canvas, 255, 255, 255));
-        imagecopyresampled($canvas, $image, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
-        imagedestroy($image);
-        $done = imagejpeg($canvas, $output, self::IMAGE_QUALITY);
-        imagedestroy($canvas);
-        return $done;
     }
 }

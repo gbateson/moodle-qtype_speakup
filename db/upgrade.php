@@ -505,5 +505,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026111401, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026111403) {
+        // Files are now converted by the AI bridge, so its settings say where ffmpeg is.
+        $path = get_config('qtype_speakup', 'pathtoffmpeg');
+        if ($path !== false && $path !== '' && get_config('tool_aibridge', 'pathtoffmpeg') === false) {
+            set_config('pathtoffmpeg', $path, 'tool_aibridge');
+        }
+        unset_config('pathtoffmpeg', 'qtype_speakup');
+
+        upgrade_plugin_savepoint(true, 2026111403, 'qtype', 'speakup');
+    }
+
     return true;
 }

@@ -28,7 +28,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026111402;
+$plugin->version   = 2026111403;
 $plugin->requires  = 2024042200; // Moodle 4.4+ / 5.0 branch, matching recordrtc's minimum.
 $plugin->component = 'qtype_speakup';
 $plugin->maturity  = MATURITY_ALPHA;
@@ -38,5 +38,5 @@ $plugin->release   = '0.1.0 (dev)';
 // dependency: it is a plugin type, not a plugin, and Moodle would look it up
 // in the plugins directory.)
 $plugin->dependencies = [
-    'tool_aibridge' => 2026111406,
+    'tool_aibridge' => 2026111410,
 ];
