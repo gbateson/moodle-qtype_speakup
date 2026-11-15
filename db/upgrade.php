@@ -516,5 +516,15 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026111403, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026111404) {
+        // Add SpeakUp's prompt and output format to the AI bridge's library, so that
+        // tools such as the Vocabulary activity's question bank tool can generate
+        // SpeakUp questions. (If the bridge is not installed yet, it adds them itself.)
+        if ($dbman->table_exists('tool_aibridge_templates')) {
+            \tool_aibridge\library::sync_component('qtype_speakup');
+        }
+        upgrade_plugin_savepoint(true, 2026111404, 'qtype', 'speakup');
+    }
+
     return true;
 }
