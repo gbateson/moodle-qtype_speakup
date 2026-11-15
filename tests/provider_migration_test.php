@@ -157,4 +157,25 @@ final class provider_migration_test extends \advanced_testcase {
         $this->assertEquals(provider_migration::TTS_NONE, get_config('qtype_speakup', 'ttsproviderid'));
         $this->assertFalse(ai_provider::is_tts_available(\context_system::instance(), (int) get_admin()->id));
     }
+
+    /**
+     * A provider that matches one of the bridge's presets gets its default token values, e.g. a voice.
+     */
+    public function test_convert_defaults(): void {
+        $this->resetAfterTest();
+        $old = (object) [
+            'name' => 'Gemini speech',
+            'capability' => 'speech',
+            'url' => 'https://generativelanguage.googleapis.com/v1beta/models/{{MODEL}}:generateContent',
+            'headers' => '',
+            'model' => 'gemini-2.5-flash-preview-tts',
+            'requesttemplate' => '{"voice": "{{VOICE}}"}',
+            'returnpath' => '',
+            'uploadstyle' => 'none',
+            'enabled' => 1,
+            'sortorder' => 0,
+        ];
+        $record = provider_migration::convert($old, (int) get_admin()->id);
+        $this->assertSame('Kore', json_decode($record->tokendefaults, true)['VOICE']);
+    }
 }

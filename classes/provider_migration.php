@@ -105,7 +105,7 @@ class provider_migration {
             // The bridge sends the key in a header, so it need not be in the URL.
             $uploadurl = preg_replace('/[?&]key=\{\{APIKEY\}\}$/', '', trim((string) $old->uploadurl));
         }
-        return (object) [
+        $record = (object) [
             'name' => $old->name,
             'ownerid' => $ownerid,
             'contextid' => SYSCONTEXTID,
@@ -127,6 +127,15 @@ class provider_migration {
             'sharedfrom' => 0,
             'shareduntil' => 0,
         ];
+        // The old providers had no default token values, e.g. no VOICE, so use those of the
+        // matching preset. Older versions of the bridge's upgrade add them instead.
+        if (method_exists('\\tool_aibridge\\presets', 'find_match')) {
+            $preset = \tool_aibridge\presets::find_match($record);
+            if ($preset !== '') {
+                $record->tokendefaults = (string) (\tool_aibridge\presets::get_presets()[$preset]['tokendefaults'] ?? '');
+            }
+        }
+        return $record;
     }
 
     /**

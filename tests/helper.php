@@ -362,6 +362,7 @@ class qtype_speakup_test_helper extends question_test_helper {
             'url' => 'https://api.example.com/v1/audio/speech',
             'returnpath' => '',
             'requesttemplate' => '{"model": "{{MODEL}}", "input": "{{TEXT}}", "voice": "{{VOICE}}"}',
+            'tokendefaults' => '{"VOICE": "alloy"}',
         ], $data));
         set_config('ttsproviderid', $provider->id, 'qtype_speakup');
         return $provider;
