@@ -374,8 +374,9 @@ class qtype_speakup_renderer extends qtype_renderer {
     /**
      * Set up the controls for the prompt and the responses, while the
      * question is being attempted (see amd/src/promptcontrol.js): starting
-     * the recording when the prompt finishes, and the limits on how many
-     * times the prompt can be played and how many responses can be given.
+     * the recording when the prompt finishes, the limits on how many times
+     * the prompt can be played and how many responses can be given, and
+     * whether the prompt can be paused.
      *
      * The counts so far are kept in hidden fields, saved with the response.
      *
@@ -389,7 +390,8 @@ class qtype_speakup_renderer extends qtype_renderer {
         $recordafterprompt = !empty($question->recordafterprompt) && !$question->is_upload();
         $maxplays = (int) $question->maxpromptplays;
         $maxresponses = (int) $question->maxresponses;
-        if ($options->readonly || (!$recordafterprompt && !$maxplays && !$maxresponses)) {
+        $promptpause = !isset($question->promptpause) || !empty($question->promptpause);
+        if ($options->readonly || (!$recordafterprompt && !$maxplays && !$maxresponses && $promptpause)) {
             return '';
         }
         $plugin = 'qtype_speakup';
@@ -415,13 +417,15 @@ class qtype_speakup_renderer extends qtype_renderer {
         $output .= html_writer::div('', 'qtype_speakup-prompt-message small text-warning mb-1 hide',
                 ['role' => 'status', 'aria-live' => 'polite']);
 
-        $this->page->requires->strings_for_js(['listenfirst', 'promptplaysused', 'responsesused'], $plugin);
+        $this->page->requires->strings_for_js(['listenfirst', 'playprompt', 'playpromptagain', 'promptplaying',
+                'promptplaysused', 'responsesused'], $plugin);
         $this->page->requires->js_call_amd('qtype_speakup/promptcontrol', 'init', [
             $qa->get_outer_question_div_unique_id(),
             [
                 'recordAfterPrompt' => $recordafterprompt,
                 'maxPromptPlays' => $maxplays,
                 'maxResponses' => $maxresponses,
+                'promptPause' => $promptpause,
             ],
         ]);
         return $output;
@@ -525,7 +529,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         ];
         $this->page->requires->strings_for_js([
             'fileuploaded', 'uploaddifferentfile', 'uploadfailed', 'uploadprogress',
-            'uploadtoobigmedia', 'uploadtoolong', 'uploadwrongtype',
+            'uploadtoobigmedia', 'uploadtoolong', 'uploadwait', 'uploadwrongtype',
         ], 'qtype_speakup');
         $this->page->requires->js_call_amd('qtype_speakup/fileupload', 'init',
                 [$qa->get_outer_question_div_unique_id(), $settings]);
@@ -559,7 +563,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         $this->page->requires->strings_for_js([
             'fileuploaded', 'imageshrunk', 'imagetoobig', 'pagerotated', 'pageremoved', 'pagex', 'removepage',
             'removepagex', 'rotateleft', 'rotateleftx', 'rotateright', 'rotaterightx', 'toomanyfiles', 'uploadanotherimage',
-            'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobigpdf', 'uploadwrongtypeimage',
+            'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobigpdf', 'uploadwait', 'uploadwrongtypeimage',
         ], 'qtype_speakup');
         $this->page->requires->js_call_amd('qtype_speakup/imageupload', 'init',
                 [$qa->get_outer_question_div_unique_id(), $settings]);
@@ -878,6 +882,7 @@ class qtype_speakup_renderer extends qtype_renderer {
             'startsharescreen',
             'timedisplay',
             'uploadaborted',
+            'uploadwait',
             'uploadcomplete',
             'uploadfailed',
             'uploadfailed404',

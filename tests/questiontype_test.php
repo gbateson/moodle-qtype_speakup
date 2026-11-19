@@ -44,7 +44,7 @@ final class questiontype_test extends \advanced_testcase {
             'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
             'showitems', 'showcomment', 'showtranscript', 'showstats', 'statsitems', 'audioprompttranscript',
             'audiopromptvoice', 'prompttranscriptdisplay', 'transcriptpenalty', 'recordafterprompt', 'maxpromptplays',
-            'maxresponses', 'silencestop', 'maxfiles', 'aiaudioonly'];
+            'maxresponses', 'silencestop', 'maxfiles', 'aiaudioonly', 'promptpause'];
 
     /**
      * Create a test question in a new category.
@@ -279,6 +279,24 @@ final class questiontype_test extends \advanced_testcase {
 
         $questions = $this->read_gift("::Talk::Record a video.{\nSPEAKUP\nMEDIA=video\nAIAUDIOONLY=no\n}\n");
         $this->assertSame(0, $questions[0]->aiaudioonly);
+    }
+
+    /**
+     * Whether the prompt can be paused is imported, by either name, and
+     * exported. It can be paused unless GIFT says otherwise.
+     */
+    public function test_gift_prompt_pause(): void {
+        $this->resetAfterTest();
+        $questions = $this->read_gift("::A::Listen.{\nAUDIO: Hello.\nPROMPTPAUSE=no\n}\n\n" .
+                "::B::Listen.{\nAUDIO: Hello.\nPAUSEPROMPT=yes\n}\n\n::C::Listen.{\nAUDIO: Hello.\n}\n");
+        $this->assertSame(0, $questions[0]->promptpause);
+        $this->assertSame(1, $questions[1]->promptpause);
+        $this->assertEquals(1, $questions[2]->promptpause);
+
+        $this->setAdminUser();
+        $qdata = $this->create_question('prompt', ['promptpause' => 0]);
+        $this->assertEquals(0, $qdata->options->promptpause);
+        $this->assertStringContainsString('PROMPTPAUSE=no', (new \qformat_gift())->writequestion($qdata));
     }
 
     /**

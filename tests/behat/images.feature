@@ -30,7 +30,9 @@ Feature: Image responses, e.g. scans of handwriting
     And I set the field "Response type" to "Image (e.g. a handwriting scan)"
     And I should not see "Response time limit"
     And I should not see "Response method"
-    And I should not see "Allow pausing"
+    And "#fitem_id_allowpause" "css_element" should not be visible
+    # The prompt can still be paused, or not.
+    And I should see "Allow pausing the prompt"
     And I should not see "Start recording when the prompt finishes"
     And I should not see "Stop recording after a silence of"
     And I should not see "Number of responses allowed"

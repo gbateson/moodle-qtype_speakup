@@ -4,10 +4,22 @@ import terser from '@rollup/plugin-terser';
 // Moodle's RequireJS, so not bundled into each other).
 const external = [
     'core/log', 'core/modal_factory', 'core/notification', 'core/templates',
-    'qtype_speakup/avrecording', 'qtype_speakup/draftfiles',
+    'qtype_speakup/avrecording', 'qtype_speakup/draftfiles', 'qtype_speakup/uploadguard',
 ];
 
 export default [
+    {
+        input: 'amd/src/uploadguard.js',
+        external,
+        output: {
+            file: 'amd/build/uploadguard.min.js',
+            format: 'amd',
+            amd: {id: 'qtype_speakup/uploadguard'},
+            sourcemap: true,
+            exports: 'named',
+            plugins: [terser()],
+        },
+    },
     {
         input: 'amd/src/avrecording.js',
         external,
@@ -51,18 +63,6 @@ export default [
             file: 'amd/build/editform.min.js',
             format: 'amd',
             amd: {id: 'qtype_speakup/editform'},
-            sourcemap: true,
-            exports: 'named',
-            plugins: [terser()],
-        },
-    },
-    {
-        input: 'amd/src/providerpresets.js',
-        external,
-        output: {
-            file: 'amd/build/providerpresets.min.js',
-            format: 'amd',
-            amd: {id: 'qtype_speakup/providerpresets'},
             sourcemap: true,
             exports: 'named',
             plugins: [terser()],

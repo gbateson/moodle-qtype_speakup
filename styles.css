@@ -252,3 +252,25 @@ body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-audio-widget,
 body.qtype_speakup-mobile-response .que.speakup .qtype_speakup-video-widget {
     width: 100%;
 }
+
+/* While a recording or file is being saved, a click that would leave the page
+   is held back, and this layer covers the page (see amd/src/uploadguard.js). */
+.qtype_speakup-upload-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.7);
+    cursor: wait;
+}
+.qtype_speakup-upload-overlay-box {
+    max-width: calc(100% - 2rem);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}

@@ -135,6 +135,15 @@ assessed, the assessment fails, and teachers are told why. In GIFT, give
 the Description its ID number with `// [id:quickfire-rubric]` on the line
 before it.
 
+## Saving recordings and files
+
+Recordings and files are saved as soon as they are made or chosen. While
+one is being saved, students cannot leave the page by mistake, e.g. by
+clicking "Next page" just after recording: the click is held, the page
+says it is saving, and then goes where the student meant to go
+(`amd/src/uploadguard.js`). If saving fails, the student stays on the page
+to try again.
+
 ## Large files
 
 Students' files are uploaded as they are, except that images bigger than
@@ -187,6 +196,7 @@ that are left out get their usual defaults.
     PAUSE=no
     RECORDAFTERPROMPT=yes
     MAXPROMPTPLAYS=1
+    PROMPTPAUSE=no
     MAXRESPONSES=2
     SILENCESTOP=5
     PROMPTTRANSCRIPT=collapsed
@@ -209,6 +219,9 @@ that are left out get their usual defaults.
 - Yes/no settings take `yes` or `no`. `SHOW` takes `none`, `students`,
   `teachers` or `both`, for all five details at once or for each one.
   `PROMPTTRANSCRIPT` takes `hide`, `collapsed` or `expanded`.
+- `PROMPTPAUSE=no` (or `PAUSEPROMPT=no`) stops students pausing the
+  prompt: it has a "Play" button instead of the usual player, and once
+  started, plays to the end. Without it, the prompt can be paused.
 - `AI` takes `no`, or the provider's name and/or the weighting, e.g.
   `AI=Gemini, 50%`. Providers are matched by name; credentials are never
   exported.

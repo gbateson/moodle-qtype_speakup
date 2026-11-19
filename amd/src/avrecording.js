@@ -40,6 +40,7 @@ import Log from 'core/log';
 import ModalFactory from 'core/modal_factory';
 import Templates from 'core/templates';
 import {getUploadRequest, isUploadError} from 'qtype_speakup/draftfiles';
+import {begin as beginUpload, end as endUpload, makeId} from 'qtype_speakup/uploadguard';
 
 /**
  * Verify that the question type can work. If not, show a warning.
@@ -81,6 +82,11 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
      * @type {Recorder} reference to this recorder, for use in event handlers.
      */
     const recorder = this;
+
+    /**
+     * @type {string} this recorder's id in qtype_speakup/uploadguard.
+     */
+    const uploadGuardId = makeId('recording');
 
     /**
      * @type {MediaStream} during recording, the stream of incoming media.
@@ -465,6 +471,10 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
         // Disable the button while things change.
         button.disabled = true;
 
+        // From now until the recording is saved, students cannot leave the
+        // page, which would lose it (see qtype_speakup/uploadguard).
+        beginUpload(uploadGuardId);
+
         stopSilenceDetection();
 
         // Stop the count-down timer.
@@ -579,6 +589,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
     function handleRecordingHasStopped() {
         if (widget.dataset.state === 'new') {
             // This can happens if an error occurs when recording is starting. Do nothing.
+            endUpload(uploadGuardId, false);
             return;
         }
 
@@ -613,9 +624,12 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
 
             if (chunks.length > 0) {
                 owner.notifyRecordingComplete(recorder);
+            } else {
+                endUpload(uploadGuardId, false);
             }
             return true;
         }).catch(() => {
+            endUpload(uploadGuardId, false);
             return false;
         });
     }
@@ -696,6 +710,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
 
         owner.showAlert(stringName);
         enableAllButtons();
+        endUpload(uploadGuardId, false);
     }
 
     /**
@@ -796,15 +811,21 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
      */
     async function uploadMediaToServer() {
         setButtonLabel('uploadpreparing');
+        // In case the upload was not started by stopRecording().
+        beginUpload(uploadGuardId);
 
-        if (widget.dataset.convertToMp3) {
-            const mp3DataBlob = await convertOggToMp3(mediaElement.src);
-            mediaElement.src = URL.createObjectURL(mp3DataBlob);
-            uploadBlobToRepository(mp3DataBlob, widget.dataset.recordingFilename.replace(/\.ogg$/, '.mp3'));
-        } else {
-            // First we need to get the media data from the media element.
-            const oggDataBlob = await fetchOggData(mediaElement.src, 'blob');
-            uploadBlobToRepository(oggDataBlob, widget.dataset.recordingFilename);
+        try {
+            if (widget.dataset.convertToMp3) {
+                const mp3DataBlob = await convertOggToMp3(mediaElement.src);
+                mediaElement.src = URL.createObjectURL(mp3DataBlob);
+                uploadBlobToRepository(mp3DataBlob, widget.dataset.recordingFilename.replace(/\.ogg$/, '.mp3'));
+            } else {
+                // First we need to get the media data from the media element.
+                const oggDataBlob = await fetchOggData(mediaElement.src, 'blob');
+                uploadBlobToRepository(oggDataBlob, widget.dataset.recordingFilename);
+            }
+        } catch (e) {
+            handleUploadError();
         }
     }
 
@@ -981,9 +1002,13 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
             enableAllButtons();
             // Tell anything that counts responses (see qtype_speakup/promptcontrol).
             widget.dispatchEvent(new CustomEvent('qtype_speakup:responsesaved', {bubbles: true}));
+            endUpload(uploadGuardId, true);
         } else if (uploadRequest.status === 404) {
             setPlaceholderMessage('uploadfailed404');
             enableAllButtons();
+            endUpload(uploadGuardId, false);
+        } else {
+            handleUploadError();
         }
     }
 
@@ -1001,6 +1026,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
     function handleUploadError() {
         setPlaceholderMessage('uploadfailed');
         enableAllButtons();
+        endUpload(uploadGuardId, false);
     }
 
     /**
@@ -1009,6 +1035,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
     function handleUploadAbort() {
         setPlaceholderMessage('uploadaborted');
         enableAllButtons();
+        endUpload(uploadGuardId, false);
     }
 
     /**

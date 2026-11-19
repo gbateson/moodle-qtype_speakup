@@ -80,6 +80,7 @@ class qtype_speakup_test_helper extends question_test_helper {
             'silencestop' => 0,
             'maxfiles' => 1,
             'aiaudioonly' => 0,
+            'promptpause' => 1,
         ];
     }
 

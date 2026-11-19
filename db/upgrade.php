@@ -526,5 +526,15 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026111404, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026111900) {
+        // Whether students can pause the audio prompt. Existing questions keep allowing it.
+        $table = new xmldb_table('qtype_speakup_options');
+        $field = new xmldb_field('promptpause', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'aiaudioonly');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2026111900, 'qtype', 'speakup');
+    }
+
     return true;
 }

@@ -123,6 +123,7 @@ class qtype_speakup extends question_type {
             'silencestop',
             'maxfiles',
             'aiaudioonly',
+            'promptpause',
         ];
     }
 
@@ -464,6 +465,7 @@ class qtype_speakup extends question_type {
             'FILES' => 'maxfiles',
             'PAGES' => 'maxfiles',
             'AUDIOONLY' => 'aiaudioonly',
+            'PAUSEPROMPT' => 'promptpause',
             'TARGETITEM' => 'targetitem',
             'TARGETITEMS' => 'targetitem',
             'ITEM' => 'targetitem',
@@ -595,6 +597,7 @@ class qtype_speakup extends question_type {
             'PAUSE' => $yesno($o->allowpause),
             'RECORDAFTERPROMPT' => $yesno($o->recordafterprompt),
             'MAXPROMPTPLAYS' => (int) $o->maxpromptplays,
+            'PROMPTPAUSE' => $yesno($o->promptpause ?? 1),
             'MAXRESPONSES' => (int) $o->maxresponses,
             'SILENCESTOP' => (int) $o->silencestop,
             'PROMPTTRANSCRIPT' => $transcriptwords[(int) $o->prompttranscriptdisplay] ?? 'collapsed',
@@ -808,7 +811,7 @@ class qtype_speakup extends question_type {
             'maxfiles' => [1, SPEAKUP_MAX_IMAGE_FILES, null],
         ];
 
-        if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats', 'aiaudioonly'])) {
+        if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats', 'aiaudioonly', 'promptpause'])) {
             if (!array_key_exists($word, $yesno)) {
                 return get_string('giftexpectyesno', $plugin);
             }

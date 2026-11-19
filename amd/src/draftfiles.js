@@ -30,6 +30,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import {begin, end, makeId} from 'qtype_speakup/uploadguard';
+
 /** @var {Object|null} the app's token and the user's context id, once the app has sent them. */
 let mobile = null;
 
@@ -259,6 +261,29 @@ export const isUploadError = (response) => {
  * @returns {Promise<Object>} the reply.
  */
 export const uploadFile = async(file, filename, settings, onProgress) => {
+    // Students cannot leave the page until the file is saved (see qtype_speakup/uploadguard).
+    const guardId = makeId('upload');
+    begin(guardId);
+    let ok = false;
+    try {
+        const reply = await sendFile(file, filename, settings, onProgress);
+        ok = true;
+        return reply;
+    } finally {
+        end(guardId, ok);
+    }
+};
+
+/**
+ * Send a file to a draft file area (see uploadFile()).
+ *
+ * @param {Blob} file
+ * @param {string} filename
+ * @param {Object} settings
+ * @param {Function} [onProgress]
+ * @returns {Promise<Object>} the reply.
+ */
+const sendFile = async(file, filename, settings, onProgress) => {
     const upload = await getUploadRequest(file, filename, settings);
     return new Promise((resolve, reject) => {
         const request = new XMLHttpRequest();

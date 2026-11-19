@@ -96,6 +96,9 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var int for video responses: 1 = send only the sound to the AI provider. */
     public $aiaudioonly;
 
+    /** @var int 1 if students can pause the audio prompt; 0 if, once started, it plays to the end. */
+    public $promptpause = 1;
+
     /** @var int how the audio prompt transcript is shown: one of the SPEAKUP_PROMPTTRANSCRIPT_* constants. */
     public $prompttranscriptdisplay;
 

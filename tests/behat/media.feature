@@ -141,3 +141,27 @@ Feature: Audio prompts and recording in SpeakUp questions
     When I am on the "speakup-002" "core_question > preview" page logged in as teacher
     Then I should not see "Listen to the prompt first."
     And "button.qtype_speakup-main-button.disabled" "css_element" should not exist
+
+  Scenario: Without pausing, the prompt has a "Play" button instead of the player, and plays to the end
+    Given the following "questions" exist:
+      | questioncategory | qtype   | name        | template | promptpause |
+      | Test questions   | speakup | speakup-006 | prompt   | 0           |
+    And the following "qtype_speakup > audio prompts" exist:
+      | question    |
+      | speakup-006 |
+    When I am on the "speakup-006" "core_question > preview" page logged in as teacher
+    Then ".qtype_speakup-audio-prompt audio[controls]" "css_element" should not exist
+    And I click on "Play the prompt" "button"
+    And I wait until "Play the prompt again" "button" exists
+    And ".qtype_speakup-audio-prompt audio[controls]" "css_element" should not exist
+
+  Scenario: Leaving the page while a recording is being saved waits until it is saved
+    When I am on the "speakup-001" "core_question > preview" page logged in as teacher
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    And the SpeakUp recorder should be "recording"
+    And I wait "2" seconds
+    And I click on "button.qtype_speakup-main-button" "css_element"
+    # Straight away, while the recording is still being saved.
+    And I press "Submit and finish"
+    Then "source[src*='recording.mp3']" "css_element" should exist
+    And I should not see "Not answered"

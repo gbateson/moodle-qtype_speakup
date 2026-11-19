@@ -469,6 +469,14 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->setDefault($name, 0);
         $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
 
+        // Whether students can pause the prompt (see amd/src/promptcontrol.js).
+        // Without pausing, the prompt plays to the end once started, so that
+        // students cannot stop it to get more time to prepare their answer.
+        $name = 'promptpause';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 1);
+
         // Stop recording after a silence (see startSilenceDetection() in
         // amd/src/avrecording.js).
         $name = 'silencestop';

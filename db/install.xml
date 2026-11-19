@@ -61,6 +61,8 @@
             COMMENT="For image responses: the most files (e.g. pages) a student can upload, 1 to 5."/>
         <FIELD NAME="aiaudioonly" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="For video responses: 1 = send only the sound to the AI provider, not the whole video."/>
+        <FIELD NAME="promptpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="1 = students can pause the audio prompt; 0 = once it starts, it plays to the end."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

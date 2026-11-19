@@ -20,6 +20,9 @@
  * - Starts recording when the prompt finishes, if the question says so.
  * - Limits how many times the prompt can be played.
  * - Limits how many responses (recordings or uploads) can be given.
+ * - Stops the prompt being paused, if the question says so: the player is
+ *   replaced by a "Play" button, and once started, the prompt plays to the
+ *   end, so that students cannot stop it to get more time to prepare.
  *
  * The prompt is the audio prompt, if the question has one, or else the
  * first audio player in the question text.
@@ -36,8 +39,9 @@
  * Initialise the prompt and response controls in one question.
  *
  * @param {string} questionId id of the outer question div.
- * @param {Object} settings with recordAfterPrompt (boolean), and
- *      maxPromptPlays and maxResponses (0 for no limit).
+ * @param {Object} settings with recordAfterPrompt (boolean), maxPromptPlays
+ *      and maxResponses (0 for no limit), and promptPause (boolean, false
+ *      if the prompt cannot be paused).
  */
 export const init = (questionId, settings) => {
     const questionDiv = document.getElementById(questionId);
@@ -68,6 +72,10 @@ export const init = (questionId, settings) => {
         showMessage(getString('listenfirst'));
     }
 
+    // Without pausing, the prompt has a "Play" button instead of the player's controls.
+    const noPause = prompt && settings.promptPause === false;
+    const playButton = noPause ? addPlayButton() : null;
+
     if (prompt) {
         let midPlay = false;
         prompt.addEventListener('play', () => {
@@ -82,9 +90,24 @@ export const init = (questionId, settings) => {
             midPlay = true;
             plays++;
             saveCounts();
+            showPlaying();
         });
+        if (noPause) {
+            // A pause from elsewhere, e.g. a keyboard's or headset's media key, is undone.
+            prompt.addEventListener('pause', () => {
+                if (midPlay && !prompt.ended) {
+                    prompt.play().catch(() => {
+                        // E.g. the browser does not allow it. The student can click "Play" again.
+                        midPlay = false;
+                        showPlayButton();
+                    });
+                }
+            });
+            prompt.addEventListener('timeupdate', showPlaying);
+        }
         prompt.addEventListener('ended', () => {
             midPlay = false;
+            showPlayButton();
             if (!heard) {
                 heard = true;
                 saveCounts();
@@ -176,7 +199,55 @@ export const init = (questionId, settings) => {
     function lockPrompt() {
         prompt.controls = false;
         prompt.classList.add('qtype_speakup-prompt-locked');
+        if (playButton) {
+            playButton.classList.add('hide');
+        }
         showMessage(getString('promptplaysused'));
+    }
+
+    /**
+     * Replace the prompt's controls by a "Play" button, which plays it from
+     * the start.
+     *
+     * @return {HTMLButtonElement}
+     */
+    function addPlayButton() {
+        prompt.controls = false;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-secondary qtype_speakup-prompt-play my-1';
+        button.textContent = getString('playprompt');
+        button.addEventListener('click', () => {
+            prompt.currentTime = 0;
+            prompt.play().catch(() => {
+                // Nothing to do: the button stays, to try again.
+            });
+        });
+        prompt.after(button);
+        return button;
+    }
+
+    /**
+     * While the prompt plays without pausing, show how far it has got, on the
+     * disabled "Play" button.
+     */
+    function showPlaying() {
+        if (!playButton || prompt.paused) {
+            return;
+        }
+        playButton.disabled = true;
+        const duration = isFinite(prompt.duration) ? ' / ' + formatTime(prompt.duration) : '';
+        playButton.textContent = getString('promptplaying', formatTime(prompt.currentTime) + duration);
+    }
+
+    /**
+     * After the prompt has played, the "Play" button can play it again.
+     */
+    function showPlayButton() {
+        if (playButton) {
+            playButton.disabled = false;
+            playButton.textContent = getString('playpromptagain');
+        }
     }
 
     /**
@@ -226,6 +297,17 @@ export const init = (questionId, settings) => {
 };
 
 /**
+ * Format a time in seconds, e.g. "0:05".
+ *
+ * @param {number} seconds
+ * @return {string}
+ */
+const formatTime = (seconds) => {
+    const s = Math.floor(seconds);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+};
+
+/**
  * Read the counts kept in the browser's storage.
  *
  * @param {string} key
@@ -243,6 +325,7 @@ const readStorage = (key) => {
  * Get a string from this plugin's language pack.
  *
  * @param {string} name
+ * @param {*} [a]
  * @return {string}
  */
-const getString = (name) => M.util.get_string(name, 'qtype_speakup');
+const getString = (name, a) => M.util.get_string(name, 'qtype_speakup', a);
