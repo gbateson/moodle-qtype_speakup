@@ -65,7 +65,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class rubric_placeholders {
-
     /** Matches {{<idnumber>/questiontext<selector>:<lang>}}, where idnumber, selector and lang are optional. */
     const PATTERN = '/\{\{\s*(?:([^{}\/]+?)\s*\/\s*)?questiontext\s*([^}:]*?)\s*(?::\s*([a-z_-]*)\s*)?\}\}/i';
 
@@ -232,8 +231,12 @@ class rubric_placeholders {
               ORDER BY qv.version DESC';
         $status = \core_question\local\bank\question_version_status::QUESTION_STATUS_READY;
         for ($depth = 0; $categoryid && $depth < self::MAX_DEPTH; $depth++) {
-            $records = $DB->get_records_sql($sql,
-                    ['categoryid' => $categoryid, 'idnumber' => $idnumber, 'status' => $status], 0, 1);
+            $records = $DB->get_records_sql(
+                $sql,
+                ['categoryid' => $categoryid, 'idnumber' => $idnumber, 'status' => $status],
+                0,
+                1
+            );
             if ($records) {
                 return reset($records);
             }
@@ -259,8 +262,10 @@ class rubric_placeholders {
         $dom = new \DOMDocument('1.0', 'UTF-8');
         // Wrap in a <div>, so a question text with several top-level
         // elements still loads as a single tree.
-        $dom->loadHTML('<?xml encoding="utf-8" ?><div>' . $html . '</div>',
-                LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $dom->loadHTML(
+            '<?xml encoding="utf-8" ?><div>' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
@@ -283,7 +288,8 @@ class rubric_placeholders {
         // file URL) means nothing to the AI, and <summary> labels such as
         // "Show rubric", which are only there for students.
         $nodes = iterator_to_array($xpath->query(
-                '//audio|//video|//object|//embed|//iframe|//script|//style|//summary'));
+            '//audio|//video|//object|//embed|//iframe|//script|//style|//summary'
+        ));
         foreach ($nodes as $node) {
             if ($node->parentNode) {
                 $node->parentNode->removeChild($node);
@@ -311,7 +317,7 @@ class rubric_placeholders {
         foreach ($node->childNodes as $child) {
             $inner .= $dom->saveHTML($child);
         }
-        // html_to_text() writes bold text, headings and table headers in
+        // The html_to_text() function writes bold text, headings and table headers in
         // CAPITALS, which would change the teacher's wording, so turn
         // those into plain tags first.
         $inner = preg_replace('#</?(b|strong)\b[^>]*>#i', '', $inner);

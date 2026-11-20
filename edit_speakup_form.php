@@ -26,8 +26,14 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/repository/lib.php');
 
+/**
+ * The edit form for SpeakUp questions.
+ *
+ * @package   qtype_speakup
+ * @copyright 2026 Gordon Bateson and contributors
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class qtype_speakup_edit_form extends question_edit_form {
-
     /** Longest audio prompt a teacher can record on this form, in seconds. */
     const AUDIO_PROMPT_MAX_SECONDS = 300;
 
@@ -50,7 +56,6 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addElement('duration', $name, $label);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 60);
-        //$mform->addRule($name, null, 'required', null, 'client');
 
         $name = 'allowpause';
         $label = get_string($name, $plugin);
@@ -193,7 +198,7 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         // Target phrases, shown only for automated grading.
         // Modelled on qtype_essayautograde's target phrases: "If [phrase] is
-        // used, award [percent] [divided by n] of the question grade."
+        // used, award [percent] [divided by n] of the question grade".
         $name = 'phrasesheader';
         $mform->addElement('header', $name, get_string('expectedanswers', $plugin));
         $mform->addHelpButton($name, 'expectedanswers', $plugin);
@@ -348,8 +353,12 @@ class qtype_speakup_edit_form extends question_edit_form {
             foreach (\qtype_speakup\text_stats::get_stat_types($needsai) as $type) {
                 // No setDefault() here: a default for "statsitems[...]" would
                 // override the saved value. See data_preprocessing() instead.
-                $checkboxes[] = $mform->createElement('advcheckbox', 'statsitems[' . $type . ']', '',
-                        get_string('item' . $type, $plugin));
+                $checkboxes[] = $mform->createElement(
+                    'advcheckbox',
+                    'statsitems[' . $type . ']',
+                    '',
+                    get_string('item' . $type, $plugin)
+                );
             }
             // As in qtype_essayautograde, a full-width span between the
             // checkboxes puts each one on its own line.
@@ -371,7 +380,7 @@ class qtype_speakup_edit_form extends question_edit_form {
      * @param string $id (optional, default='') the new form id
      * @return mixed default value of setting
      */
-    public function set_form_id($mform, $id='') {
+    public function set_form_id($mform, $id = '') {
         if ($id == '') {
             $id = str_replace('\\', '_', get_called_class());
             $id = substr($id, strpos($id, '_', 1) + 1);
@@ -514,8 +523,10 @@ class qtype_speakup_edit_form extends question_edit_form {
             'maxUploadSize' => (int) get_user_max_upload_file_size($this->context, $CFG->maxbytes),
             'acceptedTypes' => $extensions,
         ];
-        $strings = array_merge($PAGE->get_renderer('qtype_speakup')->strings_for_js(),
-                ['audiopromptdeleted', 'fileuploaded', 'uploadfile', 'uploadwrongtypeaudio', 'uploadtoobig']);
+        $strings = array_merge(
+            $PAGE->get_renderer('qtype_speakup')->strings_for_js(),
+            ['audiopromptdeleted', 'fileuploaded', 'uploadfile', 'uploadwrongtypeaudio', 'uploadtoobig']
+        );
         $PAGE->requires->strings_for_js(array_unique($strings), 'qtype_speakup');
         $PAGE->requires->js_call_amd('qtype_speakup/audioprompt', 'init', [$id, $settings]);
     }
@@ -587,8 +598,14 @@ class qtype_speakup_edit_form extends question_edit_form {
      * @param array $defaults element name => default value, for new rows.
      * @return int the number of rows added.
      */
-    protected function add_repeat_rows($mform, string $type, array $elements, array $options,
-            int $saved, array $defaults): int {
+    protected function add_repeat_rows(
+        $mform,
+        string $type,
+        array $elements,
+        array $options,
+        int $saved,
+        array $defaults
+    ): int {
         // Only the saved rows are shown at first, with no empty row (as in
         // qtype_essayautograde). Teachers add rows with the "Add" button.
         $repeats = $saved;
@@ -597,8 +614,16 @@ class qtype_speakup_edit_form extends question_edit_form {
         $addcountname = $type . 'addcount';
         $addcount = optional_param($addcountname, 1, PARAM_INT);
 
-        $repeatno = $this->repeat_elements($elements, $repeats, $options,
-                $type . 'repeats', $addname, $addcount, get_string('add'), true);
+        $repeatno = $this->repeat_elements(
+            $elements,
+            $repeats,
+            $options,
+            $type . 'repeats',
+            $addname,
+            $addcount,
+            get_string('add'),
+            true
+        );
 
         // Replace repeat_elements()'s own "Add" button with a button and a
         // menu of how many rows to add.
@@ -632,8 +657,14 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Copy the saved audio prompt (if any) into a draft file area, for
         // the audio prompt widget (see add_audio_prompt()).
         $draftitemid = file_get_submitted_draft_itemid('audioprompt');
-        file_prepare_draft_area($draftitemid, $this->context->id, 'qtype_speakup', 'audioprompt',
-                empty($question->id) ? null : (int) $question->id, ['subdirs' => 0, 'maxfiles' => 1]);
+        file_prepare_draft_area(
+            $draftitemid,
+            $this->context->id,
+            'qtype_speakup',
+            'audioprompt',
+            empty($question->id) ? null : (int) $question->id,
+            ['subdirs' => 0, 'maxfiles' => 1]
+        );
         $question->audioprompt = $draftitemid;
 
         // The transcription provider is stored in aiproviderid.

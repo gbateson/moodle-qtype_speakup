@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\text_stats
  */
 final class text_stats_test extends \basic_testcase {
-
     /**
      * Data for test_get_value().
      *

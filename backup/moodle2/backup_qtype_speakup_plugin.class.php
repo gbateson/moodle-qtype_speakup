@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Backs up SpeakUp questions: their settings, target phrases and target
  * items, and the audio prompt file.
@@ -30,7 +28,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class backup_qtype_speakup_plugin extends backup_qtype_plugin {
-
     /**
      * The fields of qtype_speakup_options that are backed up: all the
      * settings except aiproviderid, which is replaced by aiprovidername.
@@ -59,8 +56,11 @@ class backup_qtype_speakup_plugin extends backup_qtype_plugin {
 
         $options = new backup_nested_element('speakup', ['id'], self::get_option_fields());
         $phrases = new backup_nested_element('phrases');
-        $phrase = new backup_nested_element('phrase', ['id'],
-                ['answertext', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']);
+        $phrase = new backup_nested_element(
+            'phrase',
+            ['id'],
+            ['answertext', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']
+        );
         $items = new backup_nested_element('items');
         $item = new backup_nested_element('item', ['id'], ['itemtype', 'itemcount', 'percent', 'multiplier']);
 

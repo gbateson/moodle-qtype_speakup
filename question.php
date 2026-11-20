@@ -38,10 +38,14 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * A SpeakUp question, as used in an attempt: grades the student's response.
+ *
+ * @package   qtype_speakup
+ * @copyright 2026 Gordon Bateson and contributors
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class qtype_speakup_question extends question_graded_automatically {
-
     /**
      * Seconds by which an uploaded file may exceed the time limit before
      * it is flagged as too long (on the review page, and to the AI).
@@ -496,8 +500,10 @@ class qtype_speakup_question extends question_graded_automatically {
         foreach ($this->targetitems as $item) {
             $name = 'target.' . $item->itemtype;
             if (!isset($values[$name]) && (float) $item->itemcount > 0) {
-                $values[$name] = self::rubric_string('rubricitem' . $item->itemtype,
-                        format_float((float) $item->itemcount, 2, false, true));
+                $values[$name] = self::rubric_string(
+                    'rubricitem' . $item->itemtype,
+                    format_float((float) $item->itemcount, 2, false, true)
+                );
             }
         }
         return $values;
@@ -605,6 +611,9 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
+     * Get the largest file a student can upload in this context.
+     *
+     * @param context $context the context of the attempt.
      * @return int the upload file size limit that applies here.
      */
     public function get_upload_size_limit(context $context): int {
@@ -642,8 +651,14 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return bool true if the user can access this file.
      */
     #[\Override]
-    public function check_file_access($qa, $options, $component, $filearea,
-            $args, $forcedownload): bool {
+    public function check_file_access(
+        $qa,
+        $options,
+        $component,
+        $filearea,
+        $args,
+        $forcedownload
+    ): bool {
         if ($component === 'question' && $filearea === 'response_recording') {
             // The student's own recorded response - always accessible to
             // whoever can already see this question attempt.
@@ -656,8 +671,14 @@ class qtype_speakup_question extends question_graded_automatically {
             return true;
         }
 
-        return parent::check_file_access($qa, $options, $component, $filearea,
-                $args, $forcedownload);
+        return parent::check_file_access(
+            $qa,
+            $options,
+            $component,
+            $filearea,
+            $args,
+            $forcedownload
+        );
     }
 
     #[\Override]

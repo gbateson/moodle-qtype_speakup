@@ -31,7 +31,6 @@ use templatable;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class playback_base implements renderable, templatable {
-
     /** @var string the file name. */
     protected $filename;
 

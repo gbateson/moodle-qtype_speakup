@@ -37,7 +37,6 @@ use templatable;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class recorder_base implements renderable, templatable {
-
     /** @var string the file name this recorder saves as. */
     protected $filename;
 
@@ -62,8 +61,13 @@ abstract class recorder_base implements renderable, templatable {
      * @param moodle_url|null $recordingurl if we are re-displaying, after a recording was made, this is the file.
      * @param bool $candownload whether the current user should see options to download the recording.
      */
-    public function __construct(string $filename, int $maxrecordingduration,
-            bool $allowpausing, ?moodle_url $recordingurl, bool $candownload) {
+    public function __construct(
+        string $filename,
+        int $maxrecordingduration,
+        bool $allowpausing,
+        ?moodle_url $recordingurl,
+        bool $candownload
+    ) {
         $this->filename = $filename;
         $this->maxrecordingduration = $maxrecordingduration;
         $this->allowpausing = $allowpausing;

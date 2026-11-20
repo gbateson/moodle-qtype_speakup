@@ -34,7 +34,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\output\mobile
  */
 final class mobile_support_test extends \advanced_testcase {
-
     /**
      * Meet all the conditions for SpeakUp in the app.
      */
@@ -51,18 +50,23 @@ final class mobile_support_test extends \advanced_testcase {
     public function test_conditions(): void {
         $this->resetAfterTest();
         $this->meet_conditions();
-        $this->assertSame(['mobileapp' => true, 'mobileservice' => true, 'framembedding' => true],
-                mobile_support::get_conditions());
+        $this->assertSame(
+            ['mobileapp' => true, 'mobileservice' => true, 'framembedding' => true],
+            mobile_support::get_conditions()
+        );
         $this->assertTrue(mobile_support::is_supported());
         $this->assertTrue(mobile_support::is_supported(44000));
         $this->assertFalse(mobile_support::is_supported(39000));
         $this->assertStringContainsString(get_string('mobilesupported', 'qtype_speakup'), mobile_support::get_status_html());
 
-        foreach (['mobileapp' => 'qtype_speakup', 'allowframembedding' => null, 'enablemobilewebservice' => null] as $name => $plugin) {
+        $settings = ['mobileapp' => 'qtype_speakup', 'allowframembedding' => null, 'enablemobilewebservice' => null];
+        foreach ($settings as $name => $plugin) {
             set_config($name, 0, $plugin);
             $this->assertFalse(mobile_support::is_supported(), $name);
-            $this->assertStringContainsString(get_string('mobilenotsupported', 'qtype_speakup'),
-                    mobile_support::get_status_html());
+            $this->assertStringContainsString(
+                get_string('mobilenotsupported', 'qtype_speakup'),
+                mobile_support::get_status_html()
+            );
             set_config($name, 1, $plugin);
         }
     }
@@ -240,8 +244,10 @@ final class mobile_support_test extends \advanced_testcase {
         $this->setUser($student);
         [$usageid] = $this->start_attempt($student);
 
-        $result = \core_external\external_api::clean_returnvalue(external\get_response_key::execute_returns(),
-                external\get_response_key::execute($usageid, 1));
+        $result = \core_external\external_api::clean_returnvalue(
+            external\get_response_key::execute_returns(),
+            external\get_response_key::execute($usageid, 1)
+        );
         $this->assertEquals($student->id, mobile_support::use_response_key($result['key'], $usageid)->id);
 
         $this->setUser($this->getDataGenerator()->create_user());

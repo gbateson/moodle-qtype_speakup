@@ -35,7 +35,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup_question
  */
 final class question_test extends \advanced_testcase {
-
     /**
      * Make a test question.
      *
@@ -259,8 +258,10 @@ final class question_test extends \advanced_testcase {
      */
     public function test_get_expected_data(): void {
         $expected = $this->make()->get_expected_data();
-        foreach (['recording', 'browsertranscript', 'browserduration', 'prompttranscriptviewed', 'promptplays',
-                'responsecount'] as $name) {
+        foreach (
+            ['recording', 'browsertranscript', 'browserduration', 'prompttranscriptviewed', 'promptplays',
+                'responsecount'] as $name
+        ) {
             $this->assertArrayHasKey($name, $expected);
         }
     }

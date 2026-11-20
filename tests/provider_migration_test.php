@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\provider_migration
  */
 final class provider_migration_test extends \advanced_testcase {
-
     /**
      * Make the old table, as it was before SpeakUp used the AI bridge.
      */

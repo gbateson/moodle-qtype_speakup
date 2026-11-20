@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\feedback_format
  */
 final class feedback_format_test extends \basic_testcase {
-
     /**
      * Data for test_detect().
      *
@@ -40,6 +39,7 @@ final class feedback_format_test extends \basic_testcase {
             'heading' => ["## Feedback\nGood.", FORMAT_MARKDOWN],
             'bold' => ['This was **very** good.', FORMAT_MARKDOWN],
             'italic' => ['This was *very* good.', FORMAT_MARKDOWN],
+            // phpcs:ignore moodle.Strings.ForbiddenStrings.Found
             'code' => ['Say `have played`.', FORMAT_MARKDOWN],
             'link' => ['See [this page](https://example.com).', FORMAT_MARKDOWN],
         ];

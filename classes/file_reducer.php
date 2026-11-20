@@ -40,7 +40,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class file_reducer {
-
     /** The default size above which files are made smaller, in MB. */
     const DEFAULT_THRESHOLD = 5;
 
@@ -197,8 +196,16 @@ class file_reducer {
                 $oldname = $file->get_filename();
                 $file->delete();
                 // E.g. "recording.mp4" from "recording.webm", if both existed.
-                if ($existing = $fs->get_file($contextid, 'question', 'response_recording', $step->get_id(),
-                        $record['filepath'], $filename)) {
+                if (
+                    $existing = $fs->get_file(
+                        $contextid,
+                        'question',
+                        'response_recording',
+                        $step->get_id(),
+                        $record['filepath'],
+                        $filename
+                    )
+                ) {
                     $existing->delete();
                 }
                 $fs->create_file_from_pathname($record, $path);

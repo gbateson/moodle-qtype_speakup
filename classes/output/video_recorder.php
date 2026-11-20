@@ -31,7 +31,6 @@ use renderer_base;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class video_recorder extends recorder_base {
-
     /**
      * Helper to add 'width' and 'aspectratio' to the given context.
      *

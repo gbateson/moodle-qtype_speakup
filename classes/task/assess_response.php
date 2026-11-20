@@ -48,7 +48,6 @@ use qtype_speakup\task_failure;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assess_response extends \core\task\adhoc_task {
-
     #[\Override]
     public function get_name() {
         return get_string('taskassessresponse', 'qtype_speakup');
@@ -139,8 +138,12 @@ class assess_response extends \core\task\adhoc_task {
 
                 // Fill in any {{questiontext...}} placeholders, and add any
                 // notes and instructions the AI needs.
-                $rubric = rubric_placeholders::expand((string) $question->airubric,
-                        (string) $question->questiontext, (int) $question->category, $question->get_rubric_values());
+                $rubric = rubric_placeholders::expand(
+                    (string) $question->airubric,
+                    (string) $question->questiontext,
+                    (int) $question->category,
+                    $question->get_rubric_values()
+                );
                 if ($question->is_too_long($duration)) {
                     $rubric .= "\n\n" . get_string('aipromptoverlong', 'qtype_speakup', (object) [
                         'duration' => round($duration),
@@ -148,14 +151,23 @@ class assess_response extends \core\task\adhoc_task {
                     ]);
                 }
                 if ($multimodal) {
-                    $rubric .= "\n\n" . get_string($isimage ? 'aiprompttranscribeimage' : 'aiprompttranscribe',
-                            'qtype_speakup', $question->get_language_name());
+                    $rubric .= "\n\n" . get_string(
+                        $isimage ? 'aiprompttranscribeimage' : 'aiprompttranscribe',
+                        'qtype_speakup',
+                        $question->get_language_name()
+                    );
                 }
 
                 $providername = $providerid ? ai_provider::get_name($providerid) : get_string('aiproviderauto', 'qtype_speakup');
                 mtrace('qtype_speakup: asking "' . $providername . '" to assess the response ...');
-                [$aifraction, $feedback] = ai_caller::assess($providerid, (int) $data->contextid, (int) $data->userid,
-                        $rubric, $transcript, $multimodal ? $this->get_ai_files($question, $files, $qa, $data) : []);
+                [$aifraction, $feedback] = ai_caller::assess(
+                    $providerid,
+                    (int) $data->contextid,
+                    (int) $data->userid,
+                    $rubric,
+                    $transcript,
+                    $multimodal ? $this->get_ai_files($question, $files, $qa, $data) : []
+                );
 
                 if ($multimodal) {
                     [$aitranscript, $feedback] = ai_caller::split_transcript($feedback);
@@ -175,8 +187,14 @@ class assess_response extends \core\task\adhoc_task {
                 }
                 $providername = $providerid ? ai_provider::get_name($providerid) : get_string('aiproviderauto', 'qtype_speakup');
                 mtrace('qtype_speakup: asking "' . $providername . '" to transcribe the response ...');
-                $aitranscript = ai_caller::transcribe($providerid, (int) $data->contextid, (int) $data->userid,
-                        $this->get_ai_files($question, $files, $qa, $data), $question->get_language_name(), $isimage);
+                $aitranscript = ai_caller::transcribe(
+                    $providerid,
+                    (int) $data->contextid,
+                    (int) $data->userid,
+                    $this->get_ai_files($question, $files, $qa, $data),
+                    $question->get_language_name(),
+                    $isimage
+                );
             }
 
             // The grade combines the target phrases and items with the AI's
@@ -191,8 +209,10 @@ class assess_response extends \core\task\adhoc_task {
             // Take off the penalty for showing the audio prompt transcript,
             // unless the student is exempt (e.g. they cannot hear the prompt).
             $viewed = !empty($qa->get_last_qt_var('prompttranscriptviewed'));
-            $exempt = \qtype_speakup_question::is_exempt_from_transcript_penalty((int) $data->userid,
-                    \context::instance_by_id((int) $data->contextid));
+            $exempt = \qtype_speakup_question::is_exempt_from_transcript_penalty(
+                (int) $data->userid,
+                \context::instance_by_id((int) $data->contextid)
+            );
             if ($question->transcript_penalty_applies($viewed, $exempt)) {
                 $fraction = $question->apply_transcript_penalty($fraction);
             }
@@ -204,7 +224,6 @@ class assess_response extends \core\task\adhoc_task {
             $record->aiscore = $aifraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';
             $record->aierror = null;
-
         } catch (\Throwable $e) {
             $reason = task_failure::describe($e);
             $record->aierror = $reason;
@@ -257,7 +276,7 @@ class assess_response extends \core\task\adhoc_task {
             $qa->manual_grade($feedback, $mark, \qtype_speakup\feedback_format::detect($feedback), time());
             \question_engine::save_questions_usage_by_activity($quba);
 
-            // manual_grade() only updates the question engine's own data
+            // The manual_grade() method only updates the question engine's own data
             // (the per-question mark, visible immediately) - it does NOT
             // touch mod_quiz's own separate, cached attempt-level and
             // gradebook-facing totals (quiz_attempts.sumgrades, and the
@@ -294,8 +313,12 @@ class assess_response extends \core\task\adhoc_task {
      * @param \stdClass $data the task's custom data.
      * @return \stored_file[]
      */
-    protected function get_ai_files(\qtype_speakup_question $question, array $files, \question_attempt $qa,
-            \stdClass $data): array {
+    protected function get_ai_files(
+        \qtype_speakup_question $question,
+        array $files,
+        \question_attempt $qa,
+        \stdClass $data
+    ): array {
         $audioonly = ($question->mediatype === SPEAKUP_MEDIA_VIDEO) && !empty($question->aiaudioonly);
         return file_reducer::get_ai_files($files, (int) $data->contextid, (int) $qa->get_database_id(), $audioonly);
     }

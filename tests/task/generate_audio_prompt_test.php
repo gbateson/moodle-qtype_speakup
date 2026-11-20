@@ -34,7 +34,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\task\generate_audio_prompt
  */
 final class generate_audio_prompt_test extends \advanced_testcase {
-
     /** @var string the start of an MP3 file. */
     const MP3 = "ID3\x04\x00\x00\x00\x00\x00\x00audio";
 
@@ -77,8 +76,14 @@ final class generate_audio_prompt_test extends \advanced_testcase {
      * @return string[]
      */
     protected function get_prompt_files(\stdClass $qdata): array {
-        $files = get_file_storage()->get_area_files($qdata->contextid, 'qtype_speakup', 'audioprompt', $qdata->id,
-                'filename', false);
+        $files = get_file_storage()->get_area_files(
+            $qdata->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $qdata->id,
+            'filename',
+            false
+        );
         return array_values(array_map(fn($file) => $file->get_filename(), $files));
     }
 
@@ -119,8 +124,14 @@ final class generate_audio_prompt_test extends \advanced_testcase {
         $this->run_tasks($qdata->id);
 
         $this->assertSame(['audioprompt.mp3'], $this->get_prompt_files($qdata));
-        $file = get_file_storage()->get_file($qdata->contextid, 'qtype_speakup', 'audioprompt', $qdata->id, '/',
-                'audioprompt.mp3');
+        $file = get_file_storage()->get_file(
+            $qdata->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $qdata->id,
+            '/',
+            'audioprompt.mp3'
+        );
         $this->assertSame(self::MP3, $file->get_content());
         $this->assertSame('audio/mpeg', $file->get_mimetype());
     }

@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\task_failure
  */
 final class task_failure_test extends \advanced_testcase {
-
     /**
      * When a quiz response could not be assessed, the course's teachers
      * are sent a message, with a link to grade it, but students are not.
@@ -54,8 +53,13 @@ final class task_failure_test extends \advanced_testcase {
         [$attempt, $quba] = \qtype_speakup_test_helper::start_quiz_attempt($quiz, $student);
 
         $sink = $this->redirectMessages();
-        $count = task_failure::notify_assessment_failed($quba->get_question_attempt(1), $quba->get_id(), 1,
-                (int) $student->id, 'HTTP 503: The model is overloaded');
+        $count = task_failure::notify_assessment_failed(
+            $quba->get_question_attempt(1),
+            $quba->get_id(),
+            1,
+            (int) $student->id,
+            'HTTP 503: The model is overloaded'
+        );
 
         $this->assertSame(1, $count);
         $messages = $sink->get_messages();
@@ -68,8 +72,10 @@ final class task_failure_test extends \advanced_testcase {
         $this->assertStringContainsString('Guitar', $message->fullmessage);
         $this->assertStringContainsString('Speaking quiz', $message->fullmessage);
         $this->assertStringContainsString('HTTP 503: The model is overloaded', $message->fullmessage);
-        $this->assertStringContainsString('/mod/quiz/comment.php?attempt=' . $attempt->id . '&slot=1',
-                $message->contexturl);
+        $this->assertStringContainsString(
+            '/mod/quiz/comment.php?attempt=' . $attempt->id . '&slot=1',
+            $message->contexturl
+        );
     }
 
     /**
@@ -77,8 +83,10 @@ final class task_failure_test extends \advanced_testcase {
      * when that is not obvious.
      */
     public function test_describe(): void {
-        $this->assertSame(get_string('errorproviderconfig', 'qtype_speakup'),
-                task_failure::describe(new \moodle_exception('errorproviderconfig', 'qtype_speakup')));
+        $this->assertSame(
+            get_string('errorproviderconfig', 'qtype_speakup'),
+            task_failure::describe(new \moodle_exception('errorproviderconfig', 'qtype_speakup'))
+        );
         $this->assertSame('RuntimeException: Oops', task_failure::describe(new \RuntimeException('Oops')));
         $long = task_failure::describe(new \RuntimeException(str_repeat('x', 5000)));
         $this->assertSame(task_failure::MAX_LENGTH, \core_text::strlen($long));

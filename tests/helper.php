@@ -39,7 +39,6 @@ require_once($CFG->dirroot . '/question/type/speakup/questiontype.php');
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qtype_speakup_test_helper extends question_test_helper {
-
     #[\Override]
     public function get_test_questions() {
         return ['basic', 'manual', 'prompt', 'image'];
@@ -176,6 +175,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Make a "basic" SpeakUp question.
+     *
      * @return qtype_speakup_question
      */
     public function make_speakup_question_basic() {
@@ -183,6 +184,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Make a "manual" SpeakUp question.
+     *
      * @return qtype_speakup_question
      */
     public function make_speakup_question_manual() {
@@ -190,6 +193,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Make a "prompt" SpeakUp question.
+     *
      * @return qtype_speakup_question
      */
     public function make_speakup_question_prompt() {
@@ -197,6 +202,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Make a "image" SpeakUp question.
+     *
      * @return qtype_speakup_question
      */
     public function make_speakup_question_image() {
@@ -238,6 +245,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the edit form data for a "basic" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_form_data_basic() {
@@ -245,6 +254,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the edit form data for a "manual" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_form_data_manual() {
@@ -252,6 +263,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the edit form data for a "prompt" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_form_data_prompt() {
@@ -259,6 +272,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the edit form data for a "image" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_form_data_image() {
@@ -294,6 +309,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the question data for a "basic" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_data_basic() {
@@ -301,6 +318,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the question data for a "manual" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_data_manual() {
@@ -308,6 +327,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the question data for a "prompt" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_data_prompt() {
@@ -315,6 +336,8 @@ class qtype_speakup_test_helper extends question_test_helper {
     }
 
     /**
+     * Get the question data for a "image" SpeakUp question.
+     *
      * @return stdClass
      */
     public function get_speakup_question_data_image() {

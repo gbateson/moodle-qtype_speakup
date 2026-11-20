@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class task_failure {
-
     /**
      * How many times to try a task. Moodle waits 1, 2, 4, 8 ... minutes
      * between tries, so 8 tries take about two hours.
@@ -73,8 +72,13 @@ class task_failure {
      * @param string $reason why it could not be assessed.
      * @return int how many people were told.
      */
-    public static function notify_assessment_failed(\question_attempt $qa, int $usageid, int $slot,
-            int $userid, string $reason): int {
+    public static function notify_assessment_failed(
+        \question_attempt $qa,
+        int $usageid,
+        int $slot,
+        int $userid,
+        string $reason
+    ): int {
         global $DB;
 
         $a = (object) [
@@ -103,8 +107,14 @@ class task_failure {
             $body = get_string('assessmentfailedpreviewmessage', 'qtype_speakup', $a);
         }
 
-        return self::send('assessmentfailed', $recipients, $courseid,
-                get_string('assessmentfailedsubject', 'qtype_speakup'), $body, $url);
+        return self::send(
+            'assessmentfailed',
+            $recipients,
+            $courseid,
+            get_string('assessmentfailedsubject', 'qtype_speakup'),
+            $body,
+            $url
+        );
     }
 
     /**
@@ -128,9 +138,14 @@ class task_failure {
             return 0;
         }
         $a = (object) ['question' => format_string($question->name), 'reason' => $reason];
-        return self::send('audiopromptfailed', [$user], SITEID,
-                get_string('audiopromptfailedsubject', 'qtype_speakup'),
-                get_string('audiopromptfailedmessage', 'qtype_speakup', $a), null);
+        return self::send(
+            'audiopromptfailed',
+            [$user],
+            SITEID,
+            get_string('audiopromptfailedsubject', 'qtype_speakup'),
+            get_string('audiopromptfailedmessage', 'qtype_speakup', $a),
+            null
+        );
     }
 
     /**
@@ -144,8 +159,14 @@ class task_failure {
      * @param string|null $url a link to where to fix the problem.
      * @return int how many people were sent it.
      */
-    protected static function send(string $name, array $recipients, int $courseid, string $subject,
-            string $body, ?string $url): int {
+    protected static function send(
+        string $name,
+        array $recipients,
+        int $courseid,
+        string $subject,
+        string $body,
+        ?string $url
+    ): int {
         $count = 0;
         foreach ($recipients as $recipient) {
             $message = new \core\message\message();

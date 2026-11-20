@@ -40,7 +40,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \restore_qtype_speakup_plugin
  */
 final class backup_restore_test extends \advanced_testcase {
-
     /**
      * Back up a course.
      *
@@ -49,8 +48,14 @@ final class backup_restore_test extends \advanced_testcase {
      */
     protected function backup(int $courseid): string {
         global $USER;
-        $bc = new backup_controller(backup::TYPE_1COURSE, $courseid, backup::FORMAT_MOODLE, backup::INTERACTIVE_NO,
-                backup::MODE_IMPORT, $USER->id);
+        $bc = new backup_controller(
+            backup::TYPE_1COURSE,
+            $courseid,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_IMPORT,
+            $USER->id
+        );
         $backupid = $bc->get_backupid();
         $bc->execute_plan();
         $bc->destroy();
@@ -115,9 +120,11 @@ final class backup_restore_test extends \advanced_testcase {
             'audiopromptvoice' => 'Kore',
         ]);
         $original = question_bank::load_question_data($question->id);
-        get_file_storage()->create_file_from_string(['contextid' => $original->contextid, 'component' => 'qtype_speakup',
+        get_file_storage()->create_file_from_string(
+            ['contextid' => $original->contextid, 'component' => 'qtype_speakup',
                 'filearea' => 'audioprompt', 'itemid' => $original->id, 'filepath' => '/', 'filename' => 'audioprompt.mp3'],
-                'ID3 prompt audio');
+            'ID3 prompt audio'
+        );
 
         $backupid = $this->backup($course->id);
         $xml = file_get_contents($CFG->tempdir . '/backup/' . $backupid . '/questions.xml');
@@ -131,18 +138,30 @@ final class backup_restore_test extends \advanced_testcase {
         $restored = $this->get_course_questions($newcourseid);
         $this->assertCount(1, $restored);
         $restored = $restored[0];
-        foreach (['gradingmethod', 'audioprompttranscript', 'audiopromptvoice', 'transcriptpenalty', 'recordafterprompt',
-                'maxpromptplays', 'maxresponses', 'aiassessment', 'aiweighting'] as $field) {
+        foreach (
+            ['gradingmethod', 'audioprompttranscript', 'audiopromptvoice', 'transcriptpenalty', 'recordafterprompt',
+                'maxpromptplays', 'maxresponses', 'aiassessment', 'aiweighting'] as $field
+        ) {
             $this->assertEquals($original->options->$field, $restored->options->$field, "Field $field");
         }
         $this->assertEquals($provider->id, $restored->options->aiproviderid);
-        $this->assertSame(array_column($original->options->expectedanswers, 'answertext'),
-                array_column($restored->options->expectedanswers, 'answertext'));
-        $this->assertSame(array_column($original->options->targetitems, 'itemtype'),
-                array_column($restored->options->targetitems, 'itemtype'));
+        $this->assertSame(
+            array_column($original->options->expectedanswers, 'answertext'),
+            array_column($restored->options->expectedanswers, 'answertext')
+        );
+        $this->assertSame(
+            array_column($original->options->targetitems, 'itemtype'),
+            array_column($restored->options->targetitems, 'itemtype')
+        );
 
-        $files = get_file_storage()->get_area_files($restored->contextid, 'qtype_speakup', 'audioprompt', $restored->id,
-                'filename', false);
+        $files = get_file_storage()->get_area_files(
+            $restored->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $restored->id,
+            'filename',
+            false
+        );
         $this->assertSame(['audioprompt.mp3'], array_values(array_map(fn($f) => $f->get_filename(), $files)));
     }
 

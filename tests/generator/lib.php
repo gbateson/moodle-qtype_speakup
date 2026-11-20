@@ -27,7 +27,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class qtype_speakup_generator extends component_generator_base {
-
     /**
      * Create an AI provider.
      *

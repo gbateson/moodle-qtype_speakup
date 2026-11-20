@@ -27,7 +27,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class text_stats {
-
     /** Letters and digits, not counting spaces or punctuation. */
     const ITEM_CHARS = 'chars';
     /** Words, separated by spaces. */
@@ -339,7 +338,7 @@ class text_stats {
         if (preg_match('/[^aeiouy]e$/', $word) && !preg_match('/[^aeiouy]le$/', $word)) {
             $count--;
         }
-        // "-ed" is usually silent too, as in "jumped", but not after t or d,
+        // The ending "-ed" is usually silent too, as in "jumped", but not after t or d,
         // as in "wanted".
         if (preg_match('/[^aeiouytd]ed$/', $word)) {
             $count--;

@@ -29,9 +29,9 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
+ * Upgrade the SpeakUp question type's database tables and settings.
+ *
  * @param int $oldversion the version we are upgrading from.
  * @return bool always true.
  */
@@ -41,8 +41,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     if ($oldversion < 2026091111) {
         $table = new xmldb_table('qtype_speakup_options');
-        $field = new xmldb_field('sttlanguage', XMLDB_TYPE_CHAR, '20',
-                null, XMLDB_NOTNULL, null, 'en-US', 'gradingmethod');
+        $field = new xmldb_field(
+            'sttlanguage',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'en-US',
+            'gradingmethod'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -53,8 +61,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     if ($oldversion < 2026091116) {
         $table = new xmldb_table('qtype_speakup_options');
-        $field = new xmldb_field('allowpausing', XMLDB_TYPE_INTEGER, '1',
-                null, XMLDB_NOTNULL, null, '0', 'sttlanguage');
+        $field = new xmldb_field(
+            'allowpausing',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'sttlanguage'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -69,10 +85,26 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         // above (i.e. whether the old-named column exists) before this
         // rename was made.
         $table = new xmldb_table('qtype_speakup_options');
-        $oldfield = new xmldb_field('allowpausing', XMLDB_TYPE_INTEGER, '1',
-                null, XMLDB_NOTNULL, null, '0', 'sttlanguage');
-        $newfield = new xmldb_field('allowpause', XMLDB_TYPE_INTEGER, '1',
-                null, XMLDB_NOTNULL, null, '0', 'sttlanguage');
+        $oldfield = new xmldb_field(
+            'allowpausing',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'sttlanguage'
+        );
+        $newfield = new xmldb_field(
+            'allowpause',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'sttlanguage'
+        );
 
         if ($dbman->field_exists($table, $oldfield) && !$dbman->field_exists($table, $newfield)) {
             $dbman->rename_field($table, $oldfield, 'allowpause');
@@ -114,14 +146,30 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
     if ($oldversion < 2026091124) {
         $table = new xmldb_table('qtype_speakup_answers');
 
-        $weight = new xmldb_field('weight', XMLDB_TYPE_NUMBER, '10, 5',
-                null, XMLDB_NOTNULL, null, '100', 'isregex');
+        $weight = new xmldb_field(
+            'weight',
+            XMLDB_TYPE_NUMBER,
+            '10, 5',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '100',
+            'isregex'
+        );
         if (!$dbman->field_exists($table, $weight)) {
             $dbman->add_field($table, $weight);
         }
 
-        $casesensitive = new xmldb_field('casesensitive', XMLDB_TYPE_INTEGER, '1',
-                null, XMLDB_NOTNULL, null, '0', 'weight');
+        $casesensitive = new xmldb_field(
+            'casesensitive',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'weight'
+        );
         if (!$dbman->field_exists($table, $casesensitive)) {
             $dbman->add_field($table, $casesensitive);
         }
@@ -131,8 +179,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     if ($oldversion < 2026091125) {
         $table = new xmldb_table('qtype_speakup_options');
-        $field = new xmldb_field('aiproviderid', XMLDB_TYPE_INTEGER, '10',
-                null, null, null, null, 'airubric');
+        $field = new xmldb_field(
+            'aiproviderid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'airubric'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -143,8 +199,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     if ($oldversion < 2026091126) {
         $table = new xmldb_table('qtype_speakup_ai_providers');
-        $field = new xmldb_field('requesttemplate', XMLDB_TYPE_TEXT,
-                null, null, null, null, null, 'returnpath');
+        $field = new xmldb_field(
+            'requesttemplate',
+            XMLDB_TYPE_TEXT,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'returnpath'
+        );
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -156,14 +220,30 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
     if ($oldversion < 2026091146) {
         $table = new xmldb_table('qtype_speakup_ai_providers');
 
-        $field = new xmldb_field('uploadurl', XMLDB_TYPE_CHAR, '255',
-                null, null, null, null, 'uploadstyle');
+        $field = new xmldb_field(
+            'uploadurl',
+            XMLDB_TYPE_CHAR,
+            '255',
+            null,
+            null,
+            null,
+            null,
+            'uploadstyle'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        $field = new xmldb_field('uploadprotocol', XMLDB_TYPE_CHAR, '30',
-                null, null, null, null, 'uploadurl');
+        $field = new xmldb_field(
+            'uploadprotocol',
+            XMLDB_TYPE_CHAR,
+            '30',
+            null,
+            null,
+            null,
+            null,
+            'uploadurl'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
@@ -177,11 +257,13 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         // assessment fail with "upload protocol not recognised". Gemini is
         // the only protocol implemented so far, so it is the only value
         // such a provider can have meant.
-        $DB->execute("UPDATE {qtype_speakup_ai_providers}
+        $DB->execute(
+            "UPDATE {qtype_speakup_ai_providers}
                          SET uploadprotocol = ?
                        WHERE uploadstyle = ?
                          AND (uploadprotocol IS NULL OR uploadprotocol = '')",
-                ['gemini', 'upload_reference']);
+            ['gemini', 'upload_reference']
+        );
 
         upgrade_plugin_savepoint(true, 2026091147, 'qtype', 'speakup');
     }
@@ -190,8 +272,16 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         // How the student gives their response: record or upload.
         // Existing questions keep live recording only.
         $table = new xmldb_table('qtype_speakup_options');
-        $field = new xmldb_field('responsemethod', XMLDB_TYPE_CHAR, '20',
-                null, XMLDB_NOTNULL, null, 'record', 'aiproviderid');
+        $field = new xmldb_field(
+            'responsemethod',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'record',
+            'aiproviderid'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
@@ -205,14 +295,30 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         // assessment, which has its own on/off setting and weighting.
         $table = new xmldb_table('qtype_speakup_options');
 
-        $field = new xmldb_field('aiassessment', XMLDB_TYPE_INTEGER, '1',
-                null, XMLDB_NOTNULL, null, '0', 'responsemethod');
+        $field = new xmldb_field(
+            'aiassessment',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'responsemethod'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        $field = new xmldb_field('aiweighting', XMLDB_TYPE_INTEGER, '3',
-                null, XMLDB_NOTNULL, null, '100', 'aiassessment');
+        $field = new xmldb_field(
+            'aiweighting',
+            XMLDB_TYPE_INTEGER,
+            '3',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '100',
+            'aiassessment'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
@@ -277,8 +383,10 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
                         break;
                     }
                 }
-                $DB->update_record('qtype_speakup_answers',
-                        (object) ['id' => $row->id, 'percent' => $percent, 'divisor' => $divisor]);
+                $DB->update_record(
+                    'qtype_speakup_answers',
+                    (object) ['id' => $row->id, 'percent' => $percent, 'divisor' => $divisor]
+                );
             }
             $dbman->drop_field($table, $weightfield);
         }
@@ -402,10 +510,26 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         $table = new xmldb_table('qtype_speakup_options');
         $fields = [
             new xmldb_field('audioprompttranscript', XMLDB_TYPE_TEXT, null, null, null, null, null, 'statsitems'),
-            new xmldb_field('prompttranscriptdisplay', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1',
-                    'audioprompttranscript'),
-            new xmldb_field('transcriptpenalty', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '0',
-                    'prompttranscriptdisplay'),
+            new xmldb_field(
+                'prompttranscriptdisplay',
+                XMLDB_TYPE_INTEGER,
+                '1',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                '1',
+                'audioprompttranscript'
+            ),
+            new xmldb_field(
+                'transcriptpenalty',
+                XMLDB_TYPE_INTEGER,
+                '3',
+                null,
+                XMLDB_NOTNULL,
+                null,
+                '0',
+                'prompttranscriptdisplay'
+            ),
         ];
         foreach ($fields as $field) {
             if (!$dbman->field_exists($table, $field)) {

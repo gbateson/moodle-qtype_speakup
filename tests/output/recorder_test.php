@@ -34,7 +34,6 @@ require_once($CFG->dirroot . '/question/type/speakup/questiontype.php');
  * @covers    \qtype_speakup\output\file_uploader
  */
 final class recorder_test extends \advanced_testcase {
-
     /**
      * The audio recorder's template data.
      */
@@ -63,8 +62,10 @@ final class recorder_test extends \advanced_testcase {
         $data = (new video_recorder('recording.webm', 60, false, null, true))->export_for_template($PAGE->get_renderer('core'));
         $this->assertSame(SPEAKUP_VIDEO_WIDTH, $data['width']);
         $this->assertContains($data['aspectratio'], ['4x3', '16x9']);
-        $this->assertSame(['width' => SPEAKUP_VIDEO_WIDTH, 'aspectratio' => '4x3'],
-                video_recorder::add_width_and_aspect([]));
+        $this->assertSame(
+            ['width' => SPEAKUP_VIDEO_WIDTH, 'aspectratio' => '4x3'],
+            video_recorder::add_width_and_aspect([])
+        );
     }
 
     /**

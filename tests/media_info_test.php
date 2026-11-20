@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\media_info
  */
 final class media_info_test extends \advanced_testcase {
-
     /**
      * Save some content as a file.
      *
@@ -83,7 +82,7 @@ final class media_info_test extends \advanced_testcase {
      */
     public function test_get_duration_huge_table(): void {
         $this->resetAfterTest();
-        $atom = function(string $type, string $data): string {
+        $atom = function (string $type, string $data): string {
             return pack('N', 8 + strlen($data)) . $type . $data;
         };
         // A time-to-sample table that claims a million entries, but has none.

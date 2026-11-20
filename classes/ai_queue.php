@@ -31,7 +31,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class ai_queue {
-
     /**
      * Queue AI assessment of one question attempt, unless it is already queued.
      *
@@ -97,8 +96,12 @@ class ai_queue {
             return;
         }
 
-        self::queue((int) $usage->id, (int) $qa->get_slot(),
-                (int) $qa->get_step(0)->get_user_id(), (int) $usage->contextid);
+        self::queue(
+            (int) $usage->id,
+            (int) $qa->get_slot(),
+            (int) $qa->get_step(0)->get_user_id(),
+            (int) $usage->contextid
+        );
     }
 
     /**

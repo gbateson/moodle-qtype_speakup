@@ -33,8 +33,9 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class observer {
-
     /**
+     * When a quiz attempt is submitted, queue AI assessment of its SpeakUp responses.
+     *
      * @param \mod_quiz\event\attempt_submitted $event
      */
     public static function quiz_attempt_submitted(\mod_quiz\event\attempt_submitted $event): void {

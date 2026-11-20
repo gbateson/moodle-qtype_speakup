@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class media_info {
-
     /**
      * The most memory getID3 is told it may use, in bytes. It reads some
      * files (e.g. MP4 recordings from Safari) in proportion to PHP's

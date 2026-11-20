@@ -31,8 +31,11 @@ if ($hassiteconfig) {
         'qtype_speakup/aiprovidersheading',
         get_string('aiprovidersheading', 'qtype_speakup'),
         get_string('aiprovidersheading_desc', 'qtype_speakup') . '<br /><br />' .
-            html_writer::link($manageurl, get_string('manageaiproviders', 'qtype_speakup'),
-                    ['class' => 'btn btn-secondary'])
+            html_writer::link(
+                $manageurl,
+                get_string('manageaiproviders', 'qtype_speakup'),
+                ['class' => 'btn btn-secondary']
+            )
     ));
 
     // Text-to-speech, for generating audio prompts from their transcripts.

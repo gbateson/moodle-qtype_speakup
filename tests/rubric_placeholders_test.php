@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\rubric_placeholders
  */
 final class rubric_placeholders_test extends \advanced_testcase {
-
     /** @var string a question text with several parts. */
     const QUESTIONTEXT = '<p>Listen and answer.</p>' .
             '<div class="rubric d-none"><p>Score <b>fluency</b>.</p></div>' .
@@ -131,13 +130,19 @@ final class rubric_placeholders_test extends \advanced_testcase {
         $rubric = 'Use: {{shared/questiontext.rubric}}';
         $this->assertSame('Use: Top rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $bottom->id));
         $this->assertSame('Use: Top rubric.', rubric_placeholders::expand($rubric, self::QUESTIONTEXT, $top->id));
-        $this->assertSame('Bottom rubric.',
-                rubric_placeholders::expand('{{ local / questiontext.rubric }}', self::QUESTIONTEXT, $bottom->id));
-        $this->assertStringContainsString('Read this.',
-                rubric_placeholders::expand('{{local/questiontext}}', self::QUESTIONTEXT, $bottom->id));
+        $this->assertSame(
+            'Bottom rubric.',
+            rubric_placeholders::expand('{{ local / questiontext.rubric }}', self::QUESTIONTEXT, $bottom->id)
+        );
+        $this->assertStringContainsString(
+            'Read this.',
+            rubric_placeholders::expand('{{local/questiontext}}', self::QUESTIONTEXT, $bottom->id)
+        );
         // The question's own text is still used without an ID number.
-        $this->assertSame('Score fluency.',
-                rubric_placeholders::expand('{{questiontext.rubric}}', self::QUESTIONTEXT, $bottom->id));
+        $this->assertSame(
+            'Score fluency.',
+            rubric_placeholders::expand('{{questiontext.rubric}}', self::QUESTIONTEXT, $bottom->id)
+        );
 
         // A nearer question with the same ID number is used instead.
         $this->create_rubric_question($middle->id, 'shared', 'Middle rubric.');
@@ -147,7 +152,9 @@ final class rubric_placeholders_test extends \advanced_testcase {
         // Questions below, or in other category trees, are not found.
         $this->assertSame([], rubric_placeholders::get_missing_questions($rubric, $bottom->id));
         $this->assertSame(['local', 'elsewhere'], rubric_placeholders::get_missing_questions(
-                '{{local/questiontext}} {{elsewhere/questiontext}} {{shared/questiontext.rubric:ja}}', $top->id));
+            '{{local/questiontext}} {{elsewhere/questiontext}} {{shared/questiontext.rubric:ja}}',
+            $top->id
+        ));
 
         $this->expectException(\moodle_exception::class);
         rubric_placeholders::expand('{{elsewhere/questiontext.rubric}}', self::QUESTIONTEXT, $top->id);
@@ -165,8 +172,11 @@ final class rubric_placeholders_test extends \advanced_testcase {
         $question = $this->create_rubric_question($category->id, 'shared', 'First.');
         $rubric = '{{shared/questiontext.rubric}}';
 
-        $generator->update_question($question, null,
-                ['questiontext' => ['text' => '<div class="rubric">Second.</div>', 'format' => FORMAT_HTML]]);
+        $generator->update_question(
+            $question,
+            null,
+            ['questiontext' => ['text' => '<div class="rubric">Second.</div>', 'format' => FORMAT_HTML]]
+        );
         $this->assertSame('Second.', rubric_placeholders::expand($rubric, '', $category->id));
 
         $generator->update_question($question, null, [
@@ -186,13 +196,17 @@ final class rubric_placeholders_test extends \advanced_testcase {
         $rubric = 'They heard "{{audioprompt}}" {{ PromptPlays }}, and answered in {{TIMELIMIT}}, '
             . 'aiming for {{target.words}} ({{TARGETITEM.Words}}). {{AUDIO}} {{plays}} {{timelimitinseconds}} '
             . '{{nothing}} {{target.chars}} {{questiontext.rubric}}';
-        $this->assertSame('They heard "What is your favorite season?" once, and answered in 30 seconds, '
+        $this->assertSame(
+            'They heard "What is your favorite season?" once, and answered in 30 seconds, '
             . 'aiming for 30 words (30 words). What is your favorite season? once 30 seconds '
             . '{{nothing}} {{target.chars}} Score fluency.',
-            rubric_placeholders::expand($rubric, self::QUESTIONTEXT, 0, $values));
+            rubric_placeholders::expand($rubric, self::QUESTIONTEXT, 0, $values)
+        );
 
-        $this->assertSame(['{{nothing}}', '{{target.chars}}', '{{RUBRIC}}', '{{foo.bar}}'],
-            rubric_placeholders::get_unknown_placeholders($rubric . ' {{RUBRIC}} {{foo.bar}} {{nothing}}', ['words']));
+        $this->assertSame(
+            ['{{nothing}}', '{{target.chars}}', '{{RUBRIC}}', '{{foo.bar}}'],
+            rubric_placeholders::get_unknown_placeholders($rubric . ' {{RUBRIC}} {{foo.bar}} {{nothing}}', ['words'])
+        );
         $this->assertSame(['{{nothing}}'], rubric_placeholders::get_unknown_placeholders($rubric, ['words', 'chars']));
     }
 
@@ -208,6 +222,10 @@ final class rubric_placeholders_test extends \advanced_testcase {
         $category = $generator->create_question_category();
         $this->create_rubric_question($category->id, 'shared', 'Answer in {{timelimit}}.');
         $this->assertSame('Shared: Answer in 30 seconds.', rubric_placeholders::expand(
-            'Shared: {{shared/questiontext.rubric}}', '', $category->id, ['timelimit' => '30 seconds']));
+            'Shared: {{shared/questiontext.rubric}}',
+            '',
+            $category->id,
+            ['timelimit' => '30 seconds']
+        ));
     }
 }

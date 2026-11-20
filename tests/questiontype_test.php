@@ -38,7 +38,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup
  */
 final class questiontype_test extends \advanced_testcase {
-
     /** @var array the settings compared after import. */
     const FIELDS = ['timelimitinseconds', 'mediatype', 'responsemethod', 'gradingmethod', 'sttlanguage', 'allowpause',
             'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
@@ -334,9 +333,11 @@ final class questiontype_test extends \advanced_testcase {
         $this->setAdminUser();
         $provider = \qtype_speakup_test_helper::create_provider(['name' => 'Gemini']);
         $qdata = $this->create_question('prompt', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
-        get_file_storage()->create_file_from_string(['contextid' => $qdata->contextid, 'component' => 'qtype_speakup',
+        get_file_storage()->create_file_from_string(
+            ['contextid' => $qdata->contextid, 'component' => 'qtype_speakup',
                 'filearea' => 'audioprompt', 'itemid' => $qdata->id, 'filepath' => '/', 'filename' => 'audioprompt.mp3'],
-                'ID3 prompt audio');
+            'ID3 prompt audio'
+        );
 
         $exporter = new \qformat_xml();
         $xml = $exporter->writequestion($qdata);

@@ -60,8 +60,10 @@ try {
     $attempt = $DB->get_record('quiz_attempts', ['uniqueid' => $usageid], '*', MUST_EXIST);
     $cm = get_coursemodule_from_instance('quiz', $attempt->quiz, 0, false, MUST_EXIST);
     $modcontext = context_module::instance($cm->id);
-    if (!\core_availability\info_module::is_user_visible($cm, $user->id, false)
-            || !has_capability('mod/quiz:attempt', $modcontext, $user)) {
+    if (
+        !\core_availability\info_module::is_user_visible($cm, $user->id, false)
+            || !has_capability('mod/quiz:attempt', $modcontext, $user)
+    ) {
         throw new moodle_exception('mobilenoattempt', 'qtype_speakup');
     }
     [$qa, $context] = \qtype_speakup\mobile_support::get_question_attempt($usageid, $slot);
@@ -92,8 +94,11 @@ $html = html_writer::div('', 'd-none', ['id' => 'qtype_speakup-mobile',
         'data-usercontextid' => context_user::instance($user->id)->id]) . $html;
 
 // Get the app's token, and send the response's values, and the page's height, to the app.
-$PAGE->requires->js_call_amd('qtype_speakup/mobilebridge', 'init',
-        [$qa->get_outer_question_div_unique_id(), $qa->get_field_prefix()]);
+$PAGE->requires->js_call_amd(
+    'qtype_speakup/mobilebridge',
+    'init',
+    [$qa->get_outer_question_div_unique_id(), $qa->get_field_prefix()]
+);
 
 echo $OUTPUT->header();
 echo $html;

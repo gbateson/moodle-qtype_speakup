@@ -37,7 +37,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\observer
  */
 final class task_cleanup_test extends \advanced_testcase {
-
     /** @var \stdClass the course. */
     protected $course;
 
@@ -55,7 +54,8 @@ final class task_cleanup_test extends \advanced_testcase {
         /** @var \core_question_generator $questiongenerator */
         $questiongenerator = $generator->get_plugin_generator('core_question');
         $category = $questiongenerator->create_question_category(
-                ['contextid' => \context_course::instance($this->course->id)->id]);
+            ['contextid' => \context_course::instance($this->course->id)->id]
+        );
         $question = $questiongenerator->create_question('speakup', 'basic', ['category' => $category->id]);
         \qtype_speakup_test_helper::add_to_quiz($question->id, $this->quiz);
     }

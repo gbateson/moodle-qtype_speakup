@@ -32,7 +32,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\ai_caller
  */
 final class ai_caller_test extends \advanced_testcase {
-
     /** @var int the student's id. */
     protected $userid;
 
@@ -102,8 +101,10 @@ final class ai_caller_test extends \advanced_testcase {
         $this->assertEqualsWithDelta(0.6, $fraction, 0.0001);
 
         // Each request is logged by the AI bridge, for SpeakUp.
-        $this->assertEquals(2, $GLOBALS['DB']->count_records('tool_aibridge_log',
-                ['component' => 'qtype_speakup', 'purpose' => 'assess', 'success' => 1]));
+        $this->assertEquals(2, $GLOBALS['DB']->count_records(
+            'tool_aibridge_log',
+            ['component' => 'qtype_speakup', 'purpose' => 'assess', 'success' => 1]
+        ));
     }
 
     /**
@@ -201,8 +202,10 @@ final class ai_caller_test extends \advanced_testcase {
         $file = self::make_file('a.mp3', 'ID3');
 
         self::mock_chat_reply('**TRANSCRIPT:** I have played the guitar.');
-        $this->assertSame('I have played the guitar.',
-                ai_caller::transcribe((int) $provider->id, $this->contextid, $this->userid, [$file], 'English (en-US)'));
+        $this->assertSame(
+            'I have played the guitar.',
+            ai_caller::transcribe((int) $provider->id, $this->contextid, $this->userid, [$file], 'English (en-US)')
+        );
 
         // A text provider cannot take the file.
         $text = \qtype_speakup_test_helper::create_provider(['name' => 'Text only']);
@@ -297,7 +300,13 @@ final class ai_caller_test extends \advanced_testcase {
         $provider = \qtype_speakup_test_helper::create_multimodal_provider();
         $reply = ['candidates' => [['content' => ['parts' => [['text' => "TRANSCRIPT: Page 1: Hello."]]]]]];
         \curl::mock_response(json_encode($reply));
-        $this->assertSame('Page 1: Hello.', ai_caller::transcribe((int) $provider->id, $this->contextid, $this->userid,
-                [self::make_file('01-a.png')], 'English (en-US)', true));
+        $this->assertSame('Page 1: Hello.', ai_caller::transcribe(
+            (int) $provider->id,
+            $this->contextid,
+            $this->userid,
+            [self::make_file('01-a.png')],
+            'English (en-US)',
+            true
+        ));
     }
 }

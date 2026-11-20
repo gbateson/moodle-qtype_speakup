@@ -26,7 +26,6 @@ use qtype_speakup\mobile_support;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mobile {
-
     /**
      * Called when the app starts: switch SpeakUp off in the app if this site
      * does not meet the conditions for it, or the app is too old. The app

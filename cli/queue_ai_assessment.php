@@ -41,8 +41,8 @@ require(__DIR__ . '/../../../../config.php');
 require_once($CFG->libdir . '/clilib.php');
 
 [$options, $unrecognised] = cli_get_params(
-        ['attemptid' => 0, 'run' => false, 'help' => false],
-        ['h' => 'help']
+    ['attemptid' => 0, 'run' => false, 'help' => false],
+    ['h' => 'help']
 );
 
 if ($unrecognised) {

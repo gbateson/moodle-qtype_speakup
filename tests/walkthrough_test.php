@@ -36,7 +36,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup_renderer
  */
 final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
-
     /**
      * Put a recording in a new draft file area.
      *
@@ -59,9 +58,11 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
     protected function add_audio_prompt(\qtype_speakup_question $question): void {
         $question->id = 12345;
         $question->contextid = \context_system::instance()->id;
-        get_file_storage()->create_file_from_string(['contextid' => $question->contextid, 'component' => 'qtype_speakup',
+        get_file_storage()->create_file_from_string(
+            ['contextid' => $question->contextid, 'component' => 'qtype_speakup',
                 'filearea' => 'audioprompt', 'itemid' => $question->id, 'filepath' => '/', 'filename' => 'audioprompt.mp3'],
-                "ID3\x04\x00\x00\x00\x00\x00\x00prompt");
+            "ID3\x04\x00\x00\x00\x00\x00\x00prompt"
+        );
     }
 
     /**

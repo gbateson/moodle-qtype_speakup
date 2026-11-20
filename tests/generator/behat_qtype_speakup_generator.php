@@ -31,7 +31,6 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_qtype_speakup_generator extends behat_generator_base {
-
     #[\Override]
     protected function get_creatable_entities(): array {
         return [

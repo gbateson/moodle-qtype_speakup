@@ -38,7 +38,6 @@ require_once($CFG->dirroot . '/question/type/speakup/vendor/getID3/getid3/getid3
  * @covers    \qtype_speakup\task\reduce_response_files
  */
 final class file_reducer_test extends \advanced_testcase {
-
     #[\Override]
     protected function setUp(): void {
         parent::setUp();
@@ -271,8 +270,10 @@ final class file_reducer_test extends \advanced_testcase {
      */
     protected function response_filenames(int $usageid, int $slot): array {
         $qa = question_engine::load_questions_usage_by_activity($usageid)->get_question_attempt($slot);
-        return array_values(array_map(fn($file) => $file->get_filename(),
-                $qa->get_last_qt_files('recording', \context_system::instance()->id)));
+        return array_values(array_map(
+            fn($file) => $file->get_filename(),
+            $qa->get_last_qt_files('recording', \context_system::instance()->id)
+        ));
     }
 
     /**

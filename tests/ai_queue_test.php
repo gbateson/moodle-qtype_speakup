@@ -25,7 +25,6 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\ai_queue
  */
 final class ai_queue_test extends \advanced_testcase {
-
     /**
      * Each attempt is queued once, with its details.
      */

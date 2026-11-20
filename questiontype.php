@@ -89,8 +89,14 @@ define('SPEAKUP_VIDEO_BITRATE', 2500000);
 define('SPEAKUP_VIDEO_WIDTH', 640);
 define('SPEAKUP_VIDEO_HEIGHT', 480);
 
+/**
+ * The SpeakUp question type: saves, loads, imports and exports SpeakUp questions.
+ *
+ * @package   qtype_speakup
+ * @copyright 2026 Gordon Bateson and contributors
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class qtype_speakup extends question_type {
-
     #[\Override]
     public function extra_question_fields() {
         return [
@@ -153,8 +159,10 @@ class qtype_speakup extends question_type {
         // Without AI assessment, aiproviderid holds the transcription
         // provider, which the question form has in a separate field (see
         // edit_speakup_form.php). It is only needed for uploaded files.
-        if ($question->gradingmethod === SPEAKUP_GRADING_AUTO && empty($question->aiassessment)
-                && property_exists($question, 'transcriptionproviderid')) {
+        if (
+            $question->gradingmethod === SPEAKUP_GRADING_AUTO && empty($question->aiassessment)
+                && property_exists($question, 'transcriptionproviderid')
+        ) {
             $isupload = ($question->responsemethod ?? SPEAKUP_RESPONSE_RECORD) === SPEAKUP_RESPONSE_UPLOAD;
             $question->aiproviderid = ($isupload && !empty($question->transcriptionproviderid))
                     ? (int) $question->transcriptionproviderid : null;
@@ -164,8 +172,10 @@ class qtype_speakup extends question_type {
         // statsitems[name] => 0 or 1. They are stored as a list, e.g.
         // "words,uniquewords", keeping only the statistics that exist.
         if (isset($question->statsitems) && is_array($question->statsitems)) {
-            $allowed = array_merge(\qtype_speakup\text_stats::get_stat_types(false),
-                    \qtype_speakup\text_stats::get_stat_types(true));
+            $allowed = array_merge(
+                \qtype_speakup\text_stats::get_stat_types(false),
+                \qtype_speakup\text_stats::get_stat_types(true)
+            );
             $question->statsitems = implode(',', array_intersect($allowed, array_keys(array_filter($question->statsitems))));
         }
 
@@ -174,15 +184,24 @@ class qtype_speakup extends question_type {
         // Save the audio prompt (recorded or uploaded on the form) from its
         // draft file area. At most one file is kept.
         if (isset($question->audioprompt) && isset($question->context)) {
-            file_save_draft_area_files($question->audioprompt, $question->context->id,
-                    'qtype_speakup', 'audioprompt', $question->id, ['subdirs' => 0, 'maxfiles' => 1]);
+            file_save_draft_area_files(
+                $question->audioprompt,
+                $question->context->id,
+                'qtype_speakup',
+                'audioprompt',
+                $question->id,
+                ['subdirs' => 0, 'maxfiles' => 1]
+            );
         }
 
         // Without an audio prompt, generate one from its transcript, in the
         // background, if a speech provider is set up.
         if (isset($question->context)) {
-            \qtype_speakup\task\generate_audio_prompt::queue_if_needed($question->id, $question->context->id,
-                    $question->audioprompttranscript ?? null);
+            \qtype_speakup\task\generate_audio_prompt::queue_if_needed(
+                $question->id,
+                $question->context->id,
+                $question->audioprompttranscript ?? null
+            );
         }
 
         // Save one row per target phrase, from the repeated phrase fields
@@ -315,8 +334,14 @@ class qtype_speakup extends question_type {
             }
         }
 
-        $files = get_file_storage()->get_area_files($question->contextid, 'qtype_speakup', 'audioprompt',
-                $question->id, 'filename', false);
+        $files = get_file_storage()->get_area_files(
+            $question->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $question->id,
+            'filename',
+            false
+        );
         if ($files) {
             $output .= "    <audioprompt>\n" . $format->write_files($files) . "\n    </audioprompt>\n";
         }
@@ -531,8 +556,11 @@ class qtype_speakup extends question_type {
      */
     protected static function gift_escape(string $text): string {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
-        return str_replace(['\\', '#', '=', '~', '{', '}', ':', "\n"],
-                ['\\\\', '\#', '\=', '\~', '\{', '\}', '\:', '\n'], $text);
+        return str_replace(
+            ['\\', '#', '=', '~', '{', '}', ':', "\n"],
+            ['\\\\', '\#', '\=', '\~', '\{', '\}', '\:', '\n'],
+            $text
+        );
     }
 
     /**
@@ -543,8 +571,11 @@ class qtype_speakup extends question_type {
      * @return string
      */
     protected static function gift_unescape(string $text): string {
-        return str_replace(['&&058;', '&&035;', '&&061;', '&&123;', '&&125;', '&&126;', '&&010'],
-                [':', '#', '=', '{', '}', '~', "\n"], $text);
+        return str_replace(
+            ['&&058;', '&&035;', '&&061;', '&&123;', '&&125;', '&&126;', '&&010'],
+            [':', '#', '=', '{', '}', '~', "\n"],
+            $text
+        );
     }
 
     /**
@@ -566,8 +597,13 @@ class qtype_speakup extends question_type {
         $output = '';
 
         $transcript = trim((string) ($o->audioprompttranscript ?? ''));
-        $hasfile = !get_file_storage()->is_area_empty($question->contextid, 'qtype_speakup', 'audioprompt',
-                $question->id, false);
+        $hasfile = !get_file_storage()->is_area_empty(
+            $question->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $question->id,
+            false
+        );
         if ($hasfile && $transcript === '') {
             $output .= '// ' . get_string('giftnoaudioprompt', 'qtype_speakup') . "\n";
         }
@@ -607,8 +643,14 @@ class qtype_speakup extends question_type {
         ];
         if ($o->mediatype === SPEAKUP_MEDIA_IMAGE) {
             // Images are always uploaded, and have no length.
-            unset($settings['TIMELIMIT'], $settings['RESPONSE'], $settings['PAUSE'], $settings['RECORDAFTERPROMPT'],
-                    $settings['MAXRESPONSES'], $settings['SILENCESTOP']);
+            unset(
+                $settings['TIMELIMIT'],
+                $settings['RESPONSE'],
+                $settings['PAUSE'],
+                $settings['RECORDAFTERPROMPT'],
+                $settings['MAXRESPONSES'],
+                $settings['SILENCESTOP']
+            );
             $settings = ['MAXFILES' => (int) ($o->maxfiles ?? 1)] + $settings;
         }
 
@@ -654,8 +696,11 @@ class qtype_speakup extends question_type {
         if (count(array_unique($show)) == 1) {
             $lines[] = 'SHOW=' . reset($show);
         } else {
-            $lines[] = 'SHOW=' . implode(', ', array_map(fn($name, $value) => "$name:$value",
-                    array_keys($show), $show));
+            $lines[] = 'SHOW=' . implode(', ', array_map(
+                fn($name, $value) => "$name:$value",
+                array_keys($show),
+                $show
+            ));
         }
 
         $stats = $yesno($o->showstats);
@@ -740,8 +785,11 @@ class qtype_speakup extends question_type {
             }
             $error = $this->import_gift_setting($question, $names[$name], $value);
             if ($error !== null) {
-                $this->gift_warning($question, get_string('giftbadvalue', 'qtype_speakup',
-                        (object) ['name' => $name, 'value' => $value, 'error' => $error]));
+                $this->gift_warning($question, get_string(
+                    'giftbadvalue',
+                    'qtype_speakup',
+                    (object) ['name' => $name, 'value' => $value, 'error' => $error]
+                ));
             }
         }
 
@@ -880,7 +928,7 @@ class qtype_speakup extends question_type {
                 return null;
 
             case 'ai':
-                // "no", "yes", "yes, 50%", "Gemini", "Gemini, 100%" ...
+                // The value is "no", "yes", "yes, 50%", "Gemini", "Gemini, 100%" and so on.
                 if (isset($yesno[$word]) && !$yesno[$word]) {
                     $question->aiassessment = 0;
                     return null;
@@ -897,7 +945,7 @@ class qtype_speakup extends question_type {
                 return $names ? $this->import_gift_provider($question, implode(', ', $names)) : null;
 
             case 'show':
-                // "both", or "calculation:both, phrases:students, ...".
+                // The value is "both", or a list such as "calculation:both, phrases:students".
                 $showwords = self::get_gift_show_words();
                 $showfields = self::get_gift_show_fields();
                 if (isset($showwords[$word])) {
@@ -919,7 +967,7 @@ class qtype_speakup extends question_type {
 
             case 'statsitems':
             case 'stats':
-                // STATS: "yes", "no; words, longwords", "words, longwords" or "none".
+                // The STATS value is "yes", "no; words, longwords", "words, longwords" or "none".
                 $parts = array_map('trim', explode(';', $word, 2));
                 if ($field === 'stats' && isset($yesno[$parts[0]])) {
                     $question->showstats = $yesno[$parts[0]];
@@ -928,8 +976,10 @@ class qtype_speakup extends question_type {
                     }
                     $word = $parts[1];
                 }
-                $allowed = array_merge(\qtype_speakup\text_stats::get_stat_types(false),
-                        \qtype_speakup\text_stats::get_stat_types(true));
+                $allowed = array_merge(
+                    \qtype_speakup\text_stats::get_stat_types(false),
+                    \qtype_speakup\text_stats::get_stat_types(true)
+                );
                 $items = array_filter(array_map('trim', preg_split('/[,\s]+/', $word)));
                 if ($items == ['none']) {
                     $question->statsitems = '';
@@ -1026,8 +1076,10 @@ class qtype_speakup extends question_type {
             $this->gift_warning($question, get_string('giftnoarchetype', 'qtype_speakup', $idnumber));
             return;
         }
-        if ($archetype->qtype !== $this->name()
-                || !$options = $DB->get_record('qtype_speakup_options', ['questionid' => $archetype->id])) {
+        if (
+            $archetype->qtype !== $this->name()
+                || !$options = $DB->get_record('qtype_speakup_options', ['questionid' => $archetype->id])
+        ) {
             $this->gift_warning($question, get_string('giftarchetypenotspeakup', 'qtype_speakup', $idnumber));
             return;
         }

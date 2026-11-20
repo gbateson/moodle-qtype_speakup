@@ -30,17 +30,16 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class feedback_format {
-
     /** Patterns that are common in Markdown but rare in plain text. */
     const MARKDOWN_PATTERNS = [
-        '/^ {0,3}[*+-][ \t]+\S/m',                       // Bullet list item.
-        '/^ {0,3}\d{1,3}[.)][ \t]+\S/m',                 // Numbered list item.
-        '/^ {0,3}#{1,6}[ \t]+\S/m',                      // Heading.
-        '/\*\*[^*\n]+\*\*/',                             // **Bold**.
-        '/__[^_\n]+__/',                                 // __Bold__.
-        '/(?<![*\w])\*(?![\s*])[^*\n]+(?<![\s*])\*(?![*\w])/', // *Italic*.
-        '/`[^`\n]+`/',                                   // `Code`.
-        '/\[[^\]\n]+\]\([^)\s]+\)/',                     // [Link](url).
+        '/^ {0,3}[*+-][ \t]+\S/m', // Bullet list item.
+        '/^ {0,3}\d{1,3}[.)][ \t]+\S/m', // Numbered list item.
+        '/^ {0,3}#{1,6}[ \t]+\S/m', // Heading.
+        '/\*\*[^*\n]+\*\*/', // Bold, with asterisks.
+        '/__[^_\n]+__/', // Bold, with underscores.
+        '/(?<![*\w])\*(?![\s*])[^*\n]+(?<![\s*])\*(?![*\w])/', // Italic, with asterisks.
+        '/\x60[^\x60\n]+\x60/', // Code, between backticks (\x60).
+        '/\[[^\]\n]+\]\([^)\s]+\)/', // Link, with its text in square brackets.
     ];
 
     /** A Markdown list item: a bullet or a number, then a space. */

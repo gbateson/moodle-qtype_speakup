@@ -32,7 +32,6 @@ use Behat\Mink\Exception\ExpectationException;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_qtype_speakup extends behat_base {
-
     /** @var string CSS selector for the audio prompt. */
     const PROMPT = '.qtype_speakup-audio-prompt audio';
 
@@ -60,7 +59,7 @@ class behat_qtype_speakup extends behat_base {
                 audio.play().catch(done);
             })();
         ");
-        $this->spin(function() {
+        $this->spin(function () {
             return $this->evaluate_script('return window.qtypeSpeakupPromptDone === true;');
         }, [], 30);
         // Let the question's own listeners react to the end of the prompt.
@@ -110,7 +109,7 @@ class behat_qtype_speakup extends behat_base {
     protected function recorder_should_be(string $selector, string $state): void {
         $selector = json_encode($selector);
         try {
-            $this->spin(function() use ($selector, $state) {
+            $this->spin(function () use ($selector, $state) {
                 return $this->evaluate_script("return (function() {
                     const widget = document.querySelector($selector);
                     return !!widget && widget.dataset.state === " . json_encode($state) . ";
@@ -151,7 +150,7 @@ class behat_qtype_speakup extends behat_base {
      */
     protected function recording_uploaded(string $selector): void {
         $selector = json_encode($selector);
-        $this->spin(function() use ($selector) {
+        $this->spin(function () use ($selector) {
             return $this->evaluate_script("return (function() {
                 const widget = document.querySelector($selector);
                 const button = widget && widget.querySelector('button.qtype_speakup-main-button');
@@ -204,9 +203,10 @@ class behat_qtype_speakup extends behat_base {
         $input = $this->find('css', '.que.speakup .qtype_speakup-upload-input');
         $input->attachFile($CFG->dirroot . '/' . $filepath);
         // Wait until the file is shown, or the upload is refused.
-        $this->spin(function() {
+        $this->spin(function () {
             return $this->evaluate_script("return !!document.querySelector(
-                    '.que.speakup .qtype_speakup-upload-player:not(.hide), .que.speakup .qtype_speakup-upload-message.text-danger');");
+                    '.que.speakup .qtype_speakup-upload-player:not(.hide), ' +
+                    '.que.speakup .qtype_speakup-upload-message.text-danger');");
         }, [], 60);
         $this->wait_for_pending_js();
     }
@@ -222,11 +222,14 @@ class behat_qtype_speakup extends behat_base {
         $widths = $this->evaluate_script('return [document.getElementById(' . json_encode($first) . ').offsetWidth, ' .
                 'document.getElementById(' . json_encode($second) . ').offsetWidth];');
         if ($widths[0] <= $widths[1]) {
-            throw new ExpectationException("\"$first\" is {$widths[0]}px wide, and \"$second\" is {$widths[1]}px wide.",
-                    $this->getSession());
+            throw new ExpectationException(
+                "\"$first\" is {$widths[0]}px wide, and \"$second\" is {$widths[1]}px wide.",
+                $this->getSession()
+            );
         }
     }
 
+    // phpcs:disable moodle.Files.LineLength.TooLong
     /**
      * Check the size of an element, e.g. to check an editor grows to fit its
      * content, or a player is wide enough to use.
@@ -240,7 +243,7 @@ class behat_qtype_speakup extends behat_base {
         $selector = json_encode(str_replace('\\"', '"', $selector));
         $dimension = in_array($comparison, ['taller', 'shorter']) ? 'height' : 'width';
         $bigger = in_array($comparison, ['taller', 'wider']);
-        $this->spin(function() use ($selector, $comparison, $pixels, $dimension, $bigger) {
+        $this->spin(function () use ($selector, $comparison, $pixels, $dimension, $bigger) {
             $size = $this->evaluate_script("return (function() {
                 const element = document.querySelector($selector);
                 return element ? element.getBoundingClientRect().$dimension : -1;
@@ -252,10 +255,13 @@ class behat_qtype_speakup extends behat_base {
                 return true;
             }
             $adjective = ($dimension === 'height') ? 'tall' : 'wide';
-            throw new ExpectationException("$selector is {$size}px $adjective, not $comparison than {$pixels}px.",
-                    $this->getSession());
+            throw new ExpectationException(
+                "$selector is {$size}px $adjective, not $comparison than {$pixels}px.",
+                $this->getSession()
+            );
         }, [], 10);
     }
+    // phpcs:enable moodle.Files.LineLength.TooLong
 
     /**
      * Fill a text area with some lines of text, as if the user typed them.
@@ -289,9 +295,11 @@ class behat_qtype_speakup extends behat_base {
         $input = $this->find('css', '.que.speakup .qtype_speakup-image-input');
         $input->attachFile($CFG->dirroot . '/' . $filepath);
         // Wait until the page is shown, or the upload is refused.
-        $this->spin(function() use ($count, $before) {
+        $this->spin(function () use ($count, $before) {
             return (int) $this->evaluate_script($count) > $before
-                    || $this->evaluate_script('return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");');
+                    || $this->evaluate_script(
+                        'return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");'
+                    );
         }, [], 60);
         $this->wait_for_pending_js();
     }
@@ -340,9 +348,11 @@ class behat_qtype_speakup extends behat_base {
             })();
         ");
         // Wait until the page is shown, or the upload is refused.
-        $this->spin(function() use ($count, $before) {
+        $this->spin(function () use ($count, $before) {
             return (int) $this->evaluate_script($count) > $before
-                    || $this->evaluate_script('return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");');
+                    || $this->evaluate_script(
+                        'return !!document.querySelector(".que.speakup .qtype_speakup-image-message.text-danger");'
+                    );
         }, [], 60);
         $this->wait_for_pending_js();
     }
@@ -362,16 +372,19 @@ class behat_qtype_speakup extends behat_base {
                 'image.getAttribute("src") : "no picture"; })();';
         $actual = '';
         try {
-            $this->spin(function() use ($script, $width, $height, &$actual) {
+            $this->spin(function () use ($script, $width, $height, &$actual) {
                 $actual = (string) $this->evaluate_script($script);
                 return strpos($actual, $width . 'x' . $height . ' ') === 0;
             }, [], 10);
         } catch (\Exception $e) {
-            throw new \Behat\Mink\Exception\ExpectationException("Page $page picture is \"$actual\", not {$width}x{$height}.",
-                    $this->getSession());
+            throw new \Behat\Mink\Exception\ExpectationException(
+                "Page $page picture is \"$actual\", not {$width}x{$height}.",
+                $this->getSession()
+            );
         }
     }
 
+    // phpcs:disable moodle.Files.LineLength.TooLong
     /**
      * Open the response page that the Moodle app shows in a frame (see
      * respond.php), for a SpeakUp question in a user's quiz attempt, with a
@@ -383,8 +396,12 @@ class behat_qtype_speakup extends behat_base {
      * @param string $username the user who started the attempt.
      * @param string $keyusername the user the key is for.
      */
-    public function i_open_the_speakup_app_response_page(string $questionname, string $quizname, string $username,
-            string $keyusername): void {
+    public function i_open_the_speakup_app_response_page(
+        string $questionname,
+        string $quizname,
+        string $username,
+        string $keyusername
+    ): void {
         global $DB;
         $quiz = $DB->get_record('quiz', ['name' => $quizname], '*', MUST_EXIST);
         $user = $DB->get_record('user', ['username' => $username], '*', MUST_EXIST);
@@ -401,15 +418,19 @@ class behat_qtype_speakup extends behat_base {
                  WHERE qa.questionusageid = ? AND q.name = ?", [$attempt->uniqueid, $questionname], MUST_EXIST);
         $key = \qtype_speakup\mobile_support::create_response_key($keyuser->id, $attempt->uniqueid);
         // Any draft item id: the response goes into the user's own draft area with this id.
-        $url = new moodle_url('/question/type/speakup/respond.php',
-                ['key' => $key, 'usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]);
+        $url = new moodle_url(
+            '/question/type/speakup/respond.php',
+            ['key' => $key, 'usage' => $attempt->uniqueid, 'slot' => $slot, 'draft' => 987654321]
+        );
         $this->responseurl = $url;
         $this->execute('behat_general::i_visit', [$url->out_as_local_url(false)]);
     }
+    // phpcs:enable moodle.Files.LineLength.TooLong
 
     /** @var moodle_url|null the last response page opened. */
     protected $responseurl = null;
 
+    // phpcs:disable moodle.Files.LineLength.TooLong
     /**
      * Show the response page in a frame on another page, resized as the
      * Moodle app does (see mobile/mobile.js), to check how it behaves there.
@@ -419,12 +440,17 @@ class behat_qtype_speakup extends behat_base {
      * @param string $quizname
      * @param string $username
      */
-    public function i_open_the_speakup_app_response_page_in_a_frame(string $questionname, string $quizname,
-            string $username): void {
+    public function i_open_the_speakup_app_response_page_in_a_frame(
+        string $questionname,
+        string $quizname,
+        string $username
+    ): void {
         // Get the response page's address (with a key), then show a plain page around it.
         $this->i_open_the_speakup_app_response_page($questionname, $quizname, $username, $username);
         $key = \qtype_speakup\mobile_support::create_response_key(
-                (int) $this->get_user_id($username), (int) $this->responseurl->get_param('usage'));
+            (int) $this->get_user_id($username),
+            (int) $this->responseurl->get_param('usage')
+        );
         $this->responseurl->param('key', $key);
         $this->execute('behat_general::i_visit', ['/question/type/speakup/tests/fixtures/frame.html']);
         $this->execute_script("(function() {
@@ -445,6 +471,7 @@ class behat_qtype_speakup extends behat_base {
         $this->wait_for_pending_js();
         $this->getSession()->switchToIFrame(null);
     }
+    // phpcs:enable moodle.Files.LineLength.TooLong
 
     /**
      * Check that the response page's frame keeps the same height (it does
@@ -493,8 +520,12 @@ class behat_qtype_speakup extends behat_base {
 
         $user = $DB->get_record('user', ['username' => $username], '*', MUST_EXIST);
         $service = $DB->get_record('external_services', ['shortname' => MOODLE_OFFICIAL_MOBILE_SERVICE], '*', MUST_EXIST);
-        $token = \core_external\util::generate_token(EXTERNAL_TOKEN_PERMANENT, $service, $user->id,
-                context_system::instance());
+        $token = \core_external\util::generate_token(
+            EXTERNAL_TOKEN_PERMANENT,
+            $service,
+            $user->id,
+            context_system::instance()
+        );
         $this->execute_script("require(['qtype_speakup/draftfiles'], function(draftfiles) {
             draftfiles.setToken(" . json_encode($token) . ");
         });");

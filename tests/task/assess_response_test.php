@@ -37,7 +37,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\task\assess_response
  */
 final class assess_response_test extends \advanced_testcase {
-
     #[\Override]
     protected function setUp(): void {
         parent::setUp();
@@ -65,10 +64,15 @@ final class assess_response_test extends \advanced_testcase {
      * @param int $questionid
      * @param string $transcript the live transcript.
      * @param array $extra other response data, e.g. prompttranscriptviewed.
+     * @param array $filenames the names of the recording files to attach.
      * @return array [usage id, slot]
      */
-    protected function attempt(int $questionid, string $transcript, array $extra = [],
-            array $filenames = ['recording.mp3']): array {
+    protected function attempt(
+        int $questionid,
+        string $transcript,
+        array $extra = [],
+        array $filenames = ['recording.mp3']
+    ): array {
         global $USER;
         $quba = question_engine::make_questions_usage_by_activity('core_question_preview', \context_system::instance());
         $quba->set_preferred_behaviour('deferredfeedback');
@@ -299,14 +303,16 @@ final class assess_response_test extends \advanced_testcase {
         $this->assertFalse((new \qtype_speakup\ai_request_exception('HTTP 401', 401))->temporary);
         $this->assertFalse((new \qtype_speakup\ai_request_exception('HTTP 404', 404))->temporary);
         $this->assertTrue(\qtype_speakup\ai_request_exception::is_temporary(
-                new \moodle_exception('erroraiscoreunparseable', 'qtype_speakup')));
+            new \moodle_exception('erroraiscoreunparseable', 'qtype_speakup')
+        ));
         // Failures from the AI bridge say for themselves whether they are temporary.
         $busy = \tool_aibridge\response::failure('request')->set_httpcode(503);
         $this->assertTrue(\qtype_speakup\ai_request_exception::from_response($busy)->temporary);
         $policy = \tool_aibridge\response::failure('policynotaccepted');
         $this->assertFalse(\qtype_speakup\ai_request_exception::from_response($policy)->temporary);
         $this->assertFalse(\qtype_speakup\ai_request_exception::is_temporary(
-                new \moodle_exception('errorproviderconfig', 'qtype_speakup')));
+            new \moodle_exception('errorproviderconfig', 'qtype_speakup')
+        ));
         $this->assertFalse(\qtype_speakup\ai_request_exception::is_temporary(new \coding_exception('Oops')));
     }
 
@@ -392,8 +398,12 @@ final class assess_response_test extends \advanced_testcase {
 
         // Viewed, but exempt.
         $roleid = $this->getDataGenerator()->create_role();
-        assign_capability(\qtype_speakup_question::TRANSCRIPT_PENALTY_EXEMPT, CAP_ALLOW, $roleid,
-                \context_system::instance()->id);
+        assign_capability(
+            \qtype_speakup_question::TRANSCRIPT_PENALTY_EXEMPT,
+            CAP_ALLOW,
+            $roleid,
+            \context_system::instance()->id
+        );
         role_assign($roleid, $student->id, \context_system::instance()->id);
         [$usageid, $slot] = $this->attempt($questionid, 'I have played the guitar.', ['prompttranscriptviewed' => 1]);
         $this->assertEqualsWithDelta(0.775, $this->assess($usageid, $slot)->get_mark(), 0.0001);

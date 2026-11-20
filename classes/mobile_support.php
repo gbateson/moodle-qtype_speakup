@@ -33,7 +33,6 @@ namespace qtype_speakup;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mobile_support {
-
     /** The oldest Moodle app version supported: 4.2.0. */
     const MIN_APP_VERSION = 42000;
 
@@ -82,10 +81,16 @@ class mobile_support {
      */
     public static function get_status_html(): string {
         $links = [
-            'mobileservice' => self::admin_link('optionalsubsystems', get_string('advancedfeatures', 'admin'),
-                    'id_s__enablemobilewebservice'),
-            'framembedding' => self::admin_link('httpsecurity', get_string('httpsecurity', 'admin'),
-                    'id_s__allowframembedding'),
+            'mobileservice' => self::admin_link(
+                'optionalsubsystems',
+                get_string('advancedfeatures', 'admin'),
+                'id_s__enablemobilewebservice'
+            ),
+            'framembedding' => self::admin_link(
+                'httpsecurity',
+                get_string('httpsecurity', 'admin'),
+                'id_s__allowframembedding'
+            ),
         ];
         $items = '';
         foreach (self::get_conditions() as $name => $met) {
@@ -150,8 +155,11 @@ class mobile_support {
     public static function create_response_key(int $userid, int $usageid): string {
         global $DB;
         // Remove the user's keys that have expired.
-        $DB->delete_records_select('user_private_key', 'script = ? AND userid = ? AND validuntil < ?',
-                [self::KEY_SCRIPT, $userid, time()]);
+        $DB->delete_records_select(
+            'user_private_key',
+            'script = ? AND userid = ? AND validuntil < ?',
+            [self::KEY_SCRIPT, $userid, time()]
+        );
         return create_user_key(self::KEY_SCRIPT, $userid, $usageid, null, time() + self::KEY_LIFETIME);
     }
 

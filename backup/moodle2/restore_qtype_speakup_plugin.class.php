@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Restores SpeakUp questions: their settings, target phrases and target
  * items. The audio prompt file is restored by Moodle (see
@@ -29,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class restore_qtype_speakup_plugin extends restore_qtype_plugin {
-
     /**
      * Define the paths of a SpeakUp question in the backup.
      *

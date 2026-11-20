@@ -43,8 +43,14 @@ class tts {
      * @return array [string $audio, string $extension, string $mimetype]
      * @throws \moodle_exception
      */
-    public static function generate(int $providerid, int $contextid, int $userid, string $text,
-            string $voice, string $language): array {
+    public static function generate(
+        int $providerid,
+        int $contextid,
+        int $userid,
+        string $text,
+        string $voice,
+        string $language
+    ): array {
         $action = new generate_speech($contextid, $userid, $text, $voice, $language);
         $action->set_purpose('qtype_speakup', 'audioprompt');
         $action->set_token('STYLE', self::SPEECH_STYLE);

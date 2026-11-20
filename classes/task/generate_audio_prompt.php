@@ -37,7 +37,6 @@ use qtype_speakup\tts;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class generate_audio_prompt extends \core\task\adhoc_task {
-
     #[\Override]
     public function get_name() {
         return get_string('taskgenerateaudioprompt', 'qtype_speakup');
@@ -135,8 +134,14 @@ class generate_audio_prompt extends \core\task\adhoc_task {
         }
         $voice = tts::choose_voice($options->audiopromptvoice ?? '', $options->sttlanguage ?? '');
         try {
-            [$audio, $extension, $mimetype] = tts::generate(ai_provider::get_tts_providerid(), $contextid,
-                    $userid, $transcript, $voice, (string) ($options->sttlanguage ?? ''));
+            [$audio, $extension, $mimetype] = tts::generate(
+                ai_provider::get_tts_providerid(),
+                $contextid,
+                $userid,
+                $transcript,
+                $voice,
+                (string) ($options->sttlanguage ?? '')
+            );
         } catch (\Throwable $e) {
             $reason = task_failure::describe($e);
             if (task_failure::retry($e, $this)) {

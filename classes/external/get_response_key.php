@@ -33,7 +33,6 @@ use qtype_speakup\mobile_support;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_response_key extends external_api {
-
     /**
      * Describe the parameters.
      *
@@ -55,8 +54,10 @@ class get_response_key extends external_api {
      */
     public static function execute(int $usage, int $slot): array {
         global $USER;
-        ['usage' => $usage, 'slot' => $slot] = self::validate_parameters(self::execute_parameters(),
-                ['usage' => $usage, 'slot' => $slot]);
+        ['usage' => $usage, 'slot' => $slot] = self::validate_parameters(
+            self::execute_parameters(),
+            ['usage' => $usage, 'slot' => $slot]
+        );
 
         [, $context] = mobile_support::get_question_attempt($usage, $slot);
         self::validate_context($context);

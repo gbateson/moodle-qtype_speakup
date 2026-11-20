@@ -32,7 +32,6 @@ use qtype_speakup\file_reducer;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class reduce_response_files extends \core\task\adhoc_task {
-
     #[\Override]
     public function get_name() {
         return get_string('taskreduceresponsefiles', 'qtype_speakup');

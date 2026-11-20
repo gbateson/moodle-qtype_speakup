@@ -52,8 +52,14 @@ class ai_caller {
      * @return array [float $fraction 0..1, string $feedback]
      * @throws \moodle_exception
      */
-    public static function assess(int $providerid, int $contextid, int $userid, string $rubric,
-            string $transcript, array $files = []): array {
+    public static function assess(
+        int $providerid,
+        int $contextid,
+        int $userid,
+        string $rubric,
+        string $transcript,
+        array $files = []
+    ): array {
         $fullrubric = self::build_rubric_with_instructions($rubric);
         $prompt = $fullrubric;
         if (trim($transcript) !== '') {
@@ -83,8 +89,14 @@ class ai_caller {
      * @return string the transcript.
      * @throws \moodle_exception
      */
-    public static function transcribe(int $providerid, int $contextid, int $userid, array $files,
-            string $language, bool $isimage = false): string {
+    public static function transcribe(
+        int $providerid,
+        int $contextid,
+        int $userid,
+        array $files,
+        string $language,
+        bool $isimage = false
+    ): string {
         if (empty($files)) {
             throw new \moodle_exception('errornotranscript', 'qtype_speakup');
         }

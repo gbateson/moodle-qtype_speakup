@@ -32,7 +32,6 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  * @covers    \qtype_speakup\tts
  */
 final class tts_test extends \advanced_testcase {
-
     /** @var string the start of an MP3 file. */
     const MP3 = "ID3\x04\x00\x00\x00\x00\x00\x00audio";
 
@@ -80,8 +79,10 @@ final class tts_test extends \advanced_testcase {
         $this->assertSame(self::MP3, $audio);
         $this->assertSame('mp3', $extension);
         $this->assertSame('audio/mpeg', $mimetype);
-        $this->assertEquals(1, $GLOBALS['DB']->count_records('tool_aibridge_log',
-                ['component' => 'qtype_speakup', 'purpose' => 'audioprompt']));
+        $this->assertEquals(1, $GLOBALS['DB']->count_records(
+            'tool_aibridge_log',
+            ['component' => 'qtype_speakup', 'purpose' => 'audioprompt']
+        ));
     }
 
     /**

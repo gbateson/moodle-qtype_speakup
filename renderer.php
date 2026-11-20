@@ -38,8 +38,15 @@ use qtype_speakup\output\audio_recorder;
 use qtype_speakup\output\video_playback;
 use qtype_speakup\output\video_recorder;
 
+/**
+ * Renders SpeakUp questions: the prompt, the recorder or upload widget, and the feedback.
+ *
+ * @package   qtype_speakup
+ * @copyright 2019 The Open University (original qtype_recordrtc implementation)
+ * @copyright 2026 Gordon Bateson and contributors (qtype_speakup adaptation)
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class qtype_speakup_renderer extends qtype_renderer {
-
     /** @var int|null the draft file area for the response, if given (see mobile_response()). */
     protected $responsedraftitemid = null;
 
@@ -63,8 +70,11 @@ class qtype_speakup_renderer extends qtype_renderer {
         $returnurl = $this->page->has_set_url() ? $this->page->url : null;
         $url = \tool_aibridge\policy::get_url($options->context, $returnurl);
         $link = html_writer::link($url, get_string('aipolicylink', 'qtype_speakup'));
-        return $this->output->notification(get_string('aipolicynotice', 'qtype_speakup', $link),
-                \core\output\notification::NOTIFY_WARNING, false);
+        return $this->output->notification(
+            get_string('aipolicynotice', 'qtype_speakup', $link),
+            \core\output\notification::NOTIFY_WARNING,
+            false
+        );
     }
 
     /**
@@ -88,8 +98,11 @@ class qtype_speakup_renderer extends qtype_renderer {
             $this->responsedraftitemid = null;
             $this->hidequestiontext = false;
         }
-        return html_writer::div(html_writer::div($html, 'formulation clearfix'), 'que speakup',
-                ['id' => $qa->get_outer_question_div_unique_id()]);
+        return html_writer::div(
+            html_writer::div($html, 'formulation clearfix'),
+            'que speakup',
+            ['id' => $qa->get_outer_question_div_unique_id()]
+        );
     }
 
     #[\Override]
@@ -140,12 +153,21 @@ class qtype_speakup_renderer extends qtype_renderer {
         }
 
         if ($qa->get_state() == question_state::$invalid) {
-            $output .= html_writer::nonempty_tag('div',
-                    $question->get_validation_error($qa->get_last_qt_data()), ['class' => 'validationerror']);
+            $output .= html_writer::nonempty_tag(
+                'div',
+                $question->get_validation_error($qa->get_last_qt_data()),
+                ['class' => 'validationerror']
+            );
         }
 
-        $questiontext = $question->format_text($question->questiontext, $question->questiontextformat,
-                $qa, 'question', 'questiontext', $question->id);
+        $questiontext = $question->format_text(
+            $question->questiontext,
+            $question->questiontextformat,
+            $qa,
+            'question',
+            'questiontext',
+            $question->id
+        );
         if (!$this->hidequestiontext) {
             $output .= html_writer::tag('div', $questiontext, ['class' => 'qtext']);
         }
@@ -207,14 +229,24 @@ class qtype_speakup_renderer extends qtype_renderer {
             }
 
             if ($transcript !== '' && $this->can_show((int) $question->showtranscript, $options)) {
-                $output .= html_writer::tag('div',
-                        html_writer::tag('strong', $transcriptlabel . ': ') . s($transcript),
-                        ['class' => 'qtype_speakup-transcript']);
+                $output .= html_writer::tag(
+                    'div',
+                    html_writer::tag('strong', $transcriptlabel . ': ') . s($transcript),
+                    ['class' => 'qtype_speakup-transcript']
+                );
             }
 
             if ($question->is_automated() && !$question->is_graded_later()) {
                 // Graded straight away, from the live transcript.
-                $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, null, $qa);
+                $output .= $this->grading_details(
+                    $question,
+                    $options,
+                    $transcript,
+                    $isaitranscript,
+                    $duration,
+                    null,
+                    $qa
+                );
             } else if ($question->is_graded_later()) {
                 // Grading happens later, in an adhoc task. Until it is
                 // done, say so, rather than silently showing no grade.
@@ -222,7 +254,15 @@ class qtype_speakup_renderer extends qtype_renderer {
                 // is saved as the grading comment, which Moodle shows itself.
                 if ($airesponse && $airesponse->aistatus === 'done') {
                     $aifraction = ($question->uses_ai() && $airesponse->aiscore !== null) ? (float) $airesponse->aiscore : null;
-                    $output .= $this->grading_details($question, $options, $transcript, $isaitranscript, $duration, $aifraction, $qa);
+                    $output .= $this->grading_details(
+                        $question,
+                        $options,
+                        $transcript,
+                        $isaitranscript,
+                        $duration,
+                        $aifraction,
+                        $qa
+                    );
                 } else if ($airesponse && $airesponse->aistatus === 'failed') {
                     // Teachers see why; students see that a teacher will grade it.
                     if ($this->can_see_errors($options) && !empty($airesponse->aierror)) {
@@ -243,21 +283,26 @@ class qtype_speakup_renderer extends qtype_renderer {
                         // background grading, so queue them here instead.
                         \qtype_speakup\ai_queue::queue_preview($qa);
                     }
-                    $output .= html_writer::tag('div', get_string('aiassessmentpending', 'qtype_speakup'),
-                            ['class' => 'qtype_speakup-ai-feedback text-muted']);
+                    $output .= html_writer::tag(
+                        'div',
+                        get_string('aiassessmentpending', 'qtype_speakup'),
+                        ['class' => 'qtype_speakup-ai-feedback text-muted']
+                    );
                     if ($airesponse && !empty($airesponse->aierror) && $this->can_see_errors($options)) {
                         // An earlier try failed, and it will be tried again.
-                        $output .= html_writer::tag('div',
-                                get_string('aiassessmentretrying', 'qtype_speakup', s($airesponse->aierror)),
-                                ['class' => 'qtype_speakup-ai-error text-warning']);
+                        $output .= html_writer::tag(
+                            'div',
+                            get_string('aiassessmentretrying', 'qtype_speakup', s($airesponse->aierror)),
+                            ['class' => 'qtype_speakup-ai-error text-warning']
+                        );
                     }
                 }
             }
-
         } else {
             // Being attempted.
             $repositories = repository::get_instances(
-                    ['type' => 'upload', 'currentcontext' => $options->context]);
+                ['type' => 'upload', 'currentcontext' => $options->context]
+            );
             if (empty($repositories)) {
                 throw new moodle_exception('errornouploadrepo', 'moodle');
             }
@@ -270,20 +315,40 @@ class qtype_speakup_renderer extends qtype_renderer {
 
             if ($question->is_upload()) {
                 // File upload widget, instead of the recorder.
-                $output .= $this->upload_widget($qa, $question, $options, $existingfile,
-                        $draftitemid, (int) $uploadrepository->id, $candownload);
-                $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'addPlaybackErrorHandlingToVideoElements',
-                        [$qa->get_outer_question_div_unique_id()]);
+                $output .= $this->upload_widget(
+                    $qa,
+                    $question,
+                    $options,
+                    $existingfile,
+                    $draftitemid,
+                    (int) $uploadrepository->id,
+                    $candownload
+                );
+                $this->page->requires->js_call_amd(
+                    'qtype_speakup/avrecording',
+                    'addPlaybackErrorHandlingToVideoElements',
+                    [$qa->get_outer_question_div_unique_id()]
+                );
                 return $output;
             }
 
             // Active recorder widget.
             $recordingurl = $existingfile ? moodle_url::make_draftfile_url($draftitemid, '/', $filename) : null;
             $widget = ($question->mediatype === SPEAKUP_MEDIA_VIDEO)
-                    ? new video_recorder($filename, $question->timelimitinseconds,
-                            (bool) $question->allowpause, $recordingurl, $candownload)
-                    : new audio_recorder($filename, $question->timelimitinseconds,
-                            (bool) $question->allowpause, $recordingurl, $candownload);
+                    ? new video_recorder(
+                        $filename,
+                        $question->timelimitinseconds,
+                        (bool) $question->allowpause,
+                        $recordingurl,
+                        $candownload
+                    )
+                    : new audio_recorder(
+                        $filename,
+                        $question->timelimitinseconds,
+                        (bool) $question->allowpause,
+                        $recordingurl,
+                        $candownload
+                    );
             $output .= $this->render($widget);
 
             if ($question->is_automated() && !$question->is_upload()) {
@@ -317,8 +382,11 @@ class qtype_speakup_renderer extends qtype_renderer {
                 'silenceStop' => (int) $question->silencestop,
             ];
             $this->page->requires->strings_for_js($this->strings_for_js(), 'qtype_speakup');
-            $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'init',
-                    [$qa->get_outer_question_div_unique_id(), $settings]);
+            $this->page->requires->js_call_amd(
+                'qtype_speakup/avrecording',
+                'init',
+                [$qa->get_outer_question_div_unique_id(), $settings]
+            );
 
             // Live client-side transcription (browser speech recognition),
             // for automated grading of live recordings. It is always safe
@@ -327,13 +395,19 @@ class qtype_speakup_renderer extends qtype_renderer {
             // 'browsertranscript' field empty and the recording/upload
             // path completely unaffected.
             if ($question->is_automated() && !$question->is_upload()) {
-                $this->page->requires->js_call_amd('qtype_speakup/speechrecognition', 'init',
-                        [$qa->get_outer_question_div_unique_id(), $question->sttlanguage]);
+                $this->page->requires->js_call_amd(
+                    'qtype_speakup/speechrecognition',
+                    'init',
+                    [$qa->get_outer_question_div_unique_id(), $question->sttlanguage]
+                );
             }
         }
 
-        $this->page->requires->js_call_amd('qtype_speakup/avrecording', 'addPlaybackErrorHandlingToVideoElements',
-                [$qa->get_outer_question_div_unique_id()]);
+        $this->page->requires->js_call_amd(
+            'qtype_speakup/avrecording',
+            'addPlaybackErrorHandlingToVideoElements',
+            [$qa->get_outer_question_div_unique_id()]
+        );
 
         return $output;
     }
@@ -349,26 +423,41 @@ class qtype_speakup_renderer extends qtype_renderer {
     protected function audio_prompt(question_attempt $qa, question_display_options $options): string {
         /** @var qtype_speakup_question $question */
         $question = $qa->get_question();
-        $files = get_file_storage()->get_area_files($question->contextid, 'qtype_speakup', 'audioprompt',
-                $question->id, 'filename', false);
+        $files = get_file_storage()->get_area_files(
+            $question->contextid,
+            'qtype_speakup',
+            'audioprompt',
+            $question->id,
+            'filename',
+            false
+        );
         $file = reset($files);
         if (!$file) {
             // The audio prompt may still be being generated from its transcript.
-            if (trim((string) $question->audioprompttranscript) !== ''
-                    && \qtype_speakup\task\generate_audio_prompt::is_pending($question->id)) {
-                return html_writer::div(get_string('audiopromptnotready', 'qtype_speakup'),
-                        'qtype_speakup-audio-prompt alert alert-info my-2');
+            if (
+                trim((string) $question->audioprompttranscript) !== ''
+                    && \qtype_speakup\task\generate_audio_prompt::is_pending($question->id)
+            ) {
+                return html_writer::div(
+                    get_string('audiopromptnotready', 'qtype_speakup'),
+                    'qtype_speakup-audio-prompt alert alert-info my-2'
+                );
             }
             return '';
         }
         // A question file URL, served by question_pluginfile() (see lib.php),
         // which checks access with qtype_speakup_question::check_file_access().
-        $url = $qa->rewrite_pluginfile_urls('@@PLUGINFILE@@/' . rawurlencode($file->get_filename()),
-                'qtype_speakup', 'audioprompt', $question->id);
+        $url = $qa->rewrite_pluginfile_urls(
+            '@@PLUGINFILE@@/' . rawurlencode($file->get_filename()),
+            'qtype_speakup',
+            'audioprompt',
+            $question->id
+        );
         return html_writer::div(
-                html_writer::tag('audio', '', ['controls' => 'controls', 'src' => $url, 'class' => 'w-100']) .
+            html_writer::tag('audio', '', ['controls' => 'controls', 'src' => $url, 'class' => 'w-100']) .
                 $this->prompt_transcript($qa, $options),
-                'qtype_speakup-audio-prompt my-2');
+            'qtype_speakup-audio-prompt my-2'
+        );
     }
 
     /**
@@ -414,8 +503,11 @@ class qtype_speakup_renderer extends qtype_renderer {
             $notes[] = get_string('maxresponsesnote', $plugin, $maxresponses);
         }
         $output .= html_writer::div(implode(' ', $notes), 'qtype_speakup-prompt-notes small text-muted mb-1');
-        $output .= html_writer::div('', 'qtype_speakup-prompt-message small text-warning mb-1 hide',
-                ['role' => 'status', 'aria-live' => 'polite']);
+        $output .= html_writer::div(
+            '',
+            'qtype_speakup-prompt-message small text-warning mb-1 hide',
+            ['role' => 'status', 'aria-live' => 'polite']
+        );
 
         $this->page->requires->strings_for_js(['listenfirst', 'playprompt', 'playpromptagain', 'promptplaying',
                 'promptplaysused', 'responsesused'], $plugin);
@@ -456,8 +548,9 @@ class qtype_speakup_renderer extends qtype_renderer {
 
         if ($display === SPEAKUP_PROMPTTRANSCRIPT_EXPANDED) {
             return html_writer::div(
-                    html_writer::tag('strong', get_string('transcript', $plugin)) . $text,
-                    'qtype_speakup-prompt-transcript mt-1');
+                html_writer::tag('strong', get_string('transcript', $plugin)) . $text,
+                'qtype_speakup-prompt-transcript mt-1'
+            );
         }
 
         $summary = get_string('showtranscript', $plugin);
@@ -477,14 +570,21 @@ class qtype_speakup_renderer extends qtype_renderer {
                     'value' => $viewed ? 1 : 0]);
             // Before showing it the first time, students the penalty applies
             // to are asked to confirm (see amd/src/prompttranscript.js).
-            $this->page->requires->strings_for_js(['confirmtranscript', 'confirmtranscripttitle', 'showtranscript'],
-                    $plugin);
-            $this->page->requires->js_call_amd('qtype_speakup/prompttranscript', 'init',
-                    [$qa->get_outer_question_div_unique_id(), $viewed ? 0 : $penalty]);
+            $this->page->requires->strings_for_js(
+                ['confirmtranscript', 'confirmtranscripttitle', 'showtranscript'],
+                $plugin
+            );
+            $this->page->requires->js_call_amd(
+                'qtype_speakup/prompttranscript',
+                'init',
+                [$qa->get_outer_question_div_unique_id(), $viewed ? 0 : $penalty]
+            );
         }
-        $output .= html_writer::tag('details',
-                html_writer::tag('summary', $summary) . $text,
-                ['class' => 'qtype_speakup-prompt-transcript mt-1']);
+        $output .= html_writer::tag(
+            'details',
+            html_writer::tag('summary', $summary) . $text,
+            ['class' => 'qtype_speakup-prompt-transcript mt-1']
+        );
         return $output;
     }
 
@@ -501,9 +601,15 @@ class qtype_speakup_renderer extends qtype_renderer {
      * @param bool $candownload whether the current user may download the file.
      * @return string HTML
      */
-    protected function upload_widget(question_attempt $qa, qtype_speakup_question $question,
-            question_display_options $options, ?stored_file $existingfile, int $draftitemid,
-            int $repositoryid, bool $candownload): string {
+    protected function upload_widget(
+        question_attempt $qa,
+        qtype_speakup_question $question,
+        question_display_options $options,
+        ?stored_file $existingfile,
+        int $draftitemid,
+        int $repositoryid,
+        bool $candownload
+    ): string {
         // Accept any file that Moodle recognises as audio or video,
         // whatever the question's media type: some students prefer not
         // to upload video.
@@ -515,8 +621,12 @@ class qtype_speakup_renderer extends qtype_renderer {
             $fileurl = moodle_url::make_draftfile_url($draftitemid, '/', $existingfile->get_filename())->out(false);
             $mimetype = $existingfile->get_mimetype();
         }
-        $widget = new \qtype_speakup\output\file_uploader($fileurl, $mimetype,
-                implode(',', array_merge(['audio/*', 'video/*'], $extensions)), $candownload);
+        $widget = new \qtype_speakup\output\file_uploader(
+            $fileurl,
+            $mimetype,
+            implode(',', array_merge(['audio/*', 'video/*'], $extensions)),
+            $candownload
+        );
 
         $settings = [
             'uploadRepositoryId' => $repositoryid,
@@ -531,8 +641,11 @@ class qtype_speakup_renderer extends qtype_renderer {
             'fileuploaded', 'uploaddifferentfile', 'uploadfailed', 'uploadprogress',
             'uploadtoobigmedia', 'uploadtoolong', 'uploadwait', 'uploadwrongtype',
         ], 'qtype_speakup');
-        $this->page->requires->js_call_amd('qtype_speakup/fileupload', 'init',
-                [$qa->get_outer_question_div_unique_id(), $settings]);
+        $this->page->requires->js_call_amd(
+            'qtype_speakup/fileupload',
+            'init',
+            [$qa->get_outer_question_div_unique_id(), $settings]
+        );
 
         return $this->render($widget);
     }
@@ -547,8 +660,13 @@ class qtype_speakup_renderer extends qtype_renderer {
      * @param int $repositoryid id of the "upload" repository.
      * @return string HTML
      */
-    protected function image_widget(question_attempt $qa, qtype_speakup_question $question,
-            question_display_options $options, int $draftitemid, int $repositoryid): string {
+    protected function image_widget(
+        question_attempt $qa,
+        qtype_speakup_question $question,
+        question_display_options $options,
+        int $draftitemid,
+        int $repositoryid
+    ): string {
         // Any image that Moodle recognises, or a PDF.
         $extensions = array_values(array_unique(array_merge(file_get_typegroup('extension', ['image']), ['.pdf'])));
         $maxfiles = $question->get_max_files();
@@ -565,11 +683,16 @@ class qtype_speakup_renderer extends qtype_renderer {
             'removepagex', 'rotateleft', 'rotateleftx', 'rotateright', 'rotaterightx', 'toomanyfiles', 'uploadanotherimage',
             'uploadfailed', 'uploadimage', 'uploadprogress', 'uploadtoobigpdf', 'uploadwait', 'uploadwrongtypeimage',
         ], 'qtype_speakup');
-        $this->page->requires->js_call_amd('qtype_speakup/imageupload', 'init',
-                [$qa->get_outer_question_div_unique_id(), $settings]);
+        $this->page->requires->js_call_amd(
+            'qtype_speakup/imageupload',
+            'init',
+            [$qa->get_outer_question_div_unique_id(), $settings]
+        );
 
-        $notes = ($maxfiles > 1) ? html_writer::div(get_string('maxfilesnote', 'qtype_speakup', $maxfiles),
-                'qtype_speakup-image-notes small text-muted mb-1') : '';
+        $notes = ($maxfiles > 1) ? html_writer::div(
+            get_string('maxfilesnote', 'qtype_speakup', $maxfiles),
+            'qtype_speakup-image-notes small text-muted mb-1'
+        ) : '';
         return $notes . $this->render_from_template('qtype_speakup/image_uploader', [
             'accept' => implode(',', array_merge(['image/*', 'application/pdf'], $extensions)),
             'multiple' => $maxfiles > 1,
@@ -594,17 +717,29 @@ class qtype_speakup_renderer extends qtype_renderer {
             $label = get_string('pagex', 'qtype_speakup', $number);
             $url = $qa->get_response_file_url($file);
             if ($file->get_mimetype() === 'application/pdf') {
-                $content = html_writer::link($url, s(preg_replace('/^\d+-/', '', $file->get_filename())),
-                        ['class' => 'qtype_speakup-image-pdf d-block py-3', 'target' => '_blank', 'rel' => 'noopener']);
+                $content = html_writer::link(
+                    $url,
+                    s(preg_replace('/^\d+-/', '', $file->get_filename())),
+                    ['class' => 'qtype_speakup-image-pdf d-block py-3', 'target' => '_blank', 'rel' => 'noopener']
+                );
             } else {
-                $content = html_writer::link($url, html_writer::empty_tag('img',
-                        ['src' => $url, 'alt' => $label, 'class' => 'qtype_speakup-image-thumb']),
-                        ['target' => '_blank', 'rel' => 'noopener']);
+                $content = html_writer::link(
+                    $url,
+                    html_writer::empty_tag(
+                        'img',
+                        ['src' => $url, 'alt' => $label, 'class' => 'qtype_speakup-image-thumb']
+                    ),
+                    ['target' => '_blank', 'rel' => 'noopener']
+                );
             }
-            $items .= html_writer::tag('li', html_writer::div($label, 'small fw-bold') . $content,
-                    ['class' => 'qtype_speakup-image-item card p-1 me-2 mb-2 text-center']);
+            $items .= html_writer::tag(
+                'li',
+                html_writer::div($label, 'small fw-bold') . $content,
+                ['class' => 'qtype_speakup-image-item card p-1 me-2 mb-2 text-center']
+            );
         }
-        return html_writer::tag('ol', $items, ['class' => 'qtype_speakup-image-list qtype_speakup-image-pages list-unstyled d-flex flex-wrap my-1']);
+        $class = 'qtype_speakup-image-list qtype_speakup-image-pages list-unstyled d-flex flex-wrap my-1';
+        return html_writer::tag('ol', $items, ['class' => $class]);
     }
 
     /**
@@ -625,8 +760,10 @@ class qtype_speakup_renderer extends qtype_renderer {
     public function manual_comment(question_attempt $qa, question_display_options $options) {
         /** @var qtype_speakup_question $question */
         $question = $qa->get_question();
-        if ($question->is_automated() && $options->manualcomment == question_display_options::VISIBLE
-                && !$this->can_show((int) $question->showcomment, $options)) {
+        if (
+            $question->is_automated() && $options->manualcomment == question_display_options::VISIBLE
+                && !$this->can_show((int) $question->showcomment, $options)
+        ) {
             $options->manualcomment = question_display_options::HIDDEN;
         }
         return parent::manual_comment($qa, $options);
@@ -684,9 +821,15 @@ class qtype_speakup_renderer extends qtype_renderer {
      *      audio prompt transcript was shown.
      * @return string HTML
      */
-    protected function grading_details(qtype_speakup_question $question, question_display_options $options,
-            string $transcript, bool $isaitranscript, ?float $duration, ?float $aifraction,
-            question_attempt $qa): string {
+    protected function grading_details(
+        qtype_speakup_question $question,
+        question_display_options $options,
+        string $transcript,
+        bool $isaitranscript,
+        ?float $duration,
+        ?float $aifraction,
+        question_attempt $qa
+    ): string {
         $plugin = 'qtype_speakup';
         $output = '';
 
@@ -694,7 +837,9 @@ class qtype_speakup_renderer extends qtype_renderer {
         // the penalty for that apply to them?
         $viewed = !empty($qa->get_last_qt_var('prompttranscriptviewed'));
         $exempt = $viewed && qtype_speakup_question::is_exempt_from_transcript_penalty(
-                (int) $qa->get_step(0)->get_user_id(), $options->context);
+            (int) $qa->get_step(0)->get_user_id(),
+            $options->context
+        );
         $penalty = $question->transcript_penalty_applies($viewed, $exempt);
 
         $phrases = $question->phrase_results($transcript);
@@ -768,8 +913,10 @@ class qtype_speakup_renderer extends qtype_renderer {
 
         // Teachers see whether the student showed the transcript.
         if ($viewed && $this->can_show(SPEAKUP_SHOW_TEACHERS_ONLY, $options)) {
-            $output .= html_writer::div(get_string($exempt ? 'transcriptviewedexempt' : 'transcriptviewed', $plugin),
-                    'qtype_speakup-transcript-viewed small text-muted mt-1');
+            $output .= html_writer::div(
+                get_string($exempt ? 'transcriptviewedexempt' : 'transcriptviewed', $plugin),
+                'qtype_speakup-transcript-viewed small text-muted mt-1'
+            );
         }
 
         return $output;
@@ -820,9 +967,10 @@ class qtype_speakup_renderer extends qtype_renderer {
      */
     protected function details_section(string $heading, array $list, string $class): string {
         return html_writer::div(
-                html_writer::tag('h5', $heading, ['class' => 'mt-2 mb-1']) .
+            html_writer::tag('h5', $heading, ['class' => 'mt-2 mb-1']) .
                 html_writer::alist($list, ['class' => 'mb-1']),
-                'qtype_speakup-grading-details ' . $class);
+            'qtype_speakup-grading-details ' . $class
+        );
     }
 
     /**

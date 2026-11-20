@@ -35,7 +35,6 @@ use qtype_speakup\task\reduce_response_files;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class task_cleanup {
-
     /**
      * Remove the tasks that assess the responses in a question usage, or make their files smaller.
      *
@@ -43,7 +42,7 @@ class task_cleanup {
      * @return int how many tasks were removed.
      */
     public static function remove_assessments(int $usageid): int {
-        $match = function(\stdClass $data) use ($usageid): bool {
+        $match = function (\stdClass $data) use ($usageid): bool {
             return (int) ($data->usageid ?? 0) === $usageid;
         };
         return self::remove(assess_response::class, $match) + self::remove(reduce_response_files::class, $match);
@@ -56,7 +55,7 @@ class task_cleanup {
      * @return int how many tasks were removed.
      */
     public static function remove_audio_prompts(int $questionid): int {
-        return self::remove(generate_audio_prompt::class, function(\stdClass $data) use ($questionid): bool {
+        return self::remove(generate_audio_prompt::class, function (\stdClass $data) use ($questionid): bool {
             return (int) ($data->questionid ?? 0) === $questionid;
         });
     }
@@ -97,11 +96,11 @@ class task_cleanup {
      */
     public static function remove_orphans(): int {
         global $DB;
-        $nousage = function(\stdClass $data): bool {
+        $nousage = function (\stdClass $data): bool {
             return !self::response_exists((int) ($data->usageid ?? 0), (int) ($data->slot ?? 0));
         };
         $count = self::remove(assess_response::class, $nousage) + self::remove(reduce_response_files::class, $nousage);
-        $count += self::remove(generate_audio_prompt::class, function(\stdClass $data) use ($DB): bool {
+        $count += self::remove(generate_audio_prompt::class, function (\stdClass $data) use ($DB): bool {
             return !$DB->record_exists('question', ['id' => (int) ($data->questionid ?? 0)]);
         });
         return $count;
