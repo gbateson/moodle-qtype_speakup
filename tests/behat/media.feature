@@ -1,4 +1,4 @@
-@qtype @qtype_speakup @javascript
+@qtype @qtype_speakup @qtype_speakup_media @javascript
 Feature: Audio prompts and recording in SpeakUp questions
   As a teacher
   In order to make sure students can respond to audio prompts

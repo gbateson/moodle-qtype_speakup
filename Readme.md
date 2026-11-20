@@ -352,6 +352,12 @@ should be "recording"" are in `tests/behat/behat_qtype_speakup.php`.
     php admin/tool/behat/cli/init.php
     vendor/bin/behat --config <behat_dataroot>/behatrun/behat/behat.yml --tags=@qtype_speakup
 
+GitHub Actions (`.github/workflows/ci.yml`) runs moodle-plugin-ci on Moodle
+4.5 (MySQL and PostgreSQL) and 5.0 (PostgreSQL). It leaves out
+`media.feature`, which is tagged `@qtype_speakup_media`, because it needs the
+fake microphone and sound server described above; run it locally. CI also
+runs Grunt, which fails if `amd/build` does not match `amd/src`.
+
 ## Roadmap
 
 1. Port recordrtc's `avrecording.js` + templates for the single-response case.
@@ -372,21 +378,14 @@ Then run Moodle's upgrade process (Site administration > Notifications).
 
 ## Building the JavaScript
 
-`amd/src/avrecording.js` is plain ES6 (import/export). Moodle does not
-transpile this on the fly - it expects a pre-built AMD `define()`-wrapped
-bundle checked into `amd/build/`. If you edit `amd/src/avrecording.js`,
-rebuild it with:
+The JavaScript in `amd/src/` is built into `amd/build/` with Moodle's own
+Grunt. Moodle loads the files in `amd/build/`, so commit them with any change
+to `amd/src/`. From the plugin folder, in a Moodle checkout where `npm
+install` has been run:
 
-    npm install
-    npm run build
+    npx grunt amd
 
-This regenerates `amd/build/avrecording.min.js` (+ sourcemap) via Rollup
-(see `rollup.config.mjs`). This is a lightweight standalone build step, not
-Moodle core's own Grunt/`.min.js` pipeline - it produces an equivalent
-output without requiring a full Moodle git checkout with Grunt set up, but
-if your team later adopts Moodle's own `grunt amd` workflow instead, that
-works too; just make sure `amd/build/avrecording.min.js` stays committed
-either way, since that is what Moodle actually loads at runtime.
+This also checks the code with ESLint.
 
 ## Authors
 

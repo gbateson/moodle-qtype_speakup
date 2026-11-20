@@ -143,7 +143,7 @@ const handleClick = (e) => {
     }
     if (target.tagName === 'A') {
         const href = target.getAttribute('href');
-        if (href.startsWith('#') || href.startsWith('javascript:') || target.target === '_blank') {
+        if (href.startsWith('#') || /^javascript:/i.test(href) || target.target === '_blank') {
             return;
         }
     }

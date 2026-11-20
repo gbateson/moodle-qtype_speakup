@@ -196,6 +196,9 @@ export const init = (questionId, settings) => {
             });
     }
 
+    /**
+     * Stop the prompt being played again, once all its plays are used.
+     */
     function lockPrompt() {
         prompt.controls = false;
         prompt.classList.add('qtype_speakup-prompt-locked');
@@ -288,6 +291,9 @@ export const init = (questionId, settings) => {
         }
     }
 
+    /**
+     * Hide the message under the prompt.
+     */
     function hideMessage() {
         if (message) {
             message.textContent = '';
