@@ -57,7 +57,6 @@ class qtype_speakup_test_helper extends question_test_helper {
             'gradingmethod' => SPEAKUP_GRADING_AUTO,
             'sttlanguage' => 'en-US',
             'responsepause' => 0,
-            'feedbackmode' => SPEAKUP_FEEDBACK_FORMATIVE,
             'airubric' => '',
             'aiproviderid' => null,
             'aiassessment' => 0,

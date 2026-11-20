@@ -133,8 +133,6 @@ class qtype_speakup_question extends question_graded_automatically {
     /** @var bool whether the student may pause/resume mid-recording. */
     public $responsepause;
 
-    /** @var string one of SPEAKUP_FEEDBACK_FORMATIVE / SPEAKUP_FEEDBACK_SUMMATIVE. */
-    public $feedbackmode;
 
     /** @var string instructions sent to the AI assessment engine, if used. */
     public $airubric;

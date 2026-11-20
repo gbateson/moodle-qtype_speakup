@@ -39,11 +39,6 @@ define('SPEAKUP_GRADING_AUTO', 'auto');
 /** No automatic grading; a teacher must grade manually. */
 define('SPEAKUP_GRADING_MANUAL', 'manual');
 
-/** Feedback is for the student's own improvement, not necessarily graded. */
-define('SPEAKUP_FEEDBACK_FORMATIVE', 'formative');
-/** Feedback accompanies a final grade. */
-define('SPEAKUP_FEEDBACK_SUMMATIVE', 'summative');
-
 /** Show this grading detail to nobody. (Values as in qtype_essayautograde.) */
 define('SPEAKUP_SHOW_NONE', 0);
 /** Show this grading detail to students only. */
@@ -117,7 +112,6 @@ class qtype_speakup extends question_type {
             'maxfiles',
             'sttlanguage',
             'gradingmethod',
-            'feedbackmode',
             'aiassessment',
             'aiweighting',
             'airubric',
@@ -472,7 +466,6 @@ class qtype_speakup extends question_type {
             'LANG' => 'sttlanguage',
             'PAUSE' => 'responsepause',
             'GRADING' => 'gradingmethod',
-            'FEEDBACK' => 'feedbackmode',
             'RUBRIC' => 'airubric',
             'AIPROVIDER' => 'aiprovider',
             'PROVIDER' => 'aiprovider',
@@ -639,7 +632,6 @@ class qtype_speakup extends question_type {
             'PROMPTTRANSCRIPT' => $transcriptwords[(int) $o->prompttranscriptdisplay] ?? 'collapsed',
             'PROMPTTRANSCRIPTPENALTY' => (int) $o->prompttranscriptpenalty . '%',
             'GRADING' => $o->gradingmethod,
-            'FEEDBACK' => $o->feedbackmode,
         ];
         if ($o->mediatype === SPEAKUP_MEDIA_IMAGE) {
             // Images are always uploaded, and have no length.
@@ -841,8 +833,6 @@ class qtype_speakup extends question_type {
                     SPEAKUP_RESPONSE_UPLOAD => SPEAKUP_RESPONSE_UPLOAD],
             'gradingmethod' => [SPEAKUP_GRADING_AUTO => SPEAKUP_GRADING_AUTO, 'automatic' => SPEAKUP_GRADING_AUTO,
                     'automated' => SPEAKUP_GRADING_AUTO, SPEAKUP_GRADING_MANUAL => SPEAKUP_GRADING_MANUAL],
-            'feedbackmode' => [SPEAKUP_FEEDBACK_FORMATIVE => SPEAKUP_FEEDBACK_FORMATIVE,
-                    SPEAKUP_FEEDBACK_SUMMATIVE => SPEAKUP_FEEDBACK_SUMMATIVE],
             'prompttranscriptdisplay' => self::get_gift_transcript_words(),
         ];
         foreach (self::get_gift_show_fields() as $showfield) {

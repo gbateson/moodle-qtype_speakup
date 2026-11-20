@@ -39,7 +39,6 @@
             COMMENT="BCP-47 language tag used for live browser speech recognition, e.g. en-US, ja-JP"/>
         <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
             COMMENT="auto (automated) or manual - see SPEAKUP_GRADING_* constants"/>
-        <FIELD NAME="feedbackmode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="formative" SEQUENCE="false"/>
         <FIELD NAME="aiassessment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="For automated grading: whether the response is also assessed by AI."/>
         <FIELD NAME="aiweighting" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="100" SEQUENCE="false"

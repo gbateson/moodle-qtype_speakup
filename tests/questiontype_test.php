@@ -40,7 +40,7 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
 final class questiontype_test extends \advanced_testcase {
     /** @var array the settings compared after import. */
     const FIELDS = ['timelimitinseconds', 'mediatype', 'responsemethod', 'gradingmethod', 'sttlanguage', 'responsepause',
-            'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
+            'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
             'showitems', 'showcomment', 'showtranscript', 'showstats', 'statstypes', 'prompttranscript',
             'promptvoice', 'prompttranscriptdisplay', 'prompttranscriptpenalty', 'autorecord', 'maxpromptplays',
             'maxresponses', 'silencestop', 'maxfiles', 'aiaudioonly', 'promptpause'];

@@ -7,8 +7,6 @@ written or audio prompt. Responses can be graded by:
 - **AI holistic assessment** - transcript (and/or audio) sent to an AI engine with a rubric.
 - **Manual only** - teacher listens and grades by hand.
 
-Feedback can be **formative** (practice, no stakes) or **summative** (contributes to a grade).
-
 ## Status
 
 Early development / alpha. Not yet installable end-to-end - see Roadmap below.
@@ -202,7 +200,6 @@ that are left out get their usual defaults.
     PROMPTTRANSCRIPT=collapsed
     PROMPTTRANSCRIPTPENALTY=30%
     GRADING=auto
-    FEEDBACK=formative
     AI=Gemini, 100%
     RUBRIC=Score the answer out of 100.\nThen give two suggestions.
     TARGETITEM=(words, 50, 40%, x1)

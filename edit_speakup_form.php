@@ -56,7 +56,15 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->getElement('idnumber')->setLabel(get_string('questionidnumber', $plugin));
         }
 
+        $name = 'promptheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->setExpanded($name, true);
+
         $this->add_audio_prompt($mform, $plugin);
+
+        $name = 'responseheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->setExpanded($name, true);
 
         $name = 'mediatype';
         $label = get_string($name, $plugin);
@@ -142,6 +150,10 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 'en-US');
 
+        $name = 'gradingheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->setExpanded($name, true);
+
         $name = 'gradingmethod';
         $label = get_string($name, $plugin);
         $options = [
@@ -151,15 +163,6 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addElement('select', $name, $label, $options);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, SPEAKUP_GRADING_AUTO);
-
-        $name = 'feedbackmode';
-        $label = get_string($name, $plugin);
-        $options = [
-            SPEAKUP_FEEDBACK_FORMATIVE => get_string('feedbackmode_formative', $plugin),
-            SPEAKUP_FEEDBACK_SUMMATIVE => get_string('feedbackmode_summative', $plugin),
-        ];
-        $mform->addElement('select', $name, $label, $options);
-        $mform->addHelpButton($name, $name, $plugin);
 
         $percentmenu = $this->get_percent_menu();
 
