@@ -148,7 +148,7 @@ final class generate_audio_prompt_test extends \advanced_testcase {
 
         // Transcript changed.
         $qdata = $this->create_question();
-        $DB->set_field('qtype_speakup_options', 'audioprompttranscript', 'Something else.', ['questionid' => $qdata->id]);
+        $DB->set_field('qtype_speakup_options', 'prompttranscript', 'Something else.', ['questionid' => $qdata->id]);
         $this->run_tasks($qdata->id);
         $this->assertSame([], $this->get_prompt_files($qdata));
 

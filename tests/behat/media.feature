@@ -21,7 +21,7 @@ Feature: Audio prompts and recording in SpeakUp questions
       | contextlevel | reference | name           |
       | Course       | C1        | Test questions |
     And the following "questions" exist:
-      | questioncategory | qtype   | name        | template | recordafterprompt | maxpromptplays | maxresponses | silencestop |
+      | questioncategory | qtype   | name        | template | autorecord | maxpromptplays | maxresponses | silencestop |
       | Test questions   | speakup | speakup-001 | basic    | 0                 | 0              | 0            | 0           |
       | Test questions   | speakup | speakup-002 | prompt   | 0                 | 2              | 0            | 0           |
       | Test questions   | speakup | speakup-003 | prompt   | 1                 | 0              | 1            | 0           |

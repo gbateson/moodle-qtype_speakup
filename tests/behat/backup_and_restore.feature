@@ -37,7 +37,7 @@ Feature: Test backing up and restoring SpeakUp questions
     And the following fields match these values:
       | Question name      | speakup-001 |
       | id_phrasematch_0   | guitar      |
-      | id_itemcount_0     | 20          |
+      | id_itemtarget_0     | 20          |
     And I press "Cancel"
     And I choose "Edit question" action for "speakup-002" in the question bank
     And the following fields match these values:

@@ -194,13 +194,13 @@ that are left out get their usual defaults.
     RESPONSE=record
     LANGUAGE=en-US
     PAUSE=no
-    RECORDAFTERPROMPT=yes
+    AUTORECORD=yes
     MAXPROMPTPLAYS=1
     PROMPTPAUSE=no
     MAXRESPONSES=2
     SILENCESTOP=5
     PROMPTTRANSCRIPT=collapsed
-    TRANSCRIPTPENALTY=30%
+    PROMPTTRANSCRIPTPENALTY=30%
     GRADING=auto
     FEEDBACK=formative
     AI=Gemini, 100%
@@ -249,7 +249,7 @@ that are left out get their usual defaults.
       ::Quickfire archetype::Settings shared by the quickfire questions.{
       SPEAKUP
       TIMELIMIT=30
-      RECORDAFTERPROMPT=yes
+      AUTORECORD=yes
       MAXPROMPTPLAYS=1
       AI=Gemini, 70%
       TARGETITEM=(words, 30, 30%, x1)

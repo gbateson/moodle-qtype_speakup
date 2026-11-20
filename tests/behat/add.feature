@@ -47,7 +47,7 @@ Feature: Test creating a SpeakUp question
     And I set the following fields to these values:
       | id_phrasematch_0   | guitar |
       | id_phrasepercent_0 | 50%    |
-      | id_itemcount_0     | 20     |
+      | id_itemtarget_0     | 20     |
       | id_itempercent_0   | 30%    |
     And I press "id_submitbutton"
     Then I should see "speakup-002"
@@ -56,7 +56,7 @@ Feature: Test creating a SpeakUp question
       | Question name      | speakup-002 |
       | id_phrasematch_0   | guitar      |
       | id_phrasepercent_0 | 50%         |
-      | id_itemcount_0     | 20          |
+      | id_itemtarget_0     | 20          |
       | id_itempercent_0   | 30%         |
 
   Scenario: The question form needs a time limit

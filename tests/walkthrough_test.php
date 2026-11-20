@@ -185,7 +185,7 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $question = test_question_maker::make_question('speakup', 'prompt');
         $question->id = 12345;
         $question->contextid = \context_system::instance()->id;
-        task\generate_audio_prompt::queue_if_needed($question->id, $question->contextid, $question->audioprompttranscript);
+        task\generate_audio_prompt::queue_if_needed($question->id, $question->contextid, $question->prompttranscript);
         $this->start_attempt_at_question($question, 'deferredfeedback', 1);
 
         $this->render();

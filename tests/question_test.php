@@ -139,7 +139,7 @@ final class question_test extends \advanced_testcase {
      * Test the share of the grade that one item awards.
      */
     public function test_item_percent(): void {
-        $item = (object) ['itemtype' => 'words', 'itemcount' => 50, 'percent' => 20, 'multiplier' => 2];
+        $item = (object) ['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 20, 'multiplier' => 2];
         $this->assertEquals(40.0, \qtype_speakup_question::item_percent($item, 50.0));
         $this->assertEquals(40.0, \qtype_speakup_question::item_percent($item, 80.0));
         $this->assertEquals(20.0, \qtype_speakup_question::item_percent($item, 25.0));
@@ -190,7 +190,7 @@ final class question_test extends \advanced_testcase {
 
         // No transcript, no penalty.
         $question = $this->make('prompt');
-        $question->audioprompttranscript = '';
+        $question->prompttranscript = '';
         $this->assertFalse($question->has_transcript_penalty());
     }
 
@@ -338,15 +338,15 @@ final class question_test extends \advanced_testcase {
     public function test_rubric_values(): void {
         $question = $this->make();
         $question->name = 'Favorite season';
-        $question->audioprompttranscript = " What's your favorite season? ";
+        $question->prompttranscript = " What's your favorite season? ";
         $question->timelimitinseconds = 30;
         $question->maxpromptplays = 1;
         $question->maxresponses = 0;
         $question->sttlanguage = 'en-US';
         $question->targetitems = [
-            (object) ['itemtype' => 'words', 'itemcount' => '30.00', 'percent' => 25, 'multiplier' => 1],
-            (object) ['itemtype' => 'words', 'itemcount' => '45.00', 'percent' => 5, 'multiplier' => 1],
-            (object) ['itemtype' => 'lexicaldensity', 'itemcount' => '42.5', 'percent' => 10, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '30.00', 'percent' => 25, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '45.00', 'percent' => 5, 'multiplier' => 1],
+            (object) ['itemtype' => 'lexicaldensity', 'itemtarget' => '42.5', 'percent' => 10, 'multiplier' => 1],
         ];
         $values = $question->get_rubric_values();
         $this->assertSame('Favorite season', $values['questionname']);

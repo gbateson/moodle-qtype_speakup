@@ -146,7 +146,7 @@ final class assess_response_test extends \advanced_testcase {
         $provider = \qtype_speakup_test_helper::create_provider();
         $questionid = $this->create_question('basic', [
             'aiassessment' => 1, 'aiproviderid' => $provider->id, 'aiweighting' => 50,
-            'phrasematch' => ['', '', ''], 'itemcount' => [0],
+            'phrasematch' => ['', '', ''], 'itemtarget' => [0],
         ]);
         [$usageid, $slot] = $this->attempt($questionid, 'I have played the guitar.');
 
@@ -269,7 +269,7 @@ final class assess_response_test extends \advanced_testcase {
         $this->setUser($this->getDataGenerator()->create_user());
         $provider = \qtype_speakup_test_helper::create_provider();
         $questionid = $this->create_question('basic', ['aiassessment' => 1, 'aiproviderid' => $provider->id,
-                'airubric' => 'Rubric: {{shared/questiontext.rubric}}', 'phrasematch' => ['', '', ''], 'itemcount' => [0]]);
+                'airubric' => 'Rubric: {{shared/questiontext.rubric}}', 'phrasematch' => ['', '', ''], 'itemtarget' => [0]]);
         $categoryid = (int) $DB->get_field_sql('SELECT qbe.questioncategoryid FROM {question_bank_entries} qbe
                 JOIN {question_versions} qv ON qv.questionbankentryid = qbe.id WHERE qv.questionid = ?', [$questionid]);
 

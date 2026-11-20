@@ -35,7 +35,7 @@ export const init = () => {
     initSubtotal(form, 'itemsheader', getItemsTotal);
     initSubtotal(form, 'phrasesheader', getPhrasesTotal);
     initPhraseBoxes(form);
-    initAddButton(form, 'itemadd', 'itemrepeats', 'fgroup_id_itemgroup_', 'itemcount');
+    initAddButton(form, 'itemadd', 'itemrepeats', 'fgroup_id_itemgroup_', 'itemtarget');
     initAddButton(form, 'phraseadd', 'phraserepeats', 'fgroup_id_phrasegroup_', 'phrasematch');
     scrollToNewRow();
     initTextAreas(form);
@@ -98,7 +98,7 @@ const getRepeats = (form, name) => getNumber(form, name);
 const getItemsTotal = (form) => {
     let total = 0;
     for (let i = 0; i < getRepeats(form, 'itemrepeats'); i++) {
-        if (getNumber(form, 'itemcount[' + i + ']') > 0) {
+        if (getNumber(form, 'itemtarget[' + i + ']') > 0) {
             total += getNumber(form, 'itempercent[' + i + ']') * Math.max(1, getNumber(form, 'itemmultiplier[' + i + ']'));
         }
     }

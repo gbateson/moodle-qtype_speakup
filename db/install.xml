@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="question/type/speakup/db" VERSION="20260911" COMMENT="XMLDB file for Moodle question/type/speakup"
+<XMLDB PATH="question/type/speakup/db" VERSION="20261120" COMMENT="XMLDB file for Moodle question/type/speakup"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
 >
@@ -8,61 +8,61 @@
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="timelimitinseconds" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="60" SEQUENCE="false"/>
+        <FIELD NAME="prompttranscript" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Transcript of the audio prompt, e.g. for students who cannot hear it."/>
+        <FIELD NAME="promptvoice" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="The voice for generating the audio prompt from its transcript, or empty for the site default."/>
+        <FIELD NAME="prompttranscriptdisplay" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="How the audio prompt transcript is shown to students: 0 not shown, 1 collapsed, 2 expanded - see SPEAKUP_PROMPTTRANSCRIPT_* constants"/>
+        <FIELD NAME="prompttranscriptpenalty" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Percent (0-100) of the question grade taken off if a student shows the collapsed transcript, unless they have qtype/speakup:viewtranscriptwithoutpenalty."/>
+        <FIELD NAME="promptpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="1 = students can pause the audio prompt; 0 = once it starts, it plays to the end."/>
+        <FIELD NAME="maxpromptplays" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="How many times the prompt can be played: 0 for no limit."/>
+        <FIELD NAME="autorecord" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="1 = start recording as soon as the prompt (the audio prompt, or else the first audio in the question text) finishes."/>
         <FIELD NAME="mediatype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="audio" SEQUENCE="false"
             COMMENT="audio or video - see SPEAKUP_MEDIA_* constants"/>
-        <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
-            COMMENT="auto (automated) or manual - see SPEAKUP_GRADING_* constants"/>
-        <FIELD NAME="sttlanguage" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="en-US" SEQUENCE="false"
-            COMMENT="BCP-47 language tag used for live browser speech recognition, e.g. en-US, ja-JP"/>
-        <FIELD NAME="allowpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Whether the student may pause/resume mid-recording. Off by default."/>
-        <FIELD NAME="feedbackmode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="formative" SEQUENCE="false"/>
-        <FIELD NAME="airubric" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="aiproviderid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
-            COMMENT="FK to qtype_speakup_ai_providers.id - which admin-configured AI provider to use for AI assessment, if gradingmethod involves AI."/>
         <FIELD NAME="responsemethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="record" SEQUENCE="false"
             COMMENT="How the student gives their response: record (live in the browser) or upload (an audio or video file) - see SPEAKUP_RESPONSE_* constants"/>
+        <FIELD NAME="timelimitinseconds" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="60" SEQUENCE="false"/>
+        <FIELD NAME="responsepause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Whether the student may pause/resume mid-recording. Off by default."/>
+        <FIELD NAME="silencestop" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Stop recording after this many seconds of silence, once the student has started speaking: 0 for never."/>
+        <FIELD NAME="maxresponses" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="How many responses (recordings or uploads) can be given: 0 for no limit."/>
+        <FIELD NAME="maxfiles" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="For image responses: the most files (e.g. pages) a student can upload, 1 to 5."/>
+        <FIELD NAME="sttlanguage" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="en-US" SEQUENCE="false"
+            COMMENT="BCP-47 language tag used for live browser speech recognition, e.g. en-US, ja-JP"/>
+        <FIELD NAME="gradingmethod" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
+            COMMENT="auto (automated) or manual - see SPEAKUP_GRADING_* constants"/>
+        <FIELD NAME="feedbackmode" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="formative" SEQUENCE="false"/>
         <FIELD NAME="aiassessment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="For automated grading: whether the response is also assessed by AI."/>
         <FIELD NAME="aiweighting" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="100" SEQUENCE="false"
             COMMENT="For automated grading with AI assessment: the percentage of the question grade given by the AI's score (0-100)."/>
-        <FIELD NAME="showcalculation" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
-            COMMENT="Who sees how the automated grade was calculated: 0 nobody, 1 students only, 2 teachers only, 3 teachers and students - see SPEAKUP_SHOW_* constants"/>
-        <FIELD NAME="showphrases" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
-            COMMENT="Who sees which target phrases were used - see SPEAKUP_SHOW_* constants"/>
-        <FIELD NAME="showitems" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
-            COMMENT="Who sees the target item values - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="airubric" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="aiproviderid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="FK to qtype_speakup_ai_providers.id - which admin-configured AI provider to use for AI assessment, if gradingmethod involves AI."/>
+        <FIELD NAME="aiaudioonly" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="For video responses: 1 = send only the sound to the AI provider, not the whole video."/>
         <FIELD NAME="showcomment" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
             COMMENT="Who sees the grading comment (e.g. the AI's feedback) - see SPEAKUP_SHOW_* constants"/>
         <FIELD NAME="showtranscript" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
             COMMENT="Who sees the transcript of the response - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showitems" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees the target item values - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showphrases" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees which target phrases were used - see SPEAKUP_SHOW_* constants"/>
+        <FIELD NAME="showcalculation" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="3" SEQUENCE="false"
+            COMMENT="Who sees how the automated grade was calculated: 0 nobody, 1 students only, 2 teachers only, 3 teachers and students - see SPEAKUP_SHOW_* constants"/>
         <FIELD NAME="showstats" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="Whether statistics about the transcript are shown when the response is reviewed: 0 no, 1 yes."/>
-        <FIELD NAME="statsitems" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+        <FIELD NAME="statstypes" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
             COMMENT="Comma-separated list of the statistics to show, e.g. words,uniquewords - see text_stats::get_stat_types()"/>
-        <FIELD NAME="audioprompttranscript" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="Transcript of the audio prompt, e.g. for students who cannot hear it."/>
-        <FIELD NAME="audiopromptvoice" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="The voice for generating the audio prompt from its transcript, or empty for the site default."/>
-        <FIELD NAME="prompttranscriptdisplay" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
-            COMMENT="How the audio prompt transcript is shown to students: 0 not shown, 1 collapsed, 2 expanded - see SPEAKUP_PROMPTTRANSCRIPT_* constants"/>
-        <FIELD NAME="transcriptpenalty" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Percent (0-100) of the question grade taken off if a student shows the collapsed transcript, unless they have qtype/speakup:viewtranscriptwithoutpenalty."/>
-        <FIELD NAME="recordafterprompt" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="1 = start recording as soon as the prompt (the audio prompt, or else the first audio in the question text) finishes."/>
-        <FIELD NAME="maxpromptplays" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="How many times the prompt can be played: 0 for no limit."/>
-        <FIELD NAME="maxresponses" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="How many responses (recordings or uploads) can be given: 0 for no limit."/>
-        <FIELD NAME="silencestop" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Stop recording after this many seconds of silence, once the student has started speaking: 0 for never."/>
-        <FIELD NAME="maxfiles" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
-            COMMENT="For image responses: the most files (e.g. pages) a student can upload, 1 to 5."/>
-        <FIELD NAME="aiaudioonly" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="For video responses: 1 = send only the sound to the AI provider, not the whole video."/>
-        <FIELD NAME="promptpause" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
-            COMMENT="1 = students can pause the audio prompt; 0 = once it starts, it plays to the end."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -96,8 +96,8 @@
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="itemtype" TYPE="char" LENGTH="30" NOTNULL="true" SEQUENCE="false"
             COMMENT="What is counted, e.g. words, uniquewords or speechrate - see the ITEM_ constants in classes/text_stats.php"/>
-        <FIELD NAME="itemcount" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="The target value. At or above it, the full award is given; below it, award x value / itemcount."/>
+        <FIELD NAME="itemtarget" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="The target value. At or above it, the full award is given; below it, award x value / itemtarget."/>
         <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="Percent (0-100) of the question grade awarded at the target, before multiplying by multiplier."/>
         <FIELD NAME="multiplier" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"

@@ -20,7 +20,7 @@ Feature: SpeakUp questions in the Moodle app
       | contextlevel | reference | name           |
       | Course       | C1        | Test questions |
     And the following "questions" exist:
-      | questioncategory | qtype   | name        | template | recordafterprompt | maxpromptplays | maxresponses |
+      | questioncategory | qtype   | name        | template | autorecord | maxpromptplays | maxresponses |
       | Test questions   | speakup | speakup-001 | prompt   | 0                 | 0              | 0            |
     And the following "questions" exist:
       | questioncategory | qtype   | name          | template | mediatype |

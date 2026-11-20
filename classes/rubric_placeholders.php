@@ -82,7 +82,7 @@ class rubric_placeholders {
         'questionname' => 'questionname',
         'audioprompt' => 'audioprompt',
         'audio' => 'audioprompt',
-        'audioprompttranscript' => 'audioprompt',
+        'prompttranscript' => 'audioprompt',
         'timelimit' => 'timelimit',
         'timelimitinseconds' => 'timelimit',
         'promptplays' => 'promptplays',

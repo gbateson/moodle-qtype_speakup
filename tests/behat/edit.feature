@@ -32,7 +32,7 @@ Feature: Test editing a SpeakUp question
       | id_phrasematch_1   | I have played   |
       | id_phrasematch_2   | /\bviolins?\b/i |
       | id_phrasedivisor_2 | 2               |
-      | id_itemcount_0     | 20              |
+      | id_itemtarget_0     | 20              |
       | id_itempercent_0   | 30%             |
     And I set the following fields to these values:
       | Question name      | speakup-001 edited |
@@ -105,7 +105,7 @@ Feature: Test editing a SpeakUp question
     And I press "id_phraseadd"
     Then the focused element is "id_phrasematch_3" "field"
     And I press "id_itemadd"
-    And the focused element is "id_itemcount_1" "field"
+    And the focused element is "id_itemtarget_1" "field"
 
   @javascript
   Scenario: The audio prompt can be played on the question form

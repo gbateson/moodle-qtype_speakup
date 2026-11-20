@@ -338,14 +338,14 @@ class qtype_speakup_renderer extends qtype_renderer {
                     ? new video_recorder(
                         $filename,
                         $question->timelimitinseconds,
-                        (bool) $question->allowpause,
+                        (bool) $question->responsepause,
                         $recordingurl,
                         $candownload
                     )
                     : new audio_recorder(
                         $filename,
                         $question->timelimitinseconds,
-                        (bool) $question->allowpause,
+                        (bool) $question->responsepause,
                         $recordingurl,
                         $candownload
                     );
@@ -435,7 +435,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         if (!$file) {
             // The audio prompt may still be being generated from its transcript.
             if (
-                trim((string) $question->audioprompttranscript) !== ''
+                trim((string) $question->prompttranscript) !== ''
                     && \qtype_speakup\task\generate_audio_prompt::is_pending($question->id)
             ) {
                 return html_writer::div(
@@ -476,11 +476,11 @@ class qtype_speakup_renderer extends qtype_renderer {
     protected function prompt_controls(question_attempt $qa, question_display_options $options): string {
         /** @var qtype_speakup_question $question */
         $question = $qa->get_question();
-        $recordafterprompt = !empty($question->recordafterprompt) && !$question->is_upload();
+        $autorecord = !empty($question->autorecord) && !$question->is_upload();
         $maxplays = (int) $question->maxpromptplays;
         $maxresponses = (int) $question->maxresponses;
         $promptpause = !isset($question->promptpause) || !empty($question->promptpause);
-        if ($options->readonly || (!$recordafterprompt && !$maxplays && !$maxresponses && $promptpause)) {
+        if ($options->readonly || (!$autorecord && !$maxplays && !$maxresponses && $promptpause)) {
             return '';
         }
         $plugin = 'qtype_speakup';
@@ -493,8 +493,8 @@ class qtype_speakup_renderer extends qtype_renderer {
                     'value' => (int) $qa->get_last_qt_var($name, 0)]);
         }
         $notes = [];
-        if ($recordafterprompt) {
-            $notes[] = get_string('recordafterpromptnote', $plugin);
+        if ($autorecord) {
+            $notes[] = get_string('autorecordnote', $plugin);
         }
         if ($maxplays) {
             $notes[] = get_string('maxpromptplaysnote', $plugin, $maxplays);
@@ -514,7 +514,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         $this->page->requires->js_call_amd('qtype_speakup/promptcontrol', 'init', [
             $qa->get_outer_question_div_unique_id(),
             [
-                'recordAfterPrompt' => $recordafterprompt,
+                'autoRecord' => $autorecord,
                 'maxPromptPlays' => $maxplays,
                 'maxResponses' => $maxresponses,
                 'promptPause' => $promptpause,
@@ -539,7 +539,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         /** @var qtype_speakup_question $question */
         $question = $qa->get_question();
         $plugin = 'qtype_speakup';
-        $transcript = trim((string) $question->audioprompttranscript);
+        $transcript = trim((string) $question->prompttranscript);
         $display = (int) $question->prompttranscriptdisplay;
         if ($transcript === '' || $display === SPEAKUP_PROMPTTRANSCRIPT_HIDE) {
             return '';
@@ -556,7 +556,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         $summary = get_string('showtranscript', $plugin);
         $userid = (int) $qa->get_step(0)->get_user_id();
         $exempt = qtype_speakup_question::is_exempt_from_transcript_penalty($userid, $options->context);
-        $penalty = ($question->has_transcript_penalty() && !$exempt) ? (int) $question->transcriptpenalty : 0;
+        $penalty = ($question->has_transcript_penalty() && !$exempt) ? (int) $question->prompttranscriptpenalty : 0;
         if ($penalty) {
             $summary .= ' ' . html_writer::span(get_string('showtranscriptpenalty', $plugin, $penalty), 'small');
         }
@@ -904,8 +904,8 @@ class qtype_speakup_renderer extends qtype_renderer {
             $total = min(100.0, $total);
             if ($penalty) {
                 // Taken off after the cap, as in apply_transcript_penalty().
-                $list[] = get_string('calctranscriptpenalty', $plugin, (int) $question->transcriptpenalty);
-                $total = max(0.0, $total - (int) $question->transcriptpenalty);
+                $list[] = get_string('calctranscriptpenalty', $plugin, (int) $question->prompttranscriptpenalty);
+                $total = max(0.0, $total - (int) $question->prompttranscriptpenalty);
             }
             $list[] = html_writer::tag('strong', get_string($capped ? 'calctotalcapped' : 'calctotal', $plugin, round($total, 1)));
             $output .= $this->details_section(get_string('calculation', $plugin), $list, 'qtype_speakup-calculation');
@@ -935,7 +935,7 @@ class qtype_speakup_renderer extends qtype_renderer {
      */
     protected function statistics(qtype_speakup_question $question, string $transcript, bool $isaitranscript): string {
         $plugin = 'qtype_speakup';
-        $selected = explode(',', (string) $question->statsitems);
+        $selected = explode(',', (string) $question->statstypes);
         $types = \qtype_speakup\text_stats::get_stat_types(false);
         if ($isaitranscript) {
             $types = array_merge($types, \qtype_speakup\text_stats::get_stat_types(true));

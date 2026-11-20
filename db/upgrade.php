@@ -660,5 +660,33 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026111900, 'qtype', 'speakup');
     }
 
+    if ($oldversion < 2026112100) {
+        // Rename fields so that each name starts with what it is about,
+        // e.g. "promptpause" and "responsepause".
+        $renames = [
+            'qtype_speakup_options' => [
+                'allowpause' => ['responsepause', XMLDB_TYPE_INTEGER, '1', XMLDB_NOTNULL, '0'],
+                'audioprompttranscript' => ['prompttranscript', XMLDB_TYPE_TEXT, null, null, null],
+                'audiopromptvoice' => ['promptvoice', XMLDB_TYPE_CHAR, '255', null, null],
+                'transcriptpenalty' => ['prompttranscriptpenalty', XMLDB_TYPE_INTEGER, '3', XMLDB_NOTNULL, '0'],
+                'recordafterprompt' => ['autorecord', XMLDB_TYPE_INTEGER, '1', XMLDB_NOTNULL, '0'],
+                'statsitems' => ['statstypes', XMLDB_TYPE_CHAR, '255', null, null],
+            ],
+            'qtype_speakup_items' => [
+                'itemcount' => ['itemtarget', XMLDB_TYPE_NUMBER, '10, 2', XMLDB_NOTNULL, '0'],
+            ],
+        ];
+        foreach ($renames as $tablename => $fields) {
+            $table = new xmldb_table($tablename);
+            foreach ($fields as $oldname => [$newname, $type, $precision, $notnull, $default]) {
+                $field = new xmldb_field($oldname, $type, $precision, null, $notnull, null, $default);
+                if ($dbman->field_exists($table, $field) && !$dbman->field_exists($table, $newname)) {
+                    $dbman->rename_field($table, $field, $newname);
+                }
+            }
+        }
+        upgrade_plugin_savepoint(true, 2026112100, 'qtype', 'speakup');
+    }
+
     return true;
 }

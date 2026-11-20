@@ -39,10 +39,10 @@ require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
  */
 final class questiontype_test extends \advanced_testcase {
     /** @var array the settings compared after import. */
-    const FIELDS = ['timelimitinseconds', 'mediatype', 'responsemethod', 'gradingmethod', 'sttlanguage', 'allowpause',
+    const FIELDS = ['timelimitinseconds', 'mediatype', 'responsemethod', 'gradingmethod', 'sttlanguage', 'responsepause',
             'feedbackmode', 'airubric', 'aiproviderid', 'aiassessment', 'aiweighting', 'showcalculation', 'showphrases',
-            'showitems', 'showcomment', 'showtranscript', 'showstats', 'statsitems', 'audioprompttranscript',
-            'audiopromptvoice', 'prompttranscriptdisplay', 'transcriptpenalty', 'recordafterprompt', 'maxpromptplays',
+            'showitems', 'showcomment', 'showtranscript', 'showstats', 'statstypes', 'prompttranscript',
+            'promptvoice', 'prompttranscriptdisplay', 'prompttranscriptpenalty', 'autorecord', 'maxpromptplays',
             'maxresponses', 'silencestop', 'maxfiles', 'aiaudioonly', 'promptpause'];
 
     /**
@@ -94,7 +94,7 @@ final class questiontype_test extends \advanced_testcase {
 
         $this->assertSame(SPEAKUP_GRADING_AUTO, $qdata->options->gradingmethod);
         $this->assertEquals(60, $qdata->options->timelimitinseconds);
-        $this->assertSame('', (string) $qdata->options->statsitems);
+        $this->assertSame('', (string) $qdata->options->statstypes);
 
         $phrases = $qdata->options->expectedanswers;
         $this->assertCount(3, $phrases);
@@ -107,7 +107,7 @@ final class questiontype_test extends \advanced_testcase {
         $items = $qdata->options->targetitems;
         $this->assertCount(1, $items);
         $this->assertSame('words', $items[0]->itemtype);
-        $this->assertEquals(20, $items[0]->itemcount);
+        $this->assertEquals(20, $items[0]->itemtarget);
 
         // The question definition gets the phrases and items too.
         $question = question_bank::load_question($qdata->id);
@@ -128,7 +128,7 @@ final class questiontype_test extends \advanced_testcase {
             'phrasefullmatch' => [0, 0, 0],
             'phrasecasesensitive' => [0, 0, 0],
             'itemtype' => ['words', 'chars', 'nosuchtype'],
-            'itemcount' => [10, 0, 5],
+            'itemtarget' => [10, 0, 5],
             'itempercent' => [20, 20, 20],
             'itemmultiplier' => [1, 1, 1],
         ]);
@@ -139,13 +139,13 @@ final class questiontype_test extends \advanced_testcase {
     /**
      * The statistics checkboxes are saved as a list.
      */
-    public function test_save_statsitems(): void {
+    public function test_save_statstypes(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
         $qdata = $this->create_question('basic', [
-            'statsitems' => ['words' => 1, 'chars' => 0, 'uniquewords' => 1, 'nosuchstat' => 1],
+            'statstypes' => ['words' => 1, 'chars' => 0, 'uniquewords' => 1, 'nosuchstat' => 1],
         ]);
-        $this->assertSame('words,uniquewords', $qdata->options->statsitems);
+        $this->assertSame('words,uniquewords', $qdata->options->statstypes);
     }
 
     /**
@@ -178,10 +178,10 @@ final class questiontype_test extends \advanced_testcase {
             'aiproviderid' => $provider->id,
             'aiweighting' => 60,
             'airubric' => "Line one.\nLine two: {braces} = #hash ~tilde",
-            'audiopromptvoice' => 'Kore',
+            'promptvoice' => 'Kore',
             'showcomment' => SPEAKUP_SHOW_STUDENTS_ONLY,
             'showstats' => 1,
-            'statsitems' => ['words' => 1, 'lexicaldensity' => 1],
+            'statstypes' => ['words' => 1, 'lexicaldensity' => 1],
             'phrasematch' => ['say "hello"', '/colou?r/i', 'café'],
             'phrasepercent' => [25, 10, 5],
             'phrasedivisor' => [1, 3, 1],
@@ -206,7 +206,7 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertEquals([1, 0, 0], $imported->phrasefullmatch);
         $this->assertEquals([1, 0, 0], $imported->phrasecasesensitive);
         $this->assertSame(['words'], $imported->itemtype);
-        $this->assertEquals([20], $imported->itemcount);
+        $this->assertEquals([20], $imported->itemtarget);
         $this->assertSame($qdata->questiontext, $imported->questiontext);
         $this->assertSame($qdata->generalfeedback, $imported->generalfeedback);
     }
@@ -229,17 +229,17 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertSame(['speakup', 'speakup', 'speakup', 'essay'], array_column($questions, 'qtype'));
 
         [$weekend, $hobby, $noprompt] = $questions;
-        $this->assertSame('What did you do last weekend?', $weekend->audioprompttranscript);
+        $this->assertSame('What did you do last weekend?', $weekend->prompttranscript);
         // Left out: the question form's defaults.
         $this->assertSame(SPEAKUP_GRADING_AUTO, $weekend->gradingmethod);
         $this->assertEquals(60, $weekend->timelimitinseconds);
         $this->assertNull($weekend->aiproviderid);
 
-        $this->assertSame("Tell me about your hobby.\nIt can be anything.", $hobby->audioprompttranscript);
-        $this->assertSame('Kore', $hobby->audiopromptvoice);
+        $this->assertSame("Tell me about your hobby.\nIt can be anything.", $hobby->prompttranscript);
+        $this->assertSame('Kore', $hobby->promptvoice);
         $this->assertSame(120, $hobby->timelimitinseconds);
         $this->assertSame('en-GB', $hobby->sttlanguage);
-        $this->assertSame(1, $hobby->allowpause);
+        $this->assertSame(1, $hobby->responsepause);
         $this->assertSame(2, $hobby->maxpromptplays);
         $this->assertSame(SPEAKUP_PROMPTTRANSCRIPT_EXPANDED, $hobby->prompttranscriptdisplay);
         $this->assertSame(1, $hobby->aiassessment);
@@ -247,7 +247,7 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertEquals($provider->id, $hobby->aiproviderid);
         $this->assertSame("One.\nTwo: three {x}.", $hobby->airubric);
         $this->assertSame(['words', 'longwords'], $hobby->itemtype);
-        $this->assertEquals([40, 5], $hobby->itemcount);
+        $this->assertEquals([40, 5], $hobby->itemtarget);
         $this->assertEquals([30, 100], $hobby->itempercent);
         $this->assertEquals([2, 1], $hobby->itemmultiplier);
         $this->assertSame(['I like', 'because'], $hobby->phrasematch);
@@ -259,10 +259,10 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertSame(SPEAKUP_SHOW_STUDENTS_ONLY, $hobby->showcomment);
         $this->assertEquals(SPEAKUP_SHOW_TEACHERS_AND_STUDENTS, $hobby->showphrases);
         $this->assertSame(1, $hobby->showstats);
-        $this->assertSame('words,uniquewords', $hobby->statsitems);
+        $this->assertSame('words,uniquewords', $hobby->statstypes);
         $this->assertSame('Well done!', $hobby->generalfeedback);
 
-        $this->assertNull($noprompt->audioprompttranscript);
+        $this->assertNull($noprompt->prompttranscript);
         $this->assertSame(SPEAKUP_GRADING_MANUAL, $noprompt->gradingmethod);
     }
 
@@ -319,7 +319,7 @@ final class questiontype_test extends \advanced_testcase {
         $question = $questions[0];
         $this->assertEquals(SPEAKUP_MEDIA_AUDIO, $question->mediatype);
         $this->assertSame(5, $question->silencestop);
-        $this->assertEquals(0, $question->allowpause);
+        $this->assertEquals(0, $question->responsepause);
         $this->assertSame(40, $question->aiweighting);
         $this->assertSame([], $question->itemtype);
     }
@@ -496,16 +496,16 @@ ARCHETYPE=no-such-question
         $this->assertEquals(70, $season->options->aiweighting);
         $this->assertEquals($archetype->options->aiproviderid, $season->options->aiproviderid);
         $this->assertSame('Answer in {{timelimit}}.', $season->options->airubric);
-        $this->assertSame('What is your favorite season?', $season->options->audioprompttranscript);
+        $this->assertSame('What is your favorite season?', $season->options->prompttranscript);
         $this->assertSame('Listen, then answer.', $season->questiontext);
-        $this->assertEquals([30], array_values(array_map(fn($i) => (float) $i->itemcount, $season->options->targetitems)));
+        $this->assertEquals([30], array_values(array_map(fn($i) => (float) $i->itemtarget, $season->options->targetitems)));
         $this->assertCount(1, $season->options->expectedanswers);
 
         // Its own settings win, and its own target items replace the archetype's.
         $weekend = $this->imported('Weekend');
         $this->assertEquals(45, $weekend->options->timelimitinseconds);
         $this->assertEquals(1, $weekend->options->maxpromptplays);
-        $this->assertEquals([40], array_values(array_map(fn($i) => (float) $i->itemcount, $weekend->options->targetitems)));
+        $this->assertEquals([40], array_values(array_map(fn($i) => (float) $i->itemtarget, $weekend->options->targetitems)));
         $this->assertCount(1, $weekend->options->expectedanswers);
 
         // Not found: a warning, and the usual defaults.

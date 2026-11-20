@@ -101,35 +101,35 @@ class qtype_speakup extends question_type {
     public function extra_question_fields() {
         return [
             'qtype_speakup_options',
-            'timelimitinseconds',
+            'prompttranscript',
+            'promptvoice',
+            'prompttranscriptdisplay',
+            'prompttranscriptpenalty',
+            'promptpause',
+            'maxpromptplays',
+            'autorecord',
             'mediatype',
-            'gradingmethod',
-            'sttlanguage',
-            'allowpause',
-            'feedbackmode',
-            'airubric',
-            'aiproviderid',
             'responsemethod',
+            'timelimitinseconds',
+            'responsepause',
+            'silencestop',
+            'maxresponses',
+            'maxfiles',
+            'sttlanguage',
+            'gradingmethod',
+            'feedbackmode',
             'aiassessment',
             'aiweighting',
-            'showcalculation',
-            'showphrases',
-            'showitems',
+            'airubric',
+            'aiproviderid',
+            'aiaudioonly',
             'showcomment',
             'showtranscript',
+            'showitems',
+            'showphrases',
+            'showcalculation',
             'showstats',
-            'statsitems',
-            'audioprompttranscript',
-            'audiopromptvoice',
-            'prompttranscriptdisplay',
-            'transcriptpenalty',
-            'recordafterprompt',
-            'maxpromptplays',
-            'maxresponses',
-            'silencestop',
-            'maxfiles',
-            'aiaudioonly',
-            'promptpause',
+            'statstypes',
         ];
     }
 
@@ -169,14 +169,14 @@ class qtype_speakup extends question_type {
         }
 
         // The form sends the statistics to show as checkboxes,
-        // statsitems[name] => 0 or 1. They are stored as a list, e.g.
+        // statstypes[name] => 0 or 1. They are stored as a list, e.g.
         // "words,uniquewords", keeping only the statistics that exist.
-        if (isset($question->statsitems) && is_array($question->statsitems)) {
+        if (isset($question->statstypes) && is_array($question->statstypes)) {
             $allowed = array_merge(
                 \qtype_speakup\text_stats::get_stat_types(false),
                 \qtype_speakup\text_stats::get_stat_types(true)
             );
-            $question->statsitems = implode(',', array_intersect($allowed, array_keys(array_filter($question->statsitems))));
+            $question->statstypes = implode(',', array_intersect($allowed, array_keys(array_filter($question->statstypes))));
         }
 
         parent::save_question_options($question);
@@ -200,7 +200,7 @@ class qtype_speakup extends question_type {
             \qtype_speakup\task\generate_audio_prompt::queue_if_needed(
                 $question->id,
                 $question->context->id,
-                $question->audioprompttranscript ?? null
+                $question->prompttranscript ?? null
             );
         }
 
@@ -233,7 +233,7 @@ class qtype_speakup extends question_type {
         }
 
         // Save one row per target item: "Target for [itemtype] is
-        // [itemcount]. Award up to [itempercent] [multiplied by
+        // [itemtarget]. Award up to [itempercent] [multiplied by
         // itemmultiplier] of the question grade". Rows with no percent or
         // no target are skipped.
         $DB->delete_records('qtype_speakup_items', ['questionid' => $question->id]);
@@ -241,14 +241,14 @@ class qtype_speakup extends question_type {
         if (!empty($question->itemtype)) {
             foreach ($question->itemtype as $key => $itemtype) {
                 $percent = min(100, max(0, (int) ($question->itempercent[$key] ?? 0)));
-                $itemcount = max(0, (float) ($question->itemcount[$key] ?? 0));
-                if ($percent == 0 || $itemcount == 0 || !in_array($itemtype, \qtype_speakup\text_stats::get_item_types())) {
+                $itemtarget = max(0, (float) ($question->itemtarget[$key] ?? 0));
+                if ($percent == 0 || $itemtarget == 0 || !in_array($itemtype, \qtype_speakup\text_stats::get_item_types())) {
                     continue;
                 }
                 $record = new stdClass();
                 $record->questionid = $question->id;
                 $record->itemtype = $itemtype;
-                $record->itemcount = $itemcount;
+                $record->itemtarget = $itemtarget;
                 $record->percent = $percent;
                 $record->multiplier = min(10, max(1, (int) ($question->itemmultiplier[$key] ?? 1)));
                 $DB->insert_record('qtype_speakup_items', $record);
@@ -318,7 +318,7 @@ class qtype_speakup extends question_type {
         array_shift($fields); // Omit the table name.
         foreach ($fields as $field) {
             // Not set (null) is left out, so that importing it gives the
-            // default, e.g. statsitems: null means "never chosen", whereas
+            // default, e.g. statstypes: null means "never chosen", whereas
             // an empty value means "none ticked".
             if ($field === 'aiproviderid' || !isset($question->options->$field)) {
                 continue;
@@ -348,7 +348,7 @@ class qtype_speakup extends question_type {
 
         foreach ($question->options->targetitems ?? [] as $item) {
             $output .= "    <targetitem>\n";
-            foreach (['itemtype', 'itemcount', 'percent', 'multiplier'] as $field) {
+            foreach (['itemtype', 'itemtarget', 'percent', 'multiplier'] as $field) {
                 $output .= "      <{$field}>" . $format->xml_escape((string) $item->$field) . "</{$field}>\n";
             }
             $output .= "    </targetitem>\n";
@@ -417,12 +417,12 @@ class qtype_speakup extends question_type {
         }
 
         $qo->itemtype = [];
-        $qo->itemcount = [];
+        $qo->itemtarget = [];
         $qo->itempercent = [];
         $qo->itemmultiplier = [];
         foreach ($format->getpath($data, ['#', 'targetitem'], []) as $item) {
             $qo->itemtype[] = $format->getpath($item, ['#', 'itemtype', 0, '#'], '');
-            $qo->itemcount[] = $format->getpath($item, ['#', 'itemcount', 0, '#'], 0);
+            $qo->itemtarget[] = $format->getpath($item, ['#', 'itemtarget', 0, '#'], 0);
             $qo->itempercent[] = $format->getpath($item, ['#', 'percent', 0, '#'], 0);
             $qo->itemmultiplier[] = $format->getpath($item, ['#', 'multiplier', 0, '#'], 1);
         }
@@ -462,13 +462,15 @@ class qtype_speakup extends question_type {
             $names[strtoupper($field)] = $field;
         }
         $names['AIPROVIDERID'] = 'aiprovider';
+        // PROMPTTRANSCRIPT sets how the transcript is shown; the transcript itself is AUDIO.
+        $names['PROMPTTRANSCRIPT'] = 'prompttranscriptdisplay';
         return $names + [
             'TIMELIMIT' => 'timelimitinseconds',
             'MEDIA' => 'mediatype',
             'RESPONSE' => 'responsemethod',
             'LANGUAGE' => 'sttlanguage',
             'LANG' => 'sttlanguage',
-            'PAUSE' => 'allowpause',
+            'PAUSE' => 'responsepause',
             'GRADING' => 'gradingmethod',
             'FEEDBACK' => 'feedbackmode',
             'RUBRIC' => 'airubric',
@@ -478,12 +480,10 @@ class qtype_speakup extends question_type {
             'AI' => 'ai',
             'SHOW' => 'show',
             'STATS' => 'stats',
-            'AUDIO' => 'audioprompttranscript',
-            'VOICE' => 'audiopromptvoice',
-            'PROMPTTRANSCRIPT' => 'prompttranscriptdisplay',
+            'AUDIO' => 'prompttranscript',
+            'VOICE' => 'promptvoice',
             'TRANSCRIPT' => 'prompttranscriptdisplay',
-            'PENALTY' => 'transcriptpenalty',
-            'AUTORECORD' => 'recordafterprompt',
+            'PENALTY' => 'prompttranscriptpenalty',
             'PLAYS' => 'maxpromptplays',
             'RESPONSES' => 'maxresponses',
             'SILENCE' => 'silencestop',
@@ -596,7 +596,7 @@ class qtype_speakup extends question_type {
         $o = $question->options;
         $output = '';
 
-        $transcript = trim((string) ($o->audioprompttranscript ?? ''));
+        $transcript = trim((string) ($o->prompttranscript ?? ''));
         $hasfile = !get_file_storage()->is_area_empty(
             $question->contextid,
             'qtype_speakup',
@@ -616,7 +616,7 @@ class qtype_speakup extends question_type {
         if ($transcript === '') {
             $lines[] = 'SPEAKUP';
         } else {
-            $voice = trim((string) ($o->audiopromptvoice ?? ''));
+            $voice = trim((string) ($o->promptvoice ?? ''));
             $lines[] = 'AUDIO' . (($voice === '') ? '' : '(voice=' . self::gift_escape($voice) . ')') .
                     ': ' . self::gift_escape($transcript);
         }
@@ -630,14 +630,14 @@ class qtype_speakup extends question_type {
             'MEDIA' => $o->mediatype,
             'RESPONSE' => $o->responsemethod,
             'LANGUAGE' => $o->sttlanguage,
-            'PAUSE' => $yesno($o->allowpause),
-            'RECORDAFTERPROMPT' => $yesno($o->recordafterprompt),
+            'PAUSE' => $yesno($o->responsepause),
+            'AUTORECORD' => $yesno($o->autorecord),
             'MAXPROMPTPLAYS' => (int) $o->maxpromptplays,
             'PROMPTPAUSE' => $yesno($o->promptpause ?? 1),
             'MAXRESPONSES' => (int) $o->maxresponses,
             'SILENCESTOP' => (int) $o->silencestop,
             'PROMPTTRANSCRIPT' => $transcriptwords[(int) $o->prompttranscriptdisplay] ?? 'collapsed',
-            'TRANSCRIPTPENALTY' => (int) $o->transcriptpenalty . '%',
+            'PROMPTTRANSCRIPTPENALTY' => (int) $o->prompttranscriptpenalty . '%',
             'GRADING' => $o->gradingmethod,
             'FEEDBACK' => $o->feedbackmode,
         ];
@@ -647,7 +647,7 @@ class qtype_speakup extends question_type {
                 $settings['TIMELIMIT'],
                 $settings['RESPONSE'],
                 $settings['PAUSE'],
-                $settings['RECORDAFTERPROMPT'],
+                $settings['AUTORECORD'],
                 $settings['MAXRESPONSES'],
                 $settings['SILENCESTOP']
             );
@@ -679,7 +679,7 @@ class qtype_speakup extends question_type {
         }
 
         foreach ($o->targetitems ?? [] as $item) {
-            $lines[] = 'TARGETITEM=(' . self::gift_escape($item->itemtype) . ', ' . (float) $item->itemcount . ', ' .
+            $lines[] = 'TARGETITEM=(' . self::gift_escape($item->itemtype) . ', ' . (float) $item->itemtarget . ', ' .
                     (int) $item->percent . '%, x' . (int) $item->multiplier . ')';
         }
         foreach ($o->expectedanswers ?? [] as $phrase) {
@@ -704,8 +704,8 @@ class qtype_speakup extends question_type {
         }
 
         $stats = $yesno($o->showstats);
-        if ($o->statsitems !== null) {
-            $stats .= '; ' . (($o->statsitems === '') ? 'none' : str_replace(',', ', ', $o->statsitems));
+        if ($o->statstypes !== null) {
+            $stats .= '; ' . (($o->statstypes === '') ? 'none' : str_replace(',', ', ', $o->statstypes));
         }
         $lines[] = 'STATS=' . self::gift_escape($stats);
 
@@ -767,7 +767,7 @@ class qtype_speakup extends question_type {
 
         $question->qtype = $this->name();
         $question->itemtype = [];
-        $question->itemcount = [];
+        $question->itemtarget = [];
         $question->itempercent = [];
         $question->itemmultiplier = [];
         $question->phrasematch = [];
@@ -852,14 +852,14 @@ class qtype_speakup extends question_type {
         $numbers = [
             'timelimitinseconds' => [0, 3600, null],
             'aiweighting' => [0, 100, null],
-            'transcriptpenalty' => [0, 100, null],
+            'prompttranscriptpenalty' => [0, 100, null],
             'maxpromptplays' => [0, 10, null],
             'maxresponses' => [0, 10, null],
             'silencestop' => [0, 15, [0, 2, 3, 4, 5, 7, 10, 15]],
             'maxfiles' => [1, SPEAKUP_MAX_IMAGE_FILES, null],
         ];
 
-        if (in_array($field, ['allowpause', 'recordafterprompt', 'aiassessment', 'showstats', 'aiaudioonly', 'promptpause'])) {
+        if (in_array($field, ['responsepause', 'autorecord', 'aiassessment', 'showstats', 'aiaudioonly', 'promptpause'])) {
             if (!array_key_exists($word, $yesno)) {
                 return get_string('giftexpectyesno', $plugin);
             }
@@ -909,8 +909,8 @@ class qtype_speakup extends question_type {
                 return null;
 
             case 'airubric':
-            case 'audioprompttranscript':
-            case 'audiopromptvoice':
+            case 'prompttranscript':
+            case 'promptvoice':
                 $question->$field = $value;
                 return null;
 
@@ -965,7 +965,7 @@ class qtype_speakup extends question_type {
                 }
                 return $errors ? get_string('giftbadparts', $plugin, implode(', ', $errors)) : null;
 
-            case 'statsitems':
+            case 'statstypes':
             case 'stats':
                 // The STATS value is "yes", "no; words, longwords", "words, longwords" or "none".
                 $parts = array_map('trim', explode(';', $word, 2));
@@ -982,11 +982,11 @@ class qtype_speakup extends question_type {
                 );
                 $items = array_filter(array_map('trim', preg_split('/[,\s]+/', $word)));
                 if ($items == ['none']) {
-                    $question->statsitems = '';
+                    $question->statstypes = '';
                     return null;
                 }
                 $unknown = array_diff($items, $allowed);
-                $question->statsitems = implode(',', array_intersect($allowed, $items));
+                $question->statstypes = implode(',', array_intersect($allowed, $items));
                 return $unknown ? get_string('giftbadparts', $plugin, implode(', ', $unknown)) : null;
 
             case 'targetitem':
@@ -1003,7 +1003,7 @@ class qtype_speakup extends question_type {
                         continue;
                     }
                     $question->itemtype[] = $itemtype;
-                    $question->itemcount[] = $match[2];
+                    $question->itemtarget[] = $match[2];
                     $question->itempercent[] = ($match[3] ?? '') === '' ? 100 : (int) $match[3];
                     $question->itemmultiplier[] = ($match[4] ?? '') === '' ? 1 : (int) $match[4];
                 }
@@ -1088,7 +1088,7 @@ class qtype_speakup extends question_type {
         array_shift($fields); // Omit the table name.
         $given = $question->giftsettings ?? [];
         foreach ($fields as $field) {
-            if ($field !== 'audioprompttranscript' && !in_array($field, $given) && property_exists($options, $field)) {
+            if ($field !== 'prompttranscript' && !in_array($field, $given) && property_exists($options, $field)) {
                 $question->$field = $options->$field;
             }
         }
@@ -1096,7 +1096,7 @@ class qtype_speakup extends question_type {
         if (empty($question->itemtype)) {
             foreach ($DB->get_records('qtype_speakup_items', ['questionid' => $archetype->id], 'id ASC') as $item) {
                 $question->itemtype[] = $item->itemtype;
-                $question->itemcount[] = $item->itemcount;
+                $question->itemtarget[] = $item->itemtarget;
                 $question->itempercent[] = $item->percent;
                 $question->itemmultiplier[] = $item->multiplier;
             }

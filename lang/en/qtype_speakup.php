@@ -87,8 +87,6 @@ $string['aisettings'] = 'AI assessment settings';
 $string['aisettings_help'] = 'Settings for assessing the response by AI, as part of automated grading.';
 $string['aiweighting'] = 'AI weighting';
 $string['aiweighting_help'] = 'The percentage of the question grade given by the AI assessment. For example, with a weighting of 50%, an AI score of 80 adds 40% to the grade. With a weighting of 0%, the AI\'s feedback is shown, but it does not affect the grade.';
-$string['allowpause'] = 'Allow pausing';
-$string['allowpause_help'] = 'Whether the student can pause and resume mid-recording. Off by default: pausing/resuming mid-recording is a more fragile code path (it also restarts live browser transcription, if used), so leave this off unless a student genuinely needs to pause partway through.';
 $string['assessmentfailedmessage'] = 'The response of {$a->student} to the question "{$a->question}" in the quiz "{$a->quiz}" could not be assessed, so it needs to be graded manually.
 
 Reason: {$a->reason}
@@ -108,12 +106,9 @@ $string['audiopromptfailedsubject'] = 'A SpeakUp audio prompt could not be gener
 $string['audiopromptgeneratenote'] = 'If there is no audio prompt when you save the question, it will be generated from this transcript.';
 $string['audiopromptnotready'] = 'The audio prompt is being prepared. Please try again in a few minutes.';
 $string['audiopromptpending'] = 'The audio prompt is being generated from this transcript. It should be ready in a few minutes.';
-$string['audioprompttranscript'] = 'Transcript of the audio prompt';
-$string['audioprompttranscript_help'] = 'A transcript of the audio prompt, e.g. for students who cannot hear it. While you record the prompt, the browser\'s speech recognition (if available) writes the transcript here. Please check it, and correct any mistakes.
-
-If the site has a speech provider, and there is no audio prompt when the question is saved, the audio prompt is generated from this transcript.';
-$string['audiopromptvoice'] = 'Voice';
-$string['audiopromptvoice_help'] = 'The voice used to generate the audio prompt from its transcript, e.g. "alloy" for OpenAI or "Kore" for Gemini. Leave this empty to use the site\'s voice for the question\'s language, or else the site\'s default voice.';
+$string['autorecord'] = 'Start recording when the prompt finishes';
+$string['autorecord_help'] = 'If checked, recording starts as soon as the prompt has finished playing, so the student must respond straight away. The prompt is the audio prompt above, if there is one, or else the first audio player in the question text. Students can still start recording themselves before the prompt finishes.';
+$string['autorecordnote'] = 'Recording starts as soon as the prompt finishes.';
 $string['awaitingaiassessment'] = 'Your recording has been transcribed and sent for assessment.';
 $string['awaitingtranscription'] = 'Your recording has been received and is being processed. This can take a minute or two.';
 $string['browsertranscript'] = 'Live transcript (from browser speech recognition)';
@@ -130,9 +125,9 @@ $string['downloadrecording'] = 'Download {$a}';
 $string['durationtoolong'] = 'This recording is {$a->duration} seconds long. The time limit is {$a->limit} seconds.';
 $string['err_compatibility'] = 'While iOS/iPadOS devices can record video files in open formats, they cannot currently play them back. Until Apple fix this, you will have to use another device to view this video.';
 $string['err_invalidregex'] = 'This does not look like a valid regular expression: {$a}';
-$string['err_itemcount'] = 'Enter a target greater than 0 for this item.';
 $string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
 $string['err_itempercent'] = 'Choose a percent for this item.';
+$string['err_itemtarget'] = 'Enter a target greater than 0 for this item.';
 $string['err_phrasepercent'] = 'Choose a percent for this phrase.';
 $string['err_rubricplaceholders'] = 'These placeholders cannot be filled in: {$a}. Check their spelling, and that the question has a target for each item type in {{target...}}.';
 $string['err_rubricquestion'] = 'There is no question with the ID number "{$a}" in this question\'s category, or in the categories above it.';
@@ -335,6 +330,10 @@ $string['promptpause'] = 'Allow pausing the prompt';
 $string['promptpause_help'] = 'If checked, students can pause the prompt (the audio prompt above, or else the first audio player in the question text), and move back and forward in it. If not, the prompt has a "Play" button instead of the usual player: once started, it plays to the end, so that students cannot stop it to get more time to prepare their answer.';
 $string['promptplaying'] = 'Playing the prompt... {$a}';
 $string['promptplaysused'] = 'You have played the prompt as many times as allowed.';
+$string['prompttranscript'] = 'Transcript of the audio prompt';
+$string['prompttranscript_help'] = 'A transcript of the audio prompt, e.g. for students who cannot hear it. While you record the prompt, the browser\'s speech recognition (if available) writes the transcript here. Please check it, and correct any mistakes.
+
+If the site has a speech provider, and there is no audio prompt when the question is saved, the audio prompt is generated from this transcript.';
 $string['prompttranscriptcollapsed'] = 'Yes, collapsed';
 $string['prompttranscriptdisplay'] = 'Show audio prompt transcript';
 $string['prompttranscriptdisplay_help'] = 'How the transcript of the audio prompt is shown to students:
@@ -343,9 +342,15 @@ $string['prompttranscriptdisplay_help'] = 'How the transcript of the audio promp
 * **Yes, collapsed** - students see a "Show transcript" link, and can choose to show it.
 * **Yes, expanded** - the transcript is always shown under the audio prompt.';
 $string['prompttranscriptexpanded'] = 'Yes, expanded';
-$string['recordafterprompt'] = 'Start recording when the prompt finishes';
-$string['recordafterprompt_help'] = 'If checked, recording starts as soon as the prompt has finished playing, so the student must respond straight away. The prompt is the audio prompt above, if there is one, or else the first audio player in the question text. Students can still start recording themselves before the prompt finishes.';
-$string['recordafterpromptnote'] = 'Recording starts as soon as the prompt finishes.';
+$string['prompttranscriptpenalty'] = 'Penalty for showing the transcript';
+$string['prompttranscriptpenalty_help'] = 'The percentage of the question grade taken off if a student shows the collapsed transcript of the audio prompt.
+
+Students who need the transcript, e.g. because they cannot hear the prompt, can be exempted from the penalty: give them the capability "qtype/speakup:viewtranscriptwithoutpenalty", e.g. with a role for those students in the course. Teachers can see whether a student showed the transcript.
+
+Questions with a penalty are graded after the response is submitted, in the background.';
+$string['promptvoice'] = 'Voice';
+$string['promptvoice_help'] = 'The voice used to generate the audio prompt from its transcript, e.g. "alloy" for OpenAI or "Kore" for Gemini. Leave this empty to use the site\'s voice for the question\'s language, or else the site\'s default voice.';
+$string['questionidnumber'] = 'Question ID number';
 $string['recordagain'] = 'Re-record';
 $string['recordagainx'] = 'Re-record {$a}';
 $string['recordaudioprompt'] = 'Record the audio prompt';
@@ -372,6 +377,8 @@ $string['responsemethod_help'] = 'How students give their response:
 Uploaded files have no live transcript. So, unless they are graded manually, they are first transcribed by an AI provider that receives the audio or video file itself, and then graded by target phrases and/or AI. This happens in the background, after the response is submitted. The time limit still applies to uploads: files that are longer than the time limit are flagged when the response is reviewed.';
 $string['responsemethod_record'] = 'Record';
 $string['responsemethod_upload'] = 'Upload';
+$string['responsepause'] = 'Allow pausing';
+$string['responsepause_help'] = 'Whether the student can pause and resume mid-recording. Off by default: pausing/resuming mid-recording is a more fragile code path (it also restarts live browser transcription, if used), so leave this off unless a student genuinely needs to pause partway through.';
 $string['responsesused'] = 'You have given as many responses as allowed.';
 $string['resume'] = 'Resume';
 $string['rotateleft'] = 'Rotate left';
@@ -456,12 +463,6 @@ $string['toomanyfiles'] = 'You can upload up to {$a} files.';
 $string['transcript'] = 'Transcript';
 $string['transcriptionproviderid'] = 'Transcription provider';
 $string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so without AI assessment, this AI provider transcribes them first, and the transcript is then graded by the target phrases. The provider must be one that receives the audio or video file itself. "Automatic" lets the AI bridge choose one.';
-$string['transcriptpenalty'] = 'Penalty for showing the transcript';
-$string['transcriptpenalty_help'] = 'The percentage of the question grade taken off if a student shows the collapsed transcript of the audio prompt.
-
-Students who need the transcript, e.g. because they cannot hear the prompt, can be exempted from the penalty: give them the capability "qtype/speakup:viewtranscriptwithoutpenalty", e.g. with a role for those students in the course. Teachers can see whether a student showed the transcript.
-
-Questions with a penalty are graded after the response is submitted, in the background.';
 $string['transcriptviewed'] = 'Transcript viewed.';
 $string['transcriptviewedexempt'] = 'Transcript viewed (exempt: no penalty).';
 $string['ttsheading'] = 'Text-to-speech';

@@ -52,11 +52,11 @@ Feature: Editors and text areas in the SpeakUp question form grow to fit their c
 
   Scenario: The audio prompt transcript and the AI rubric grow and shrink to fit their text
     When I am on the "speakup-001" "core_question > edit" page logged in as teacher
-    Then the "#id_audioprompttranscript" "css_element" should be shorter than 150 pixels
-    And I fill the "id_audioprompttranscript" text area with 40 lines of text
-    And the "#id_audioprompttranscript" "css_element" should be taller than 300 pixels
+    Then the "#id_prompttranscript" "css_element" should be shorter than 150 pixels
+    And I fill the "id_prompttranscript" text area with 40 lines of text
+    And the "#id_prompttranscript" "css_element" should be taller than 300 pixels
     And I set the field "Transcript of the audio prompt" to "Short."
-    And the "#id_audioprompttranscript" "css_element" should be shorter than 150 pixels
+    And the "#id_prompttranscript" "css_element" should be shorter than 150 pixels
     And I set the field "Use AI assessment" to "1"
     And I fill the "id_airubric" text area with 40 lines of text
     And the "#id_airubric" "css_element" should be taller than 300 pixels

@@ -56,7 +56,7 @@ class qtype_speakup_test_helper extends question_test_helper {
             'responsemethod' => SPEAKUP_RESPONSE_RECORD,
             'gradingmethod' => SPEAKUP_GRADING_AUTO,
             'sttlanguage' => 'en-US',
-            'allowpause' => 0,
+            'responsepause' => 0,
             'feedbackmode' => SPEAKUP_FEEDBACK_FORMATIVE,
             'airubric' => '',
             'aiproviderid' => null,
@@ -68,12 +68,12 @@ class qtype_speakup_test_helper extends question_test_helper {
             'showcomment' => SPEAKUP_SHOW_TEACHERS_AND_STUDENTS,
             'showtranscript' => SPEAKUP_SHOW_TEACHERS_AND_STUDENTS,
             'showstats' => 0,
-            'statsitems' => null,
-            'audioprompttranscript' => '',
-            'audiopromptvoice' => null,
+            'statstypes' => null,
+            'prompttranscript' => '',
+            'promptvoice' => null,
             'prompttranscriptdisplay' => SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED,
-            'transcriptpenalty' => 0,
-            'recordafterprompt' => 0,
+            'prompttranscriptpenalty' => 0,
+            'autorecord' => 0,
             'maxpromptplays' => 0,
             'maxresponses' => 0,
             'silencestop' => 0,
@@ -96,9 +96,9 @@ class qtype_speakup_test_helper extends question_test_helper {
                 $options['gradingmethod'] = SPEAKUP_GRADING_MANUAL;
                 break;
             case 'prompt':
-                $options['audioprompttranscript'] = 'Talk about a string instrument that you can play.';
-                $options['transcriptpenalty'] = 30;
-                $options['recordafterprompt'] = 1;
+                $options['prompttranscript'] = 'Talk about a string instrument that you can play.';
+                $options['prompttranscriptpenalty'] = 30;
+                $options['autorecord'] = 1;
                 $options['maxpromptplays'] = 2;
                 $options['maxresponses'] = 1;
                 break;
@@ -132,7 +132,7 @@ class qtype_speakup_test_helper extends question_test_helper {
      * The target items of each test question.
      *
      * @param string $which
-     * @return array of [itemtype, itemcount, percent, multiplier]
+     * @return array of [itemtype, itemtarget, percent, multiplier]
      */
     protected static function get_items(string $which): array {
         if ($which === 'manual') {
@@ -168,7 +168,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         }
         $q->targetitems = [];
         foreach (self::get_items($which) as $i => [$type, $count, $percent, $multiplier]) {
-            $q->targetitems[] = (object) ['id' => $i + 1, 'itemtype' => $type, 'itemcount' => $count,
+            $q->targetitems[] = (object) ['id' => $i + 1, 'itemtype' => $type, 'itemtarget' => $count,
                     'percent' => $percent, 'multiplier' => $multiplier];
         }
         return $q;
@@ -227,7 +227,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         foreach (self::get_options($which) as $field => $value) {
             $form->$field = $value;
         }
-        $form->statsitems = [];
+        $form->statstypes = [];
         foreach (self::get_phrases($which) as [$text, $percent, $divisor, $full, $case]) {
             $form->phrasematch[] = $text;
             $form->phrasepercent[] = $percent;
@@ -237,7 +237,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         }
         foreach (self::get_items($which) as [$type, $count, $percent, $multiplier]) {
             $form->itemtype[] = $type;
-            $form->itemcount[] = $count;
+            $form->itemtarget[] = $count;
             $form->itempercent[] = $percent;
             $form->itemmultiplier[] = $multiplier;
         }
@@ -303,7 +303,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         $qdata->options->targetitems = [];
         foreach (self::get_items($which) as $i => [$type, $count, $percent, $multiplier]) {
             $qdata->options->targetitems[] = (object) ['id' => $i + 1, 'itemtype' => $type,
-                    'itemcount' => $count, 'percent' => $percent, 'multiplier' => $multiplier];
+                    'itemtarget' => $count, 'percent' => $percent, 'multiplier' => $multiplier];
         }
         return $qdata;
     }

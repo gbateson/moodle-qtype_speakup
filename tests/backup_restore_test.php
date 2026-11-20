@@ -141,7 +141,7 @@ final class backup_restore_test extends \advanced_testcase {
             'category' => $category->id,
             'aiassessment' => 1,
             'aiproviderid' => $provider->id,
-            'audiopromptvoice' => 'Kore',
+            'promptvoice' => 'Kore',
         ]);
         $original = question_bank::load_question_data($question->id);
         get_file_storage()->create_file_from_string(
@@ -163,7 +163,7 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertCount(1, $restored);
         $restored = $restored[0];
         foreach (
-            ['gradingmethod', 'audioprompttranscript', 'audiopromptvoice', 'transcriptpenalty', 'recordafterprompt',
+            ['gradingmethod', 'prompttranscript', 'promptvoice', 'prompttranscriptpenalty', 'autorecord',
                 'maxpromptplays', 'maxresponses', 'aiassessment', 'aiweighting'] as $field
         ) {
             $this->assertEquals($original->options->$field, $restored->options->$field, "Field $field");

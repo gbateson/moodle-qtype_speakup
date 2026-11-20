@@ -47,7 +47,7 @@ const readCount = (field) => parseInt(field?.value || '0', 10) || 0;
  * Initialise the prompt and response controls in one question.
  *
  * @param {string} questionId id of the outer question div.
- * @param {Object} settings with recordAfterPrompt (boolean), maxPromptPlays
+ * @param {Object} settings with autoRecord (boolean), maxPromptPlays
  *      and maxResponses (0 for no limit), and promptPause (boolean, false
  *      if the prompt cannot be paused).
  */
@@ -75,7 +75,7 @@ export const init = (questionId, settings) => {
 
     // With "Start recording when the prompt finishes", students listen
     // first: the record button is disabled until the prompt has finished.
-    if (prompt && settings.recordAfterPrompt && !heard) {
+    if (prompt && settings.autoRecord && !heard) {
         setRecordButtonsEnabled(false);
         showMessage(getString('listenfirst'));
     }
@@ -125,7 +125,7 @@ export const init = (questionId, settings) => {
             if (settings.maxPromptPlays && plays >= settings.maxPromptPlays) {
                 lockPrompt();
             }
-            if (settings.recordAfterPrompt) {
+            if (settings.autoRecord) {
                 startRecording();
             }
         });

@@ -51,17 +51,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         $PAGE->requires->strings_for_js(['subtotal'], 'qtype_speakup');
         $PAGE->requires->js_call_amd('qtype_speakup/editform', 'init');
 
-        $name = 'timelimitinseconds';
-        $label = get_string($name, $plugin);
-        $mform->addElement('duration', $name, $label);
-        $mform->addHelpButton($name, $name, $plugin);
-        $mform->setDefault($name, 60);
+        // The core form adds the "ID number" field before calling this method.
+        if ($mform->elementExists('idnumber')) {
+            $mform->getElement('idnumber')->setLabel(get_string('questionidnumber', $plugin));
+        }
 
-        $name = 'allowpause';
-        $label = get_string($name, $plugin);
-        $mform->addElement('advcheckbox', $name, $label);
-        $mform->addHelpButton($name, $name, $plugin);
-        $mform->setDefault($name, 0);
+        $this->add_audio_prompt($mform, $plugin);
 
         $name = 'mediatype';
         $label = get_string($name, $plugin);
@@ -84,14 +79,46 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, SPEAKUP_RESPONSE_RECORD);
 
+        $name = 'timelimitinseconds';
+        $label = get_string($name, $plugin);
+        $mform->addElement('duration', $name, $label);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 60);
+
+        $name = 'responsepause';
+        $label = get_string($name, $plugin);
+        $mform->addElement('advcheckbox', $name, $label);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
         // Pausing only applies to live recording.
-        $mform->hideIf('allowpause', 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        // Stop recording after a silence (see startSilenceDetection() in
+        // amd/src/avrecording.js).
+        $name = 'silencestop';
+        $menu = [0 => get_string('never')];
+        foreach ([2, 3, 4, 5, 7, 10, 15] as $seconds) {
+            $menu[$seconds] = get_string('numseconds', 'moodle', $seconds);
+        }
+        $mform->addElement('select', $name, get_string($name, $plugin), $menu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+
+        $name = 'maxresponses';
+        $menu = [0 => get_string('unlimited')];
+        for ($i = 1; $i <= 10; $i++) {
+            $menu[$i] = $i;
+        }
+        $mform->addElement('select', $name, get_string($name, $plugin), $menu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
 
         // Images (e.g. scans of handwriting) are always uploaded, and have
         // no length. When "Image" is chosen, the form's JavaScript also sets
         // the response method to "Upload" (see amd/src/editform.js), so the
         // settings that depend on it are shown or hidden too.
-        foreach (['timelimitinseconds', 'allowpause', 'responsemethod'] as $field) {
+        foreach (['timelimitinseconds', 'responsepause', 'responsemethod', 'silencestop', 'maxresponses'] as $field) {
             $mform->hideIf($field, 'mediatype', 'eq', SPEAKUP_MEDIA_IMAGE);
         }
 
@@ -114,8 +141,6 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->setType($name, PARAM_ALPHANUMEXT); // Restricts to e.g. en-US, ja-JP style tags.
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 'en-US');
-
-        $this->add_audio_prompt($mform, $plugin);
 
         $name = 'gradingmethod';
         $label = get_string($name, $plugin);
@@ -163,7 +188,7 @@ class qtype_speakup_edit_form extends question_edit_form {
                 $mform->createElement('static', '', '', get_string('itemtext1', $plugin)),
                 $mform->createElement('select', 'itemtype', '', $itemmenu),
                 $mform->createElement('static', '', '', get_string('itemtext2', $plugin)),
-                $mform->createElement('text', 'itemcount', '', ['size' => 4]),
+                $mform->createElement('text', 'itemtarget', '', ['size' => 4]),
                 $mform->createElement('static', '', '', get_string('itemtext3', $plugin)),
             ], [' ', ' ', ' ', ''], false), // No space before the full stop.
             $mform->createElement('group', 'itemaward', get_string('itemaward', $plugin), [
@@ -179,7 +204,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $options = [
             'itemgroup' => ['helpbutton' => ['itemgroup', $plugin]],
             'itemtype' => ['type' => PARAM_ALPHA],
-            'itemcount' => ['type' => PARAM_RAW_TRIMMED],
+            'itemtarget' => ['type' => PARAM_RAW_TRIMMED],
             'itempercent' => ['type' => PARAM_INT],
             'itemmultiplier' => ['type' => PARAM_INT],
         ];
@@ -351,11 +376,11 @@ class qtype_speakup_edit_form extends question_edit_form {
         foreach (['statsgroup' => false, 'statsaigroup' => true] as $name => $needsai) {
             $checkboxes = [];
             foreach (\qtype_speakup\text_stats::get_stat_types($needsai) as $type) {
-                // No setDefault() here: a default for "statsitems[...]" would
+                // No setDefault() here: a default for "statstypes[...]" would
                 // override the saved value. See data_preprocessing() instead.
                 $checkboxes[] = $mform->createElement(
                     'advcheckbox',
-                    'statsitems[' . $type . ']',
+                    'statstypes[' . $type . ']',
                     '',
                     get_string('item' . $type, $plugin)
                 );
@@ -368,7 +393,7 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
             $mform->hideIf($name, 'showstats', 'eq', 0);
         }
-        $mform->setType('statsitems', PARAM_BOOL);
+        $mform->setType('statstypes', PARAM_BOOL);
     }
 
     /**
@@ -429,7 +454,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         // A transcript of the prompt, e.g. for students who cannot hear it.
         // While the teacher records, the browser's speech recognition fills
         // it in (see amd/src/audioprompt.js), and the teacher can correct it.
-        $name = 'audioprompttranscript';
+        $name = 'prompttranscript';
         $mform->addElement('textarea', $name, get_string($name, $plugin), ['rows' => 3, 'cols' => 60]);
         $mform->setType($name, PARAM_TEXT);
         $mform->addHelpButton($name, $name, $plugin);
@@ -446,7 +471,7 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
             $mform->addElement('static', 'audiopromptgenerate', '', html_writer::div($note, 'small text-muted'));
 
-            $name = 'audiopromptvoice';
+            $name = 'promptvoice';
             $mform->addElement('text', $name, get_string($name, $plugin), ['size' => 20]);
             $mform->setType($name, PARAM_TEXT);
             $mform->addHelpButton($name, $name, $plugin);
@@ -463,20 +488,12 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         // The penalty only applies to the collapsed transcript (students
         // choose to show it), and only to automated grading.
-        $name = 'transcriptpenalty';
+        $name = 'prompttranscriptpenalty';
         $mform->addElement('select', $name, get_string($name, $plugin), $this->get_percent_menu());
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 0);
         $mform->hideIf($name, 'prompttranscriptdisplay', 'neq', SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED);
         $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
-
-        // The prompt is the audio prompt, or else the first audio player in
-        // the question text (see amd/src/promptcontrol.js).
-        $name = 'recordafterprompt';
-        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
-        $mform->addHelpButton($name, $name, $plugin);
-        $mform->setDefault($name, 0);
-        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
 
         // Whether students can pause the prompt (see amd/src/promptcontrol.js).
         // Without pausing, the prompt plays to the end once started, so that
@@ -486,31 +503,23 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 1);
 
-        // Stop recording after a silence (see startSilenceDetection() in
-        // amd/src/avrecording.js).
-        $name = 'silencestop';
-        $menu = [0 => get_string('never')];
-        foreach ([2, 3, 4, 5, 7, 10, 15] as $seconds) {
-            $menu[$seconds] = get_string('numseconds', 'moodle', $seconds);
+        $menu = [0 => get_string('unlimited')];
+        for ($i = 1; $i <= 10; $i++) {
+            $menu[$i] = $i;
         }
+        $name = 'maxpromptplays';
         $mform->addElement('select', $name, get_string($name, $plugin), $menu);
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 0);
-        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
 
-        $limitmenu = [0 => get_string('unlimited')];
-        for ($i = 1; $i <= 10; $i++) {
-            $limitmenu[$i] = $i;
-        }
-        foreach (['maxpromptplays', 'maxresponses'] as $name) {
-            $mform->addElement('select', $name, get_string($name, $plugin), $limitmenu);
-            $mform->addHelpButton($name, $name, $plugin);
-            $mform->setDefault($name, 0);
-        }
-        // Image responses are uploaded, and have no length.
-        foreach (['recordafterprompt', 'silencestop', 'maxresponses'] as $name) {
-            $mform->hideIf($name, 'mediatype', 'eq', SPEAKUP_MEDIA_IMAGE);
-        }
+        // The prompt is the audio prompt, or else the first audio player in
+        // the question text (see amd/src/promptcontrol.js).
+        $name = 'autorecord';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+        $mform->hideIf($name, 'responsemethod', 'eq', SPEAKUP_RESPONSE_UPLOAD);
+        $mform->hideIf($name, 'mediatype', 'eq', SPEAKUP_MEDIA_IMAGE);
 
         $repositories = repository::get_instances(['type' => 'upload', 'currentcontext' => $this->context]);
         if (empty($repositories)) {
@@ -584,7 +593,7 @@ class qtype_speakup_edit_form extends question_edit_form {
      * "phraseaddcount", and both are in the group "phraseaddgroup". The
      * menu labels use the strings "addmore{$type}1" and "addmore{$type}s".
      * (The number of rows is not "{$type}count", because target items
-     * already have an "itemcount" field: the target.)
+     * already have an "itemtarget" field: the target.)
      *
      * Defaults are only set on new rows, i.e. those after the saved ones.
      * (repeat_elements()'s own "default" option would also overwrite the
@@ -691,28 +700,28 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Null means the statistics have never been chosen (a new question,
         // or one saved before this setting existed), so the defaults for the
         // response language are ticked. An empty string means none were ticked.
-        if (isset($question->options->statsitems)) {
-            $ticked = explode(',', $question->options->statsitems);
+        if (isset($question->options->statstypes)) {
+            $ticked = explode(',', $question->options->statstypes);
         } else {
             $lang = $question->options->sttlanguage ?? 'en-US';
             $ticked = \qtype_speakup\text_stats::get_default_stat_types($lang);
         }
-        $question->statsitems = [];
+        $question->statstypes = [];
         foreach ([false, true] as $needsai) {
             foreach (\qtype_speakup\text_stats::get_stat_types($needsai) as $type) {
-                $question->statsitems[$type] = in_array($type, $ticked) ? 1 : 0;
+                $question->statstypes[$type] = in_array($type, $ticked) ? 1 : 0;
             }
         }
 
         // Target items. Numbers are shown without needless decimals, e.g.
         // 50 rather than 50.00.
         $question->itemtype = [];
-        $question->itemcount = [];
+        $question->itemtarget = [];
         $question->itempercent = [];
         $question->itemmultiplier = [];
         foreach ($question->options->targetitems ?? [] as $row) {
             $question->itemtype[] = $row->itemtype;
-            $question->itemcount[] = format_float((float) $row->itemcount, 2, false, true);
+            $question->itemtarget[] = format_float((float) $row->itemtarget, 2, false, true);
             $question->itempercent[] = (int) $row->percent;
             $question->itemmultiplier[] = (int) $row->multiplier;
         }
@@ -741,13 +750,13 @@ class qtype_speakup_edit_form extends question_edit_form {
         // punctuation, which only AI makes: the live transcript has none.
         if ($isautomated && !empty($data['itemtype'])) {
             foreach ($data['itemtype'] as $key => $itemtype) {
-                $count = trim($data['itemcount'][$key] ?? '');
+                $count = trim($data['itemtarget'][$key] ?? '');
                 $percent = (int) ($data['itempercent'][$key] ?? 0);
                 if ($count === '' && $percent == 0) {
                     continue;
                 }
                 if (!is_numeric($count) || (float) $count <= 0) {
-                    $errors["itemgroup[$key]"] = get_string('err_itemcount', 'qtype_speakup');
+                    $errors["itemgroup[$key]"] = get_string('err_itemtarget', 'qtype_speakup');
                 } else if ($percent == 0) {
                     $errors["itemaward[$key]"] = get_string('err_itempercent', 'qtype_speakup');
                 } else if (\qtype_speakup\text_stats::needs_sentences($itemtype) && !$usesai && !$isupload) {
@@ -809,7 +818,7 @@ class qtype_speakup_edit_form extends question_edit_form {
             // and {{target.words}} needs a target for words.
             $itemtypes = [];
             foreach ($data['itemtype'] ?? [] as $key => $itemtype) {
-                if ((float) ($data['itemcount'][$key] ?? 0) > 0) {
+                if ((float) ($data['itemtarget'][$key] ?? 0) > 0) {
                     $itemtypes[] = $itemtype;
                 }
             }

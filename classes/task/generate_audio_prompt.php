@@ -113,7 +113,7 @@ class generate_audio_prompt extends \core\task\adhoc_task {
             mtrace("Question $questionid no longer exists.");
             return;
         }
-        $transcript = trim((string) $options->audioprompttranscript);
+        $transcript = trim((string) $options->prompttranscript);
         if ($transcript === '' || sha1($transcript) !== $data->transcripthash) {
             mtrace("The transcript of question $questionid has changed, so its audio prompt was not generated.");
             return;
@@ -132,7 +132,7 @@ class generate_audio_prompt extends \core\task\adhoc_task {
         if (!$userid) {
             $userid = (int) $DB->get_field('question', 'modifiedby', ['id' => $questionid]);
         }
-        $voice = tts::choose_voice($options->audiopromptvoice ?? '', $options->sttlanguage ?? '');
+        $voice = tts::choose_voice($options->promptvoice ?? '', $options->sttlanguage ?? '');
         try {
             [$audio, $extension, $mimetype] = tts::generate(
                 ai_provider::get_tts_providerid(),

@@ -6,11 +6,11 @@
 AUDIO(voice=Kore): Talk about a string instrument that you can play.
 TIMELIMIT=90
 LANGUAGE=en-GB
-RECORDAFTERPROMPT=yes
+AUTORECORD=yes
 MAXPROMPTPLAYS=2
 MAXRESPONSES=1
 PROMPTTRANSCRIPT=collapsed
-TRANSCRIPTPENALTY=30%
+PROMPTTRANSCRIPTPENALTY=30%
 GRADING=auto
 TARGETITEM=(words, 50, 40%, x1)
 TARGETPHRASE=("I have played", 10%, /1, partial, nocase)

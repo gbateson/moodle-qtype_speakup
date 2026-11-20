@@ -21,7 +21,7 @@
  * saved with the question, just as a file picker would be.
  *
  * While the teacher records, the browser's speech recognition (if any)
- * writes a transcript of the prompt into the "audioprompttranscript" box,
+ * writes a transcript of the prompt into the "prompttranscript" box,
  * which the teacher can then correct.
  *
  * @module     qtype_speakup/audioprompt
@@ -195,7 +195,7 @@ export const init = async(containerId, settings) => {
 /**
  * While the prompt is being recorded, transcribe it with the browser's
  * speech recognition (if the browser has it), into the form's
- * "audioprompttranscript" box. A new recording starts a new transcript; a
+ * "prompttranscript" box. A new recording starts a new transcript; a
  * pause and resume carries on with the same one.
  *
  * @param {HTMLFormElement} form
@@ -204,7 +204,7 @@ export const init = async(containerId, settings) => {
  */
 const watchRecording = (form, widget) => {
     const SpeechRecognitionApi = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const box = form.querySelector('textarea[name="audioprompttranscript"]');
+    const box = form.querySelector('textarea[name="prompttranscript"]');
     if (!SpeechRecognitionApi || !box) {
         return;
     }

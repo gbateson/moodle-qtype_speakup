@@ -38,7 +38,7 @@ Feature: Test importing SpeakUp questions
       | Number of responses allowed              | 1                                                  |
       | Penalty for showing the transcript       | 30%                                                |
       | id_phrasematch_0                         | I have played                                      |
-      | id_itemcount_0                           | 50                                                 |
+      | id_itemtarget_0                           | 50                                                 |
     And I press "Cancel"
     And I choose "Edit question" action for "speakup-gift-003" in the question bank
     And the field "Grading method" matches value "Manual"

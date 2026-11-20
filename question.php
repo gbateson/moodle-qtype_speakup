@@ -86,13 +86,13 @@ class qtype_speakup_question extends question_graded_automatically {
     public $showstats;
 
     /** @var string comma-separated list of the statistics to show, e.g. "words,uniquewords". */
-    public $statsitems;
+    public $statstypes;
 
     /** @var string transcript of the audio prompt, e.g. for students who cannot hear it. */
-    public $audioprompttranscript;
+    public $prompttranscript;
 
     /** @var string|null the voice for generating the audio prompt from its transcript, or empty for the site default. */
-    public $audiopromptvoice;
+    public $promptvoice;
 
     /** @var int for image responses: the most files (e.g. pages) a student can upload. */
     public $maxfiles;
@@ -107,10 +107,10 @@ class qtype_speakup_question extends question_graded_automatically {
     public $prompttranscriptdisplay;
 
     /** @var int percent of the question grade taken off for showing the collapsed transcript. */
-    public $transcriptpenalty;
+    public $prompttranscriptpenalty;
 
     /** @var bool whether recording starts as soon as the prompt finishes. */
-    public $recordafterprompt;
+    public $autorecord;
 
     /** @var int how many times the prompt can be played: 0 for no limit. */
     public $maxpromptplays;
@@ -131,7 +131,7 @@ class qtype_speakup_question extends question_graded_automatically {
     public $sttlanguage;
 
     /** @var bool whether the student may pause/resume mid-recording. */
-    public $allowpause;
+    public $responsepause;
 
     /** @var string one of SPEAKUP_FEEDBACK_FORMATIVE / SPEAKUP_FEEDBACK_SUMMATIVE. */
     public $feedbackmode;
@@ -149,7 +149,7 @@ class qtype_speakup_question extends question_graded_automatically {
     public $expectedanswers = [];
 
     /**
-     * @var stdClass[] target items, each with ->itemtype, ->itemcount,
+     * @var stdClass[] target items, each with ->itemtype, ->itemtarget,
      *      ->percent and ->multiplier.
      */
     public $targetitems = [];
@@ -243,9 +243,9 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return bool
      */
     public function has_transcript_penalty(): bool {
-        return $this->is_automated() && (int) $this->transcriptpenalty > 0
+        return $this->is_automated() && (int) $this->prompttranscriptpenalty > 0
                 && (int) $this->prompttranscriptdisplay === SPEAKUP_PROMPTTRANSCRIPT_COLLAPSED
-                && trim((string) $this->audioprompttranscript) !== '';
+                && trim((string) $this->prompttranscript) !== '';
     }
 
     /**
@@ -280,7 +280,7 @@ class qtype_speakup_question extends question_graded_automatically {
         if ($fraction === null) {
             return null;
         }
-        return max(0.0, $fraction - ((int) $this->transcriptpenalty / 100));
+        return max(0.0, $fraction - ((int) $this->prompttranscriptpenalty / 100));
     }
 
     #[\Override]
@@ -337,7 +337,7 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     protected function get_active_items(): array {
         return array_filter($this->targetitems, function ($item) {
-            return (int) $item->percent > 0 && (float) $item->itemcount > 0;
+            return (int) $item->percent > 0 && (float) $item->itemtarget > 0;
         });
     }
 
@@ -361,7 +361,7 @@ class qtype_speakup_question extends question_graded_automatically {
     /**
      * Score a transcript against the target items.
      *
-     * Each item reads "Target for [itemtype] is [itemcount]. Award up to
+     * Each item reads "Target for [itemtype] is [itemtarget]. Award up to
      * [percent] [multiplied by multiplier] of the question grade". See
      * item_percent(). The items' scores add up, capped at 100%.
      *
@@ -399,7 +399,7 @@ class qtype_speakup_question extends question_graded_automatically {
      * a value.
      *
      * The full award is the percent multiplied by the multiplier. It is
-     * given at or above the target (itemcount). Below the target, the award
+     * given at or above the target (itemtarget). Below the target, the award
      * is in proportion to the value, e.g. half the target earns half the
      * award.
      *
@@ -409,7 +409,7 @@ class qtype_speakup_question extends question_graded_automatically {
      * @return float
      */
     public static function item_percent(stdClass $item, ?float $value): float {
-        $target = (float) $item->itemcount;
+        $target = (float) $item->itemtarget;
         if ($value === null || $value <= 0 || $target <= 0) {
             return 0.0;
         }
@@ -490,7 +490,7 @@ class qtype_speakup_question extends question_graded_automatically {
     public function get_rubric_values(): array {
         $values = [
             'questionname' => (string) $this->name,
-            'audioprompt' => trim((string) $this->audioprompttranscript),
+            'audioprompt' => trim((string) $this->prompttranscript),
             'timelimit' => self::rubric_time((int) $this->timelimitinseconds),
             'promptplays' => self::rubric_count((int) $this->maxpromptplays, 'rubricplays'),
             'responses' => self::rubric_count((int) $this->maxresponses, 'rubricresponses'),
@@ -499,10 +499,10 @@ class qtype_speakup_question extends question_graded_automatically {
         // The first target for each item type, e.g. "30 words".
         foreach ($this->targetitems as $item) {
             $name = 'target.' . $item->itemtype;
-            if (!isset($values[$name]) && (float) $item->itemcount > 0) {
+            if (!isset($values[$name]) && (float) $item->itemtarget > 0) {
                 $values[$name] = self::rubric_string(
                     'rubricitem' . $item->itemtype,
-                    format_float((float) $item->itemcount, 2, false, true)
+                    format_float((float) $item->itemtarget, 2, false, true)
                 );
             }
         }
