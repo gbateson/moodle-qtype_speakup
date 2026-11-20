@@ -32,7 +32,9 @@ Feature: Editors and text areas in the SpeakUp question form grow to fit their c
     And the "#fitem_id_questiontext .tox-tinymce" "css_element" should be shorter than 500 pixels
 
   Scenario: The Atto editor grows to fit the question text
-    Given the following "user preferences" exist:
+    # Atto is not in Moodle 5.0 and later, unless it is installed from the plugins directory.
+    Given the "editor_atto" plugin is installed
+    And the following "user preferences" exist:
       | user    | preference | value |
       | teacher | htmleditor | atto  |
     And I change window size to "large"
