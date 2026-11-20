@@ -353,7 +353,7 @@ should be "recording"" are in `tests/behat/behat_qtype_speakup.php`.
     vendor/bin/behat --config <behat_dataroot>/behatrun/behat/behat.yml --tags=@qtype_speakup
 
 GitHub Actions (`.github/workflows/ci.yml`) runs moodle-plugin-ci on Moodle
-4.5 (MySQL and PostgreSQL) and 5.0 (PostgreSQL). It leaves out
+4.5 (MySQL and PostgreSQL), 5.1 (MySQL) and 5.3 (PostgreSQL). It leaves out
 `media.feature`, which is tagged `@qtype_speakup_media`, because it needs the
 fake microphone and sound server described above; run it locally. CI also
 runs Grunt, which fails if `amd/build` does not match `amd/src`.
