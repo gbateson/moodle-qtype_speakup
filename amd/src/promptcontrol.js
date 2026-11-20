@@ -36,6 +36,14 @@
  */
 
 /**
+ * Read a count saved with the response.
+ *
+ * @param {HTMLInputElement|null} field the hidden field, if any.
+ * @return {number} the count, or 0 if there is none.
+ */
+const readCount = (field) => parseInt(field?.value || '0', 10) || 0;
+
+/**
  * Initialise the prompt and response controls in one question.
  *
  * @param {string} questionId id of the outer question div.
@@ -55,11 +63,11 @@ export const init = (questionId, settings) => {
 
     // The counts so far: the larger of the saved value and the stored one.
     const stored = readStorage(storageKey);
-    let plays = Math.max(parseInt(playsField?.value || '0', 10), stored.plays || 0);
-    let responses = Math.max(parseInt(responsesField?.value || '0', 10), stored.responses || 0);
+    let plays = Math.max(readCount(playsField), stored.plays || 0);
+    let responses = Math.max(readCount(responsesField), stored.responses || 0);
     // Whether the student has heard the prompt to the end. A play saved with
     // the response (e.g. before the page was reloaded) counts as heard.
-    let heard = !!stored.heard || parseInt(playsField?.value || '0', 10) > 0;
+    let heard = !!stored.heard || readCount(playsField) > 0;
     saveCounts();
 
     const prompt = questionDiv.querySelector('.qtype_speakup-audio-prompt audio') ||

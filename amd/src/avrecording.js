@@ -37,7 +37,7 @@
  */
 
 import Log from 'core/log';
-import ModalFactory from 'core/modal_factory';
+import Notification from 'core/notification';
 import Templates from 'core/templates';
 import {getUploadRequest, isUploadError} from 'qtype_speakup/draftfiles';
 import {begin as beginUpload, end as endUpload, makeId} from 'qtype_speakup/uploadguard';
@@ -1385,14 +1385,10 @@ function RecordRtcQuestion(questionId, settings) {
  * @return {Promise}
  */
 function showAlert(subject) {
-    return ModalFactory.create({
-        type: ModalFactory.types.ALERT,
-        title: M.util.get_string(subject + '_title', 'qtype_speakup'),
-        body: M.util.get_string(subject, 'qtype_speakup'),
-    }).then(function(modal) {
-        modal.show();
-        return modal;
-    });
+    return Notification.alert(
+        M.util.get_string(subject + '_title', 'qtype_speakup'),
+        M.util.get_string(subject, 'qtype_speakup')
+    );
 }
 
 /**

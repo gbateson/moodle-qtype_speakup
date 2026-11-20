@@ -28,6 +28,7 @@ global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 require_once($CFG->libdir . '/questionlib.php');
+require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
 
 /**
@@ -78,21 +79,44 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
-     * Get the SpeakUp questions in a course's question bank.
+     * Create a question category in a course's question bank. From Moodle
+     * 5.0, question banks are activities (mod_qbank), not the course itself.
+     *
+     * @param \stdClass $course
+     * @return \stdClass the category.
+     */
+    protected function create_category(\stdClass $course): \stdClass {
+        $generator = $this->getDataGenerator();
+        if (\core_component::get_component_directory('mod_qbank')) {
+            $qbank = $generator->create_module('qbank', ['course' => $course->id]);
+            $context = \context_module::instance($qbank->cmid);
+        } else {
+            $context = \context_course::instance($course->id);
+        }
+        /** @var \core_question_generator $qgenerator */
+        $qgenerator = $generator->get_plugin_generator('core_question');
+        return $qgenerator->create_question_category(['contextid' => $context->id]);
+    }
+
+    /**
+     * Get the SpeakUp questions in a course's question banks, i.e. in the
+     * course context or the context of any activity in the course.
      *
      * @param int $courseid
      * @return \stdClass[] question data.
      */
     protected function get_course_questions(int $courseid): array {
         global $DB;
+        $coursecontext = \context_course::instance($courseid);
         $ids = $DB->get_fieldset_sql("
                 SELECT q.id
                   FROM {question} q
                   JOIN {question_versions} qv ON qv.questionid = q.id
                   JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
                   JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid
-                 WHERE qc.contextid = ? AND q.qtype = 'speakup'
-              ORDER BY q.id", [\context_course::instance($courseid)->id]);
+                  JOIN {context} ctx ON ctx.id = qc.contextid
+                 WHERE (ctx.id = ? OR " . $DB->sql_like('ctx.path', '?') . ") AND q.qtype = 'speakup'
+              ORDER BY q.id", [$coursecontext->id, $coursecontext->path . '/%']);
         return array_map(fn($id) => question_bank::load_question_data($id), $ids);
     }
 
@@ -112,7 +136,7 @@ final class backup_restore_test extends \advanced_testcase {
         $provider = \qtype_speakup_test_helper::create_provider(['name' => 'Gemini', 'apikey' => 'very-secret-key']);
         /** @var \core_question_generator $qgenerator */
         $qgenerator = $generator->get_plugin_generator('core_question');
-        $category = $qgenerator->create_question_category(['contextid' => \context_course::instance($course->id)->id]);
+        $category = $this->create_category($course);
         $question = $qgenerator->create_question('speakup', 'prompt', [
             'category' => $category->id,
             'aiassessment' => 1,
@@ -178,7 +202,7 @@ final class backup_restore_test extends \advanced_testcase {
         $provider = \qtype_speakup_test_helper::create_provider(['name' => 'Gemini']);
         /** @var \core_question_generator $qgenerator */
         $qgenerator = $generator->get_plugin_generator('core_question');
-        $category = $qgenerator->create_question_category(['contextid' => \context_course::instance($course->id)->id]);
+        $category = $this->create_category($course);
         $qgenerator->create_question('speakup', 'basic', [
             'category' => $category->id, 'aiassessment' => 1, 'aiproviderid' => $provider->id,
         ]);
@@ -194,10 +218,11 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
-     * Restoring into the same course reuses the existing questions,
+     * Restoring a quiz into the same course reuses the existing questions,
      * rather than duplicating them.
      */
     public function test_restore_same_course_no_duplicates(): void {
+        global $USER;
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -205,13 +230,28 @@ final class backup_restore_test extends \advanced_testcase {
         $course = $generator->create_course();
         /** @var \core_question_generator $qgenerator */
         $qgenerator = $generator->get_plugin_generator('core_question');
-        $category = $qgenerator->create_question_category(['contextid' => \context_course::instance($course->id)->id]);
-        $qgenerator->create_question('speakup', 'basic', ['category' => $category->id]);
-        $qgenerator->create_question('speakup', 'prompt', ['category' => $category->id]);
+        $category = $this->create_category($course);
+        $quiz = $generator->create_module('quiz', ['course' => $course->id]);
+        foreach (['basic', 'prompt'] as $which) {
+            $question = $qgenerator->create_question('speakup', $which, ['category' => $category->id]);
+            quiz_add_quiz_question($question->id, $quiz);
+        }
         $this->assertCount(2, $this->get_course_questions($course->id));
 
-        $backupid = $this->backup($course->id);
+        $bc = new backup_controller(
+            backup::TYPE_1ACTIVITY,
+            $quiz->cmid,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_IMPORT,
+            $USER->id
+        );
+        $backupid = $bc->get_backupid();
+        $bc->execute_plan();
+        $bc->destroy();
         $this->restore($backupid, $course->id, backup::TARGET_CURRENT_ADDING);
+
+        $this->assertCount(2, get_fast_modinfo($course->id)->get_instances_of('quiz'));
         $this->assertCount(2, $this->get_course_questions($course->id));
     }
 }

@@ -77,6 +77,17 @@ jobs:
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+          # A fake microphone for Firefox, allowed without asking, and audio
+          # that plays without a click, as in the Readme's Behat profile.
+          MOODLE_BEHAT_FIREFOX_CAPABILITIES: >-
+            ['extra_capabilities' => ['moz:firefoxOptions' => ['prefs' => [
+            'media.navigator.streams.fake' => true,
+            'media.navigator.permission.disabled' => true,
+            'media.devices.insecure.enabled' => true,
+            'media.getusermedia.insecure.enabled' => true,
+            'media.autoplay.default' => 0,
+            'media.autoplay.blocking_policy' => 0
+            ]]]]
 
       - name: PHP Lint
         if: ${{ !cancelled() }}
@@ -110,12 +121,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpunit --fail-on-warning
 
-      # media.feature needs a fake microphone and a running sound server
-      # (see Readme.md), so it is tagged @qtype_speakup_media and run locally.
+      # Behat runs in Firefox, with the fake microphone set up above.
+      # media.feature also needs a running sound server (see Readme.md), so
+      # it is tagged @qtype_speakup_media and run locally.
       - name: Behat features
         id: behat
         if: ${{ !cancelled() }}
-        run: moodle-plugin-ci behat --profile chrome --tags="@qtype_speakup&&~@qtype_speakup_media"
+        run: moodle-plugin-ci behat --profile firefox --tags="@qtype_speakup&&~@qtype_speakup_media"
 
       - name: Upload Behat Faildump
         if: ${{ failure() && steps.behat.outcome == 'failure' }}

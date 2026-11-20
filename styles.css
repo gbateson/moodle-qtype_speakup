@@ -126,7 +126,7 @@
 
 /* Hide any section header (fieldset) whose fields are all hidden by hideIf(). */
 #speakup_edit_form fieldset.collapsible:not(:has(.fitem:not([hidden]))) {
-    display: none !important;
+    display: none !important; /* stylelint-disable-line declaration-no-important */
 }
 
 /*
@@ -158,11 +158,11 @@
 /* Keep the two rows of each phrase, and of each target item, together. */
 #speakup_edit_form [id^=fgroup_id_phrasegroup_],
 #speakup_edit_form [id^=fgroup_id_itemgroup_] {
-    margin-bottom: 0 !important;
+    margin-bottom: 0 !important; /* stylelint-disable-line declaration-no-important */
 }
 #speakup_edit_form [id^=fgroup_id_phraseoptions_],
 #speakup_edit_form [id^=fgroup_id_itemaward_] {
-    padding-top: 3px !important;
+    padding-top: 3px !important; /* stylelint-disable-line declaration-no-important */
 }
 
 /*
@@ -198,8 +198,8 @@
 #speakup_edit_form [id^=fgroup_id_itemgroup_] .felement .fitem,
 #speakup_edit_form [id^=fgroup_id_itemaward_] .felement .fitem,
 #speakup_edit_form [id^=fgroup_id_phrasegroup_] .felement .fitem {
-    margin-left: 0.4em !important;
-    margin-right: 0.4em !important;
+    margin-left: 0.4em !important; /* stylelint-disable-line declaration-no-important */
+    margin-right: 0.4em !important; /* stylelint-disable-line declaration-no-important */
 }
 
 /* The subtotals next to the "Target items" and "Target phrases" headings. */
@@ -214,7 +214,7 @@
  * Atto gives it a fixed height, so this needs !important.
  */
 #speakup_edit_form .editor_atto_content {
-    height: auto !important;
+    height: auto !important; /* stylelint-disable-line declaration-no-important */
     max-height: 80vh;
     overflow-y: auto;
 }
