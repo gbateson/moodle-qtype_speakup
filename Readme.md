@@ -338,6 +338,14 @@ Moodle's `config.php`, then run `php admin/tool/behat/cli/util.php --enable`:
         ],
     ];
 
+The silence detector uses Web Audio, which stays "suspended" in Firefox if
+there is no sound server, so the scenario "Recording stops after a silence"
+fails. Some Selenium images (e.g. `selenium/standalone-firefox:4` with
+Firefox 158) have PulseAudio but do not start it. Start it after each
+restart of the Selenium container:
+
+    docker exec -u seluser <selenium container> pulseaudio --start --exit-idle-time=-1
+
 Steps such as "I mute the SpeakUp microphone" and "the SpeakUp recorder
 should be "recording"" are in `tests/behat/behat_qtype_speakup.php`.
 

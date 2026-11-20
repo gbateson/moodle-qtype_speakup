@@ -57,6 +57,59 @@ function checkCanWork() {
     return 'ok';
 }
 
+/** @var {AudioContext|null} the page's audio context, for the silence detectors. */
+let audioContext = null;
+
+/**
+ * Get the page's audio context, for listening for silence, and let it run.
+ *
+ * Browsers only let an audio context run once the page has been clicked,
+ * and some (e.g. Firefox) only if it is created or resumed during a click or
+ * key press. Recording may start later, e.g. when the prompt finishes, so
+ * the context is resumed on the student's clicks and key presses (see
+ * watchForGestures()), and kept for every recording on the page.
+ *
+ * @return {AudioContext|null} null if the browser has no Web Audio.
+ */
+const getAudioContext = () => {
+    if (!audioContext) {
+        const AudioContextApi = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextApi) {
+            return null;
+        }
+        audioContext = new AudioContextApi();
+    }
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {
+            // Not allowed yet: the next click or key press tries again.
+        });
+    }
+    return audioContext;
+};
+
+/** @var {boolean} whether watchForGestures() has added its listeners. */
+let watchingGestures = false;
+
+/**
+ * Resume the audio context on each click and key press on the page, until
+ * it is running.
+ */
+const watchForGestures = () => {
+    if (watchingGestures) {
+        return;
+    }
+    watchingGestures = true;
+    const unlock = () => {
+        const context = getAudioContext();
+        if (!context || context.state === 'running') {
+            document.removeEventListener('pointerdown', unlock, true);
+            document.removeEventListener('keydown', unlock, true);
+        }
+    };
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+};
+
 /**
  * Object for actually doing the recording.
  *
@@ -152,6 +205,12 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
 
     widget.addEventListener('click', handleButtonClick);
     this.uploadMediaToServer = uploadMediaToServer; // Make this method available.
+
+    // The silence detector needs an audio context that browsers let run,
+    // which they only do once the page has been clicked (see getAudioContext()).
+    if (parseFloat(uploadInfo.silenceStop || 0) > 0) {
+        watchForGestures();
+    }
 
     /**
      * Handles clicks on the start/stop and pause buttons.
@@ -516,14 +575,17 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
         widget.parentElement.querySelector('.qtype_speakup-silence-message')?.remove();
 
         const seconds = parseFloat(uploadInfo.silenceStop || 0);
-        const AudioContextApi = window.AudioContext || window.webkitAudioContext;
-        if (!(seconds > 0) || !AudioContextApi || !mediaStream || !mediaStream.getAudioTracks().length) {
+        if (!(seconds > 0) || !mediaStream || !mediaStream.getAudioTracks().length) {
             return;
         }
-        const context = new AudioContextApi();
+        const context = getAudioContext();
+        if (!context) {
+            return;
+        }
         const analyser = context.createAnalyser();
         analyser.fftSize = 2048;
-        context.createMediaStreamSource(mediaStream).connect(analyser);
+        const source = context.createMediaStreamSource(mediaStream);
+        source.connect(analyser);
         const samples = new Float32Array(analyser.fftSize);
 
         let noiseFloor = Infinity;
@@ -553,7 +615,7 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
                 }
             }
         }, 100);
-        silenceDetector = {context: context, interval: interval};
+        silenceDetector = {source: source, interval: interval};
     }
 
     /**
@@ -562,7 +624,8 @@ function Recorder(widget, mediaSettings, owner, uploadInfo) {
     function stopSilenceDetection() {
         if (silenceDetector) {
             clearInterval(silenceDetector.interval);
-            silenceDetector.context.close();
+            // The audio context is shared, and kept for the next recording.
+            silenceDetector.source.disconnect();
             silenceDetector = null;
         }
     }
