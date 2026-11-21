@@ -59,7 +59,7 @@ class backup_qtype_speakup_plugin extends backup_qtype_plugin {
         $phrase = new backup_nested_element(
             'phrase',
             ['id'],
-            ['answertext', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']
+            ['answertext', 'answerlabel', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']
         );
         $items = new backup_nested_element('items');
         $item = new backup_nested_element('item', ['id'], ['itemtype', 'itemtarget', 'percent', 'multiplier']);

@@ -79,6 +79,34 @@ final class question_test extends \advanced_testcase {
     }
 
     /**
+     * The phrase results include the words that matched, and the labels.
+     */
+    public function test_phrase_results_matched(): void {
+        $question = $this->make();
+        $question->expectedanswers[2]->answerlabel = ' Violin ';
+        $results = $question->phrase_results('I Have  played two Violins.');
+        $this->assertSame([null, 'I Have  played', 'Violins'], array_column($results, 'matched'));
+        $this->assertSame(['', '', 'Violin'], array_column($results, 'label'));
+        $this->assertSame([false, false, true], array_column($results, 'isregex'));
+        $this->assertSame([null, null, null], array_column($question->phrase_results(''), 'matched'));
+    }
+
+    /**
+     * The item results include the target and the most the item awards.
+     */
+    public function test_item_results(): void {
+        // The basic question's item is: 20 words, up to 30%.
+        $question = $this->make();
+        $question->targetitems[0]->multiplier = 2;
+        [$result] = $question->item_results('one two three four five', null);
+        $this->assertSame('words', $result->itemtype);
+        $this->assertEquals(5, $result->value);
+        $this->assertEquals(20, $result->target);
+        $this->assertEqualsWithDelta(15, $result->percent, 0.0001);
+        $this->assertEqualsWithDelta(60, $result->maxpercent, 0.0001);
+    }
+
+    /**
      * A case sensitive phrase only matches with the same case.
      */
     public function test_case_sensitive_phrase(): void {

@@ -814,9 +814,9 @@ class qtype_speakup_renderer extends qtype_renderer {
 
     /**
      * Show the details of an automated grade, according to the question's
-     * "Show ..." settings: statistics about the transcript, the target item
-     * values, which target phrases were used, and how the grade was
-     * calculated.
+     * "Show ..." settings, each in its own section, as qtype_essayautograde
+     * does: statistics about the transcript, the target items, the target
+     * phrases, how the grade was calculated, and hints to improve it.
      *
      * @param qtype_speakup_question $question
      * @param question_display_options $options
@@ -826,7 +826,7 @@ class qtype_speakup_renderer extends qtype_renderer {
      * @param float|null $duration length of the recording in seconds, if known.
      * @param float|null $aifraction the AI's score (0..1), if assessed by AI.
      * @param question_attempt $qa the attempt, for whether (and by whom) the
-     *      audio prompt transcript was shown.
+     *      audio prompt transcript was shown, and for its grade.
      * @return string HTML
      */
     protected function grading_details(
@@ -852,71 +852,25 @@ class qtype_speakup_renderer extends qtype_renderer {
 
         $phrases = $question->phrase_results($transcript);
         $items = $question->item_results($transcript, $duration);
+        $hastranscript = (trim($transcript) !== '');
+        $showitems = $items && $this->can_show((int) $question->showitems, $options);
+        $showphrases = $phrases && $this->can_show((int) $question->showphrases, $options);
 
-        if (!empty($question->showstats) && trim($transcript) !== '') {
+        if (!empty($question->showstats) && $hastranscript) {
             $output .= $this->statistics($question, $transcript, $isaitranscript);
         }
-
-        if ($items && $this->can_show((int) $question->showitems, $options)) {
-            $list = [];
-            foreach ($items as $result) {
-                $list[] = get_string('itemscore', $plugin, (object) [
-                    'item' => $result->label,
-                    'value' => ($result->value === null) ? get_string('itemunknown', $plugin) : round($result->value, 1),
-                    'percent' => round($result->percent, 1),
-                ]);
-            }
-            $output .= $this->details_section(get_string('itemsheader', $plugin), $list, 'qtype_speakup-items');
+        if ($showitems) {
+            $output .= $this->item_details($items);
         }
-
-        if ($phrases && $this->can_show((int) $question->showphrases, $options)) {
-            $list = [];
-            foreach ($phrases as $result) {
-                $a = (object) ['phrase' => s($result->phrase), 'percent' => round($result->percent, 1)];
-                $list[] = get_string($result->used ? 'phraseresultused' : 'phraseresultnotused', $plugin, $a);
-            }
-            $output .= $this->details_section(get_string('expectedanswers', $plugin), $list, 'qtype_speakup-phrases');
+        if ($showphrases) {
+            $output .= $this->phrase_details($phrases, has_capability('mod/quiz:grade', $options->context));
         }
-
         if (($phrases || $items || $aifraction !== null) && $this->can_show((int) $question->showcalculation, $options)) {
-            $list = [];
-            $total = 0.0;
-            if ($items) {
-                $percent = 0.0;
-                foreach ($items as $result) {
-                    $percent += $result->percent;
-                }
-                $percent = min(100.0, $percent);
-                $total += $percent;
-                $list[] = get_string('calcitems', $plugin, round($percent, 1));
-            }
-            if ($phrases) {
-                $percent = 0.0;
-                foreach ($phrases as $result) {
-                    $percent += $result->used ? $result->percent : 0;
-                }
-                $percent = min(100.0, $percent);
-                $total += $percent;
-                $list[] = get_string('calcphrases', $plugin, round($percent, 1));
-            }
-            if ($aifraction !== null) {
-                $percent = $aifraction * (int) $question->aiweighting;
-                $total += $percent;
-                $list[] = get_string('calcholistic', $plugin, (object) [
-                    'score' => round($aifraction * 100, 1),
-                    'weighting' => (int) $question->aiweighting,
-                    'percent' => round($percent, 1),
-                ]);
-            }
-            $capped = ($total > 100);
-            $total = min(100.0, $total);
-            if ($penalty) {
-                // Taken off after the cap, as in apply_transcript_penalty().
-                $list[] = get_string('calctranscriptpenalty', $plugin, (int) $question->prompttranscriptpenalty);
-                $total = max(0.0, $total - (int) $question->prompttranscriptpenalty);
-            }
-            $list[] = html_writer::tag('strong', get_string($capped ? 'calctotalcapped' : 'calctotal', $plugin, round($total, 1)));
-            $output .= $this->details_section(get_string('calculation', $plugin), $list, 'qtype_speakup-calculation');
+            $output .= $this->grade_calculation($question, $qa, $options, $items, $phrases, $aifraction, $penalty);
+        }
+        if ($hastranscript) {
+            // Only for the items and phrases that this viewer can see.
+            $output .= $this->hints($showitems ? $items : [], $showphrases ? $phrases : []);
         }
 
         // Teachers see whether the student showed the transcript.
@@ -943,40 +897,373 @@ class qtype_speakup_renderer extends qtype_renderer {
      */
     protected function statistics(qtype_speakup_question $question, string $transcript, bool $isaitranscript): string {
         $plugin = 'qtype_speakup';
+        $strman = get_string_manager();
         $selected = explode(',', (string) $question->statstypes);
         $types = \qtype_speakup\text_stats::get_stat_types(false);
         if ($isaitranscript) {
             $types = array_merge($types, \qtype_speakup\text_stats::get_stat_types(true));
         }
-        $list = [];
+        $table = $this->details_table([
+            get_string('detailsstatistic', $plugin),
+            get_string('detailsvalue', $plugin),
+        ]);
         foreach ($types as $type) {
             if (!in_array($type, $selected)) {
                 continue;
             }
+            $label = get_string('item' . $type, $plugin);
+            if ($strman->string_exists('item' . $type . '_help', $plugin)) {
+                $label .= $this->help_icon('item' . $type, $plugin);
+            }
             $value = \qtype_speakup\text_stats::get_value($type, $transcript);
-            $list[] = get_string('statvalue', $plugin, (object) [
-                'label' => get_string('item' . $type, $plugin),
-                'value' => ($value === null) ? get_string('itemunknown', $plugin) : round($value, 1),
-            ]);
+            $table->data[] = [$label, $this->format_number($value)];
         }
-        if (empty($list)) {
+        if (empty($table->data)) {
             return '';
         }
-        return $this->details_section(get_string('statistics', $plugin), $list, 'qtype_speakup-statistics');
+        return $this->details_section(get_string('statistics', $plugin), html_writer::table($table), 'qtype_speakup-statistics');
     }
 
     /**
-     * Show one section of the grading details: a heading and a list.
+     * Show the target items: for each one, the value for the response, the
+     * target, and the share of the question grade it earned, out of the
+     * share it awards at the target.
+     *
+     * @param stdClass[] $items as returned by qtype_speakup_question::item_results().
+     * @return string HTML
+     */
+    protected function item_details(array $items): string {
+        $plugin = 'qtype_speakup';
+        $table = $this->details_table([
+            get_string('detailsitem', $plugin),
+            get_string('detailsresponse', $plugin),
+            get_string('detailstarget', $plugin),
+            get_string('detailsgrade', $plugin),
+        ]);
+        foreach ($items as $item) {
+            $target = $this->format_number($item->target);
+            if ($item->value !== null && $item->value >= $item->target) {
+                $target .= ' ' . $this->feedback_image(1.0);
+            }
+            $table->data[] = [
+                $item->label,
+                $this->format_number($item->value),
+                $target,
+                $this->percent_of($item->percent, $item->maxpercent),
+            ];
+        }
+        return $this->details_section(get_string('itemsheader', $plugin), html_writer::table($table), 'qtype_speakup-items');
+    }
+
+    /**
+     * Show the target phrases: for each one, whether it was used (and the
+     * words that matched), and the share of the question grade it earned.
+     * Students see each phrase's label, if it has one, rather than the
+     * phrase itself, and never see a regular expression. Teachers also see
+     * the phrase.
+     *
+     * @param stdClass[] $phrases as returned by qtype_speakup_question::phrase_results().
+     * @param bool $isteacher
+     * @return string HTML
+     */
+    protected function phrase_details(array $phrases, bool $isteacher): string {
+        $plugin = 'qtype_speakup';
+        $table = $this->details_table([
+            '',
+            get_string('detailsphrase', $plugin),
+            get_string('detailsresult', $plugin),
+            get_string('detailsgrade', $plugin),
+        ]);
+        foreach (array_values($phrases) as $i => $phrase) {
+            $name = $this->phrase_name($phrase, $i + 1);
+            $cell = s($name);
+            if ($isteacher && $name !== $phrase->phrase) {
+                $cell .= html_writer::div(s($phrase->phrase), 'small text-muted');
+            }
+            if ($phrase->used) {
+                $matched = trim((string) $phrase->matched);
+                if ($matched === '') {
+                    $result = get_string('phraseusedplain', $plugin);
+                } else {
+                    $result = get_string('phraseused', $plugin, s($matched));
+                }
+                $result = $this->feedback_image(1.0) . ' ' . $result;
+            } else {
+                $result = $this->feedback_image(0.0) . ' ' . get_string('phrasenotused', $plugin);
+            }
+            $table->data[] = [
+                $i + 1,
+                $cell,
+                $result,
+                $this->percent_of($phrase->used ? $phrase->percent : 0, $phrase->percent),
+            ];
+        }
+        return $this->details_section(get_string('expectedanswers', $plugin), html_writer::table($table), 'qtype_speakup-phrases');
+    }
+
+    /**
+     * Explain how the grade was calculated, in sentences, as
+     * qtype_essayautograde does: the maximum grade, the raw percentage and
+     * what it is made of, any cap or penalty, the automatic grade, and any
+     * later change to it by a teacher.
+     *
+     * The calculation follows qtype_speakup_question::combine_fractions()
+     * and apply_transcript_penalty(). (Capping the target items and target
+     * phrases at 100% each, as combine_fractions() does, makes no
+     * difference, since the total is capped at 100% too.)
+     *
+     * @param qtype_speakup_question $question
+     * @param question_attempt $qa
+     * @param question_display_options $options
+     * @param stdClass[] $items as returned by qtype_speakup_question::item_results().
+     * @param stdClass[] $phrases as returned by qtype_speakup_question::phrase_results().
+     * @param float|null $aifraction the AI's score (0..1), if assessed by AI.
+     * @param bool $penalty whether the penalty for showing the transcript applies.
+     * @return string HTML
+     */
+    protected function grade_calculation(
+        qtype_speakup_question $question,
+        question_attempt $qa,
+        question_display_options $options,
+        array $items,
+        array $phrases,
+        ?float $aifraction,
+        bool $penalty
+    ): string {
+        $plugin = 'qtype_speakup';
+        $dp = isset($options->markdp) ? (int) $options->markdp : 2;
+        $maxgrade = $qa->format_max_mark($dp);
+
+        $raw = 0.0;
+        $details = [];
+        foreach ($items as $item) {
+            if ($item->value !== null && $item->percent > 0) {
+                $raw += $item->percent;
+                $details[] = get_string('calcitem', $plugin, (object) [
+                    'percent' => $this->format_number($item->percent),
+                    'value' => $this->item_amount($item->itemtype, $item->value),
+                    'target' => $this->format_number($item->target),
+                ]);
+            }
+        }
+        foreach (array_values($phrases) as $i => $phrase) {
+            if ($phrase->used) {
+                $raw += $phrase->percent;
+                $details[] = get_string('calcphrase', $plugin, (object) [
+                    'percent' => $this->format_number($phrase->percent),
+                    'phrase' => s($this->phrase_name($phrase, $i + 1)),
+                ]);
+            }
+        }
+        if ($aifraction !== null) {
+            $percent = $aifraction * (int) $question->aiweighting;
+            $raw += $percent;
+            $details[] = get_string('calcholistic', $plugin, (object) [
+                'percent' => $this->format_number($percent),
+                'score' => $this->format_number($aifraction * 100),
+                'weighting' => (int) $question->aiweighting,
+            ]);
+        }
+
+        $lines = [get_string('calcmaxgrade', $plugin, $maxgrade)];
+        if ($details) {
+            $lines[] = get_string('calcrawpercentdetails', $plugin, (object) [
+                'percent' => $this->format_number($raw),
+                'details' => implode(html_writer::empty_tag('br'), $details),
+            ]);
+        } else {
+            $lines[] = get_string('calcrawpercent', $plugin, $this->format_number($raw));
+        }
+        $percent = $raw;
+        if ($percent > 100) {
+            $lines[] = get_string('calccapped', $plugin);
+            $percent = 100.0;
+        }
+        if ($penalty) {
+            // Taken off after the cap, as in apply_transcript_penalty().
+            $lines[] = get_string('calcpenalty', $plugin, (int) $question->prompttranscriptpenalty);
+            $percent = max(0.0, $percent - (int) $question->prompttranscriptpenalty);
+        }
+        $grade = $qa->get_max_mark() * $percent / 100;
+        $lines[] = get_string('calcgrade', $plugin, (object) [
+            'grade' => format_float($grade, $dp),
+            'percent' => $this->format_number($percent),
+            'maxgrade' => $maxgrade,
+        ]);
+        if ($override = $this->grade_override($question, $qa, $grade, $dp)) {
+            $lines[] = $override;
+        }
+
+        $html = implode('', array_map(fn($line) => html_writer::tag('p', $line, ['class' => 'mb-1']), $lines));
+        return $this->details_section(get_string('calculation', $plugin), $html, 'qtype_speakup-calculation');
+    }
+
+    /**
+     * Say when a teacher changed the automatic grade, and to what, if they did.
+     *
+     * A teacher's grade is saved in a step with a "mark". A response graded
+     * in the background also has one for the automatic grade, which comes
+     * first (see classes/task/assess_response.php), so that one is skipped.
+     *
+     * @param qtype_speakup_question $question
+     * @param question_attempt $qa
+     * @param float $autograde the automatic grade.
+     * @param int $dp decimal places for grades.
+     * @return string the sentence, or '' if the grade was not changed.
+     */
+    protected function grade_override(qtype_speakup_question $question, question_attempt $qa, float $autograde, int $dp): string {
+        $steps = [];
+        foreach ($qa->get_step_iterator() as $step) {
+            $mark = $step->get_behaviour_var('mark');
+            if ($mark !== null && $mark !== '') {
+                $steps[] = $step;
+            }
+        }
+        if ($question->is_graded_later()) {
+            array_shift($steps);
+        }
+        $step = end($steps);
+        if (!$step) {
+            return '';
+        }
+        $grade = format_float((float) $step->get_behaviour_var('mark'), $dp);
+        if ($grade === format_float($autograde, $dp)) {
+            return '';
+        }
+        return get_string('calcoverride', 'qtype_speakup', (object) [
+            'date' => userdate($step->get_timecreated(), get_string('strftimedatetime', 'langconfig')),
+            'grade' => $grade,
+        ]);
+    }
+
+    /**
+     * Suggest how to improve the grade next time: reach the targets that
+     * were not reached, and use the target phrases that were not used.
+     *
+     * @param stdClass[] $items the target items that the viewer can see.
+     * @param stdClass[] $phrases the target phrases that the viewer can see.
+     * @return string HTML
+     */
+    protected function hints(array $items, array $phrases): string {
+        $plugin = 'qtype_speakup';
+
+        // For each kind of item, the highest target that was not reached.
+        $targets = [];
+        foreach ($items as $item) {
+            if ($item->value !== null && $item->value < $item->target) {
+                $targets[$item->itemtype] = max($targets[$item->itemtype] ?? 0, $item->target);
+            }
+        }
+        $hints = [];
+        foreach ($targets as $itemtype => $target) {
+            $hints[] = get_string('hintitem', $plugin, $this->item_amount($itemtype, $target));
+        }
+
+        // A regular expression with no label means nothing to students, so
+        // for those, just suggest using all the phrases.
+        $unnamed = false;
+        foreach ($phrases as $phrase) {
+            if ($phrase->used) {
+                continue;
+            }
+            if ($phrase->label !== '') {
+                $hints[] = get_string('hintphrase', $plugin, s($phrase->label));
+            } else if (!$phrase->isregex) {
+                $hints[] = get_string('hintphrase', $plugin, s($phrase->phrase));
+            } else {
+                $unnamed = true;
+            }
+        }
+        if ($unnamed) {
+            $hints[] = get_string('hintphrases', $plugin);
+        }
+
+        if (empty($hints)) {
+            return '';
+        }
+        return $this->details_section(get_string('hintsheader', $plugin), html_writer::alist($hints), 'qtype_speakup-hints');
+    }
+
+    /**
+     * Get the name of a target phrase to show students: its label, if it
+     * has one, or else the phrase itself, unless it is a regular expression.
+     *
+     * @param stdClass $phrase as returned by qtype_speakup_question::phrase_results().
+     * @param int $number the phrase's number in the list.
+     * @return string plain text
+     */
+    protected function phrase_name(stdClass $phrase, int $number): string {
+        if ($phrase->label !== '') {
+            return $phrase->label;
+        }
+        if ($phrase->isregex) {
+            return get_string('phrasenumber', 'qtype_speakup', $number);
+        }
+        return $phrase->phrase;
+    }
+
+    /**
+     * Describe an amount of a target item, e.g. "53 words".
+     *
+     * @param string $itemtype
+     * @param float $value
+     * @return string
+     */
+    protected function item_amount(string $itemtype, float $value): string {
+        return get_string('rubricitem' . $itemtype, 'qtype_speakup', $this->format_number($value));
+    }
+
+    /**
+     * Format a number to at most one decimal place, without trailing zeros.
+     *
+     * @param float|null $value
+     * @return string the number, or "unknown" if it is null.
+     */
+    protected function format_number(?float $value): string {
+        if ($value === null) {
+            return get_string('itemunknown', 'qtype_speakup');
+        }
+        return format_float(round($value, 1), 1, true, true);
+    }
+
+    /**
+     * Show a share of the question grade out of the most it could be, e.g. "8% (of 10%)".
+     *
+     * @param float $percent
+     * @param float $maxpercent
+     * @return string
+     */
+    protected function percent_of(float $percent, float $maxpercent): string {
+        return get_string('detailspercentof', 'qtype_speakup', (object) [
+            'percent' => $this->format_number($percent),
+            'max' => $this->format_number($maxpercent),
+        ]);
+    }
+
+    /**
+     * Make a striped table for one section of the grading details.
+     *
+     * @param string[] $head the column headings.
+     * @return html_table
+     */
+    protected function details_table(array $head): html_table {
+        $table = new html_table();
+        $table->head = $head;
+        $table->attributes['class'] = 'generaltable qtype_speakup-details-table w-auto mb-1';
+        return $table;
+    }
+
+    /**
+     * Show one section of the grading details: a heading and its content.
      *
      * @param string $heading
-     * @param string[] $list HTML list items.
+     * @param string $content HTML
      * @param string $class CSS class for the section.
      * @return string HTML
      */
-    protected function details_section(string $heading, array $list, string $class): string {
+    protected function details_section(string $heading, string $content, string $class): string {
         return html_writer::div(
-            html_writer::tag('h5', $heading, ['class' => 'mt-2 mb-1']) .
-                html_writer::alist($list, ['class' => 'mb-1']),
+            html_writer::tag('h5', $heading, ['class' => 'mt-3 mb-1']) . $content,
             'qtype_speakup-grading-details ' . $class
         );
     }

@@ -93,11 +93,16 @@ Feature: Test editing a SpeakUp question
     And I should see "Up to 60%" in the "#id_itemsheader" "css_element"
 
   @javascript
-  Scenario: Phrase boxes grow to fit their text
+  Scenario: Phrase and label boxes grow to fit their text, within the window
     When I am on the "speakup-001" "core_question > edit" page logged in as teacher
     Then the "id_phrasematch_1" field should be wider than the "id_phrasematch_0" field
     And I set the field "id_phrasematch_0" to "a much longer target phrase than the others"
     And the "id_phrasematch_0" field should be wider than the "id_phrasematch_1" field
+    # The label box fits its placeholder, and grows, but not past the window.
+    And the "id_phraselabel_0" field should be wider than the "id_phrasematch_1" field
+    And I set the field "id_phraselabel_0" to "A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase. A very long label for a target phrase."
+    And the "id_phraselabel_0" field should be wider than the "id_phrasematch_0" field
+    And the "id_phraselabel_0" field should fit in the window
 
   @javascript
   Scenario: After adding a target phrase, the new phrase box has the focus

@@ -15,9 +15,9 @@
 
 /**
  * The SpeakUp question form: the subtotals of the target items and
- * phrases, phrase boxes that grow to fit their text, scrolling to new rows
- * after "Add", and text areas and editors (TinyMCE, Atto or plain text)
- * that grow to fit their content. Based on qtype_essayautograde/form.
+ * phrases, phrase and label boxes that grow to fit their text, scrolling
+ * to new rows after "Add", and text areas and editors (TinyMCE, Atto or
+ * plain text) that grow to fit their content. Based on qtype_essayautograde/form.
  *
  * @module     qtype_speakup/editform
  * @copyright  2026 Gordon Bateson and contributors
@@ -157,33 +157,57 @@ const initSubtotal = (form, header, getTotal) => {
     update();
 };
 
+/** The narrowest a phrase or label box can be: this many letters wide. */
+const MIN_LETTERS = 'nnnnn';
+
 /**
- * Make the phrase boxes start small, and grow to fit their text.
+ * Make the phrase and label boxes fit their text: at least as wide as
+ * their placeholder (if any) or a few letters, but no wider than their
+ * row, nor past the right edge of the window. Beyond that, the text
+ * scrolls inside the box, as usual.
  *
  * @param {HTMLFormElement} form
  */
 const initPhraseBoxes = (form) => {
-    form.querySelectorAll('input[name^="phrasematch["]').forEach((input) => {
-        const minWidth = input.offsetWidth;
-        const resize = () => {
-            const style = window.getComputedStyle(input);
-            const measure = document.createElement('span');
-            measure.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;';
-            measure.style.font = style.font;
-            measure.style.letterSpacing = style.letterSpacing;
-            measure.textContent = input.value;
-            document.body.appendChild(measure);
-            const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) +
-                parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
-            // A little extra room, so the text does not scroll while typing.
-            const width = measure.offsetWidth + padding + 16;
-            measure.remove();
-            const maxWidth = input.parentElement ? input.parentElement.clientWidth : width;
-            input.style.width = Math.min(Math.max(width, minWidth), maxWidth || width) + 'px';
-        };
-        input.addEventListener('input', resize);
-        resize();
+    const boxes = Array.from(form.querySelectorAll('input[name^="phrasematch["], input[name^="phraselabel["]'));
+    const measure = document.createElement('span');
+    measure.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;';
+
+    const getTextWidth = (input, text) => {
+        const style = window.getComputedStyle(input);
+        measure.style.font = style.font;
+        measure.style.letterSpacing = style.letterSpacing;
+        measure.textContent = text;
+        document.body.appendChild(measure);
+        const width = measure.offsetWidth;
+        measure.remove();
+        return width;
+    };
+
+    const resize = (input) => {
+        const style = window.getComputedStyle(input);
+        const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) +
+            parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+        const text = Math.max(
+            getTextWidth(input, input.value),
+            getTextWidth(input, input.placeholder || ''),
+            getTextWidth(input, MIN_LETTERS)
+        );
+        // A little extra room, so the text does not scroll while typing.
+        const width = text + padding + 16;
+        let maxWidth = window.innerWidth - input.getBoundingClientRect().left - 16;
+        if (input.parentElement && input.parentElement.clientWidth) {
+            maxWidth = Math.min(maxWidth, input.parentElement.clientWidth);
+        }
+        input.style.width = Math.max(Math.min(width, maxWidth), 0) + 'px';
+    };
+
+    const resizeAll = () => boxes.forEach(resize);
+    boxes.forEach((input) => {
+        input.addEventListener('input', () => resize(input));
     });
+    window.addEventListener('resize', resizeAll);
+    resizeAll();
 };
 
 /**

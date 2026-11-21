@@ -103,6 +103,7 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertEquals(0, $phrases[0]->isregex);
         $this->assertEquals(1, $phrases[2]->isregex);
         $this->assertEquals(2, $phrases[2]->divisor);
+        $this->assertSame('', (string) $phrases[2]->answerlabel);
 
         $items = $qdata->options->targetitems;
         $this->assertCount(1, $items);
@@ -183,6 +184,7 @@ final class questiontype_test extends \advanced_testcase {
             'showstats' => 1,
             'statstypes' => ['words' => 1, 'lexicaldensity' => 1],
             'phrasematch' => ['say "hello"', '/colou?r/i', 'café'],
+            'phraselabel' => ['', 'Colour (UK "u", or not)', ''],
             'phrasepercent' => [25, 10, 5],
             'phrasedivisor' => [1, 3, 1],
             'phrasefullmatch' => [1, 0, 0],
@@ -201,6 +203,7 @@ final class questiontype_test extends \advanced_testcase {
             $this->assertEquals($qdata->options->$field, $imported->$field, "Field $field");
         }
         $this->assertSame(['say "hello"', '/colou?r/i', 'café'], $imported->phrasematch);
+        $this->assertSame(['', 'Colour (UK "u", or not)', ''], $imported->phraselabel);
         $this->assertEquals([25, 10, 5], $imported->phrasepercent);
         $this->assertEquals([1, 3, 1], $imported->phrasedivisor);
         $this->assertEquals([1, 0, 0], $imported->phrasefullmatch);
@@ -221,7 +224,7 @@ final class questiontype_test extends \advanced_testcase {
                 "::Hobby::Listen.{\nAUDIO(voice=Kore): Tell me about your hobby.\nIt can be anything.\n" .
                 "TIMELIMIT=2m\nLANG=en_GB\nPAUSE=yes\nPLAYS=2\nTRANSCRIPT=expanded\nAI=Gemini, 50%\n" .
                 "RUBRIC=One.\\nTwo\\: three \\{x\\}.\nITEMS=(words, 40, 30%, x2)(longwords, 5)\n" .
-                "PHRASE=(\"I like\", 20%, /2, full, case)\nPHRASE=(\"because\")\n" .
+                "PHRASE=(\"I like\", 20%, /2, full, case, \"Liking\")\nPHRASE=(\"because\")\n" .
                 "SHOW=calculation:teachers, comment:students\nSTATS=yes; words, uniquewords\n#### Well done!\n}\n\n" .
                 "::NoPrompt::Say something.{\nSPEAKUP\nGRADING=manual\n}\n\n" .
                 "::Essay::Not SpeakUp.{}\n";
@@ -251,6 +254,7 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertEquals([30, 100], $hobby->itempercent);
         $this->assertEquals([2, 1], $hobby->itemmultiplier);
         $this->assertSame(['I like', 'because'], $hobby->phrasematch);
+        $this->assertSame(['Liking', ''], $hobby->phraselabel);
         $this->assertEquals([20, 100], $hobby->phrasepercent);
         $this->assertEquals([2, 1], $hobby->phrasedivisor);
         $this->assertEquals([1, 0], $hobby->phrasefullmatch);
@@ -332,7 +336,8 @@ final class questiontype_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
         $provider = \qtype_speakup_test_helper::create_provider(['name' => 'Gemini']);
-        $qdata = $this->create_question('prompt', ['aiassessment' => 1, 'aiproviderid' => $provider->id]);
+        $qdata = $this->create_question('prompt', ['aiassessment' => 1, 'aiproviderid' => $provider->id,
+                'phraselabel' => ['', '', 'Violin & "viola"']]);
         get_file_storage()->create_file_from_string(
             ['contextid' => $qdata->contextid, 'component' => 'qtype_speakup',
                 'filearea' => 'audioprompt', 'itemid' => $qdata->id, 'filepath' => '/', 'filename' => 'audioprompt.mp3'],
@@ -353,6 +358,7 @@ final class questiontype_test extends \advanced_testcase {
             $this->assertEquals($qdata->options->$field, $imported->$field, "Field $field");
         }
         $this->assertSame(['guitar', 'I have played', '/\bviolins?\b/i'], $imported->phrasematch);
+        $this->assertSame(['', '', 'Violin & "viola"'], $imported->phraselabel);
         $this->assertSame(['words'], $imported->itemtype);
 
         $files = file_get_drafarea_files($imported->audioprompt);

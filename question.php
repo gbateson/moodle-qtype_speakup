@@ -141,7 +141,8 @@ class qtype_speakup_question extends question_graded_automatically {
     public $aiproviderid;
 
     /**
-     * @var stdClass[] target phrases, each with ->answertext, ->isregex,
+     * @var stdClass[] target phrases, each with ->answertext, ->answerlabel
+     *      (shown to students in place of answertext, if set), ->isregex,
      *      ->percent, ->divisor, ->fullmatch and ->casesensitive.
      */
     public $expectedanswers = [];
@@ -420,9 +421,10 @@ class qtype_speakup_question extends question_graded_automatically {
      *
      * @param string $transcript
      * @param float|null $duration length of the recording in seconds, if known.
-     * @return stdClass[] each with ->label (the item's name), ->value (or
-     *      null if unknown) and ->percent (the share of the question grade
-     *      it awards). Empty if there are no target items.
+     * @return stdClass[] each with ->itemtype, ->label (the item's name),
+     *      ->value (or null if unknown), ->target, ->percent (the share of
+     *      the question grade it awards) and ->maxpercent (the share it
+     *      awards at the target). Empty if there are no target items.
      */
     public function item_results(string $transcript, ?float $duration): array {
         $results = [];
@@ -434,9 +436,12 @@ class qtype_speakup_question extends question_graded_automatically {
                 $percent = self::item_percent($item, $value);
             }
             $results[] = (object) [
+                'itemtype' => $item->itemtype,
                 'label' => get_string('item' . $item->itemtype, 'qtype_speakup'),
                 'value' => $value,
+                'target' => (float) $item->itemtarget,
                 'percent' => $percent,
+                'maxpercent' => self::item_percent($item, (float) $item->itemtarget),
             ];
         }
         return $results;
@@ -902,7 +907,7 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
-     * Is a target phrase used in a transcript?
+     * Find a target phrase in a transcript.
      *
      * A plain phrase matches anywhere in the transcript, case-insensitively
      * unless "case sensitive" is set, and only as whole words if "full
@@ -911,15 +916,16 @@ class qtype_speakup_question extends question_graded_automatically {
      *
      * @param stdClass $phrase a target phrase.
      * @param string $transcript
-     * @return bool
+     * @return string|null the words in the transcript that match, or null
+     *      if the phrase is not used.
      */
-    protected function phrase_is_used(stdClass $phrase, string $transcript): bool {
+    protected function phrase_match(stdClass $phrase, string $transcript): ?string {
         $text = trim($phrase->answertext);
         if ($text === '') {
-            return false;
+            return null;
         }
         if (!empty($phrase->isregex)) {
-            return (bool) @preg_match($this->to_php_regex($text), $transcript);
+            return @preg_match($this->to_php_regex($text), $transcript, $match) ? $match[0] : null;
         }
         $pattern = preg_replace('/\s+/u', '\\s+', preg_quote($text, '/'));
         if (!empty($phrase->fullmatch)) {
@@ -928,7 +934,7 @@ class qtype_speakup_question extends question_graded_automatically {
             $pattern = '(?<![\p{L}\p{N}])' . $pattern . '(?![\p{L}\p{N}])';
         }
         $flags = 'u' . (empty($phrase->casesensitive) ? 'i' : '');
-        return (bool) preg_match('/' . $pattern . '/' . $flags, $transcript);
+        return preg_match('/' . $pattern . '/' . $flags, $transcript, $match) ? $match[0] : null;
     }
 
     /**
@@ -975,9 +981,10 @@ class qtype_speakup_question extends question_graded_automatically {
      * Get the result of each target phrase for a transcript.
      *
      * @param string $transcript
-     * @return stdClass[] each with ->phrase, ->used (bool) and ->percent
-     *      (the share of the question grade it awards if used). Empty if
-     *      there are no target phrases.
+     * @return stdClass[] each with ->phrase, ->label (or '' if none),
+     *      ->isregex, ->used (bool), ->matched (the words that matched, or
+     *      null) and ->percent (the share of the question grade it awards
+     *      if used). Empty if there are no target phrases.
      */
     public function phrase_results(string $transcript): array {
         $results = [];
@@ -985,9 +992,13 @@ class qtype_speakup_question extends question_graded_automatically {
             if (trim($phrase->answertext) === '' || self::phrase_percent($phrase) <= 0) {
                 continue;
             }
+            $matched = (trim($transcript) === '') ? null : $this->phrase_match($phrase, $transcript);
             $results[] = (object) [
                 'phrase' => $phrase->answertext,
-                'used' => (trim($transcript) !== '') && $this->phrase_is_used($phrase, $transcript),
+                'label' => trim((string) ($phrase->answerlabel ?? '')),
+                'isregex' => !empty($phrase->isregex),
+                'used' => ($matched !== null),
+                'matched' => $matched,
                 'percent' => self::phrase_percent($phrase),
             ];
         }

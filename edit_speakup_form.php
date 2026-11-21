@@ -287,10 +287,16 @@ class qtype_speakup_edit_form extends question_edit_form {
                 $mform->createElement('select', 'phrasefullmatch', '', $fullmatchmenu),
                 $mform->createElement('select', 'phrasecasesensitive', '', $casesensitivemenu),
             ], ' ', false),
+            $mform->createElement('text', 'phraselabel', get_string('phraselabelno', $plugin), [
+                // Without JavaScript; with it, the box fits its placeholder or text.
+                'size' => 30,
+                'placeholder' => get_string('phraselabelplaceholder', $plugin),
+            ]),
         ];
         $options = [
             'phrasegroup' => ['helpbutton' => ['phrasegroup', $plugin]],
             'phrasematch' => ['type' => PARAM_RAW_TRIMMED],
+            'phraselabel' => ['type' => PARAM_TEXT, 'helpbutton' => ['phraselabel', $plugin]],
             'phrasepercent' => ['type' => PARAM_INT],
             'phrasedivisor' => ['type' => PARAM_INT],
             'phrasefullmatch' => ['type' => PARAM_INT],
@@ -303,6 +309,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         for ($i = 0; $i < $repeatno; $i++) {
             $mform->hideIf('phrasegroup[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
             $mform->hideIf('phraseoptions[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf('phraselabel[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         }
         $mform->hideIf('phraseaddgroup', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
 
@@ -696,12 +703,14 @@ class qtype_speakup_edit_form extends question_edit_form {
 
         // Target phrases.
         $question->phrasematch = [];
+        $question->phraselabel = [];
         $question->phrasepercent = [];
         $question->phrasedivisor = [];
         $question->phrasefullmatch = [];
         $question->phrasecasesensitive = [];
         foreach ($question->options->expectedanswers ?? [] as $row) {
             $question->phrasematch[] = $row->answertext;
+            $question->phraselabel[] = (string) $row->answerlabel;
             $question->phrasepercent[] = (int) $row->percent;
             $question->phrasedivisor[] = (int) $row->divisor;
             $question->phrasefullmatch[] = (int) $row->fullmatch;

@@ -229,6 +229,24 @@ class behat_qtype_speakup extends behat_base {
         }
     }
 
+    /**
+     * Check that a field is no wider than the window, e.g. a box that grows
+     * to fit its text.
+     *
+     * @Then /^the "(?P<field>[^"]+)" field should fit in the window$/
+     * @param string $field the id of the field.
+     */
+    public function the_field_should_fit_in_the_window(string $field): void {
+        [$right, $width] = $this->evaluate_script('return [document.getElementById(' . json_encode($field) . ')' .
+                '.getBoundingClientRect().right, window.innerWidth];');
+        if ($right > $width) {
+            throw new ExpectationException(
+                "The right edge of \"$field\" is at {$right}px, but the window is {$width}px wide.",
+                $this->getSession()
+            );
+        }
+    }
+
     // phpcs:disable moodle.Files.LineLength.TooLong
     /**
      * Check the size of an element, e.g. to check an editor grows to fit its

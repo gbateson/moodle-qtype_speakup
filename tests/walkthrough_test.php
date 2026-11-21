@@ -90,6 +90,51 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
     }
 
     /**
+     * The review page shows the target items and phrases in tables, explains
+     * the grade calculation, and gives hints, as qtype_essayautograde does.
+     */
+    public function test_grading_details(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $question = test_question_maker::make_question('speakup', 'basic');
+        $this->start_attempt_at_question($question, 'deferredfeedback', 1);
+        $this->process_submission(['recording' => $this->make_recording(),
+                'browsertranscript' => 'I have played the guitar.']);
+        $this->finish();
+
+        // Teachers see the regular expressions.
+        $this->render();
+        $output = $this->currentoutput;
+        $this->assertStringContainsString(get_string('itemsheader', 'qtype_speakup'), $output);
+        $this->assertStringContainsString('7.5% (of 30%)', $output);
+        $this->assertStringContainsString('Used: "guitar"', $output);
+        $this->assertStringContainsString('Target phrase 3', $output);
+        $this->assertStringContainsString('/\\bviolins?\\b/i', $output);
+        $this->assertStringContainsString('The maximum grade for this question is 1.00.', $output);
+        $this->assertStringContainsString('+ 7.5% for 5 words (target: 20)', $output);
+        $this->assertStringContainsString('+ 40% for using "guitar"', $output);
+        $this->assertStringContainsString('(77.5% of 1.00)', $output);
+        $this->assertStringContainsString('Aim for 20 words next time.', $output);
+        $this->assertStringContainsString('Try to use all the target phrases.', $output);
+        $this->assertStringNotContainsString('manually set', $output);
+
+        // Students see the label, and never the regular expression.
+        $question->expectedanswers[2]->answerlabel = 'Violin';
+        $this->setUser($this->getDataGenerator()->create_user());
+        $this->render();
+        $output = $this->currentoutput;
+        $this->assertStringNotContainsString('violins?', $output);
+        $this->assertStringContainsString('Try to use: Violin', $output);
+        $this->assertStringNotContainsString('Try to use all the target phrases.', $output);
+
+        // A teacher changes the grade.
+        $this->setAdminUser();
+        $this->manual_grade('Well done.', 0.5, FORMAT_HTML);
+        $this->render();
+        $this->assertStringContainsString('the grade was manually set to 0.50', $this->currentoutput);
+    }
+
+    /**
      * Without a recording, the response is not complete.
      */
     public function test_no_recording(): void {

@@ -213,6 +213,7 @@ class qtype_speakup extends question_type {
                 $record = new stdClass();
                 $record->questionid = $question->id;
                 $record->answertext = $phrase;
+                $record->answerlabel = trim((string) ($question->phraselabel[$key] ?? ''));
                 $record->isregex = (int) preg_match('#^/.*/[a-zA-Z]*$#', $phrase);
                 $record->percent = min(100, max(0, (int) ($question->phrasepercent[$key] ?? 0)));
                 if ($record->percent == 0) {
@@ -351,6 +352,9 @@ class qtype_speakup extends question_type {
         foreach ($question->options->expectedanswers ?? [] as $phrase) {
             $output .= "    <targetphrase>\n";
             $output .= '      <text>' . $format->xml_escape($phrase->answertext) . "</text>\n";
+            if (trim((string) ($phrase->answerlabel ?? '')) !== '') {
+                $output .= '      <label>' . $format->xml_escape($phrase->answerlabel) . "</label>\n";
+            }
             foreach (['percent', 'divisor', 'fullmatch', 'casesensitive'] as $field) {
                 $output .= "      <{$field}>" . $format->xml_escape((string) $phrase->$field) . "</{$field}>\n";
             }
@@ -422,12 +426,14 @@ class qtype_speakup extends question_type {
         }
 
         $qo->phrasematch = [];
+        $qo->phraselabel = [];
         $qo->phrasepercent = [];
         $qo->phrasedivisor = [];
         $qo->phrasefullmatch = [];
         $qo->phrasecasesensitive = [];
         foreach ($format->getpath($data, ['#', 'targetphrase'], []) as $phrase) {
             $qo->phrasematch[] = $format->getpath($phrase, ['#', 'text', 0, '#'], '');
+            $qo->phraselabel[] = $format->getpath($phrase, ['#', 'label', 0, '#'], '');
             $qo->phrasepercent[] = $format->getpath($phrase, ['#', 'percent', 0, '#'], 0);
             $qo->phrasedivisor[] = $format->getpath($phrase, ['#', 'divisor', 0, '#'], 1);
             $qo->phrasefullmatch[] = $format->getpath($phrase, ['#', 'fullmatch', 0, '#'], 0);
@@ -676,9 +682,13 @@ class qtype_speakup extends question_type {
         }
         foreach ($o->expectedanswers ?? [] as $phrase) {
             $text = str_replace(['\\', '"'], ['\\\\', '\\"'], $phrase->answertext);
+            $label = trim((string) ($phrase->answerlabel ?? ''));
+            if ($label !== '') {
+                $label = ', "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $label) . '"';
+            }
             $lines[] = 'TARGETPHRASE=' . self::gift_escape('("' . $text . '", ' . (int) $phrase->percent . '%, /' .
                     (int) $phrase->divisor . ', ' . (empty($phrase->fullmatch) ? 'partial' : 'full') . ', ' .
-                    (empty($phrase->casesensitive) ? 'nocase' : 'case') . ')');
+                    (empty($phrase->casesensitive) ? 'nocase' : 'case') . $label . ')');
         }
 
         $show = [];
@@ -763,6 +773,7 @@ class qtype_speakup extends question_type {
         $question->itempercent = [];
         $question->itemmultiplier = [];
         $question->phrasematch = [];
+        $question->phraselabel = [];
         $question->phrasepercent = [];
         $question->phrasedivisor = [];
         $question->phrasefullmatch = [];
@@ -1000,9 +1011,10 @@ class qtype_speakup extends question_type {
                 return $errors ? get_string('giftbadparts', $plugin, implode(', ', $errors)) : null;
 
             case 'targetphrase':
-                // One or more ("phrase", percent%, /divisor, full|partial, case|nocase).
+                // One or more of these, in brackets: "phrase", percent%, /divisor,
+                // full or partial, case or nocase, and an optional "label".
                 $pattern = '/\(\s*"((?:[^"\\\\]|\\\\.)*)"\s*(?:,\s*(\d+)\s*%?)?\s*(?:,\s*\/?\s*(\d+))?' .
-                        '\s*(?:,\s*([a-z01]+))?\s*(?:,\s*([a-z01]+))?\s*\)/i';
+                        '\s*(?:,\s*([a-z01]+))?\s*(?:,\s*([a-z01]+))?\s*(?:,\s*"((?:[^"\\\\]|\\\\.)*)")?\s*\)/i';
                 if (!preg_match_all($pattern, $value, $matches, PREG_SET_ORDER)) {
                     return get_string('giftexpecttargetphrase', $plugin);
                 }
@@ -1016,6 +1028,7 @@ class qtype_speakup extends question_type {
                         $errors[] = trim($full . ' ' . $case);
                     }
                     $question->phrasematch[] = preg_replace('/\\\\(.)/', '$1', $match[1]);
+                    $question->phraselabel[] = preg_replace('/\\\\(.)/', '$1', $match[6] ?? '');
                     $question->phrasepercent[] = ($match[2] ?? '') === '' ? 100 : (int) $match[2];
                     $question->phrasedivisor[] = ($match[3] ?? '') === '' ? 1 : (int) $match[3];
                     $question->phrasefullmatch[] = $flags[$full] ?? 0;
@@ -1094,6 +1107,7 @@ class qtype_speakup extends question_type {
         if (empty($question->phrasematch)) {
             foreach ($DB->get_records('qtype_speakup_answers', ['questionid' => $archetype->id], 'id ASC') as $phrase) {
                 $question->phrasematch[] = $phrase->answertext;
+                $question->phraselabel[] = (string) $phrase->answerlabel;
                 $question->phrasepercent[] = $phrase->percent;
                 $question->phrasedivisor[] = $phrase->divisor;
                 $question->phrasefullmatch[] = $phrase->fullmatch;

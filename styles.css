@@ -141,37 +141,58 @@
 
 /*
  * Zebra stripes on the target phrases in the question form, as in
- * qtype_essayautograde. Each phrase has two rows: "Target phrase [n]"
- * (phrasegroup) and its options (phraseoptions), so the stripes
- * alternate every two rows. The id selectors leave the "Add" row and
- * the "Transcription provider" row unstriped.
+ * qtype_essayautograde. Each phrase has three rows: "Target phrase [n]"
+ * (phrasegroup), its options (phraseoptions) and its label
+ * (phraselabel), so the stripes alternate every three rows. The id
+ * selectors leave the "Add" row and the "Transcription provider" row
+ * unstriped.
  */
-#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+1)[id^=fgroup_id_phrasegroup_],
-#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+2)[id^=fgroup_id_phraseoptions_] {
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n+1)[id^=fgroup_id_phrasegroup_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n+2)[id^=fgroup_id_phraseoptions_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n+3)[id^=fitem_id_phraselabel_] {
     background-color: #f8f8f8;
 }
-#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n+3)[id^=fgroup_id_phrasegroup_],
-#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(4n)[id^=fgroup_id_phraseoptions_] {
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n+4)[id^=fgroup_id_phrasegroup_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n+5)[id^=fgroup_id_phraseoptions_],
+#speakup_edit_form #id_phrasesheader .fitem:nth-of-type(6n)[id^=fitem_id_phraselabel_] {
     background-color: #f0f0f0;
 }
 
-/* Keep the two rows of each phrase, and of each target item, together. */
+/*
+ * Keep the rows of each phrase, and of each target item, together, as
+ * one stripe with rounded corners: no space between the rows, square
+ * corners where they meet, and the usual space after the last row.
+ */
 #speakup_edit_form [id^=fgroup_id_phrasegroup_],
+#speakup_edit_form [id^=fgroup_id_phraseoptions_],
 #speakup_edit_form [id^=fgroup_id_itemgroup_] {
     margin-bottom: 0 !important; /* stylelint-disable-line declaration-no-important */
 }
 #speakup_edit_form [id^=fgroup_id_phraseoptions_],
+#speakup_edit_form [id^=fitem_id_phraselabel_],
 #speakup_edit_form [id^=fgroup_id_itemaward_] {
     padding-top: 3px !important; /* stylelint-disable-line declaration-no-important */
 }
+#speakup_edit_form [id^=fgroup_id_phrasegroup_],
+#speakup_edit_form [id^=fgroup_id_itemgroup_] {
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+#speakup_edit_form [id^=fitem_id_phraselabel_],
+#speakup_edit_form [id^=fgroup_id_itemaward_] {
+    padding-bottom: 3px;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
 
 /*
- * On medium and larger screens, the second row of each phrase and target
- * item sits under the first row's controls, so its own label ("Target
- * phrase [n] options", "Target item [n] award") is hidden.
+ * On medium and larger screens, the later rows of each phrase and target
+ * item sit under the first row's controls, so their own labels ("Target
+ * phrase [n] options", "Target phrase [n] label", "Target item [n]
+ * award") are hidden. The label's box has a placeholder instead, and
+ * keeps its help icon. On small screens, the labels are shown.
  */
 @media (min-width: 768px) {
     #speakup_edit_form [id^=fgroup_id_phraseoptions_] [id$=_label],
+    #speakup_edit_form [id^=fitem_id_phraselabel_] [id$=_label],
     #speakup_edit_form [id^=fgroup_id_itemaward_] [id$=_label] {
         visibility: hidden;
     }

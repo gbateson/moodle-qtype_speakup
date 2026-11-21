@@ -142,6 +142,7 @@ final class backup_restore_test extends \advanced_testcase {
             'aiassessment' => 1,
             'aiproviderid' => $provider->id,
             'promptvoice' => 'Kore',
+            'phraselabel' => ['', '', 'Violin'],
         ]);
         $original = question_bank::load_question_data($question->id);
         get_file_storage()->create_file_from_string(
@@ -173,6 +174,7 @@ final class backup_restore_test extends \advanced_testcase {
             array_column($original->options->expectedanswers, 'answertext'),
             array_column($restored->options->expectedanswers, 'answertext')
         );
+        $this->assertSame(['', '', 'Violin'], array_column($restored->options->expectedanswers, 'answerlabel'));
         $this->assertSame(
             array_column($original->options->targetitems, 'itemtype'),
             array_column($restored->options->targetitems, 'itemtype')
