@@ -150,6 +150,31 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton($name, $name, $plugin);
         $mform->setDefault($name, 'en-US');
 
+        // Uploaded files have no live transcript, so an AI provider must
+        // transcribe them. Without AI assessment, it is chosen here, and saved
+        // in the same aiproviderid field as the AI provider (see
+        // data_preprocessing() and qtype_speakup::save_question_options()).
+        // With AI assessment, the AI provider in the AI assessment settings
+        // does it, so a note says so instead. The menu and the note are two
+        // rows with the same label, of which only one is shown. (They cannot
+        // be one group, as hideIf() cannot hide a static element in a group.)
+        $name = 'transcriptionproviderid';
+        $label = get_string($name, $plugin);
+        $this->add_provider_menu($name, $label, true);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->hideIf($name, 'aiassessment', 'checked');
+
+        // The "form-control-plaintext" class lines the note up with its label.
+        $note = 'transcriptionprovidernote';
+        $mform->addElement('static', $note, $label, html_writer::div(get_string($note, $plugin), 'form-control-plaintext'));
+        $mform->addHelpButton($note, $name, $plugin);
+        $mform->hideIf($note, 'aiassessment', 'notchecked');
+
+        foreach ([$name, $note] as $field) {
+            $mform->hideIf($field, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
+            $mform->hideIf($field, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
+        }
+
         $name = 'gradingheader';
         $mform->addElement('header', $name, get_string($name, $plugin));
         $mform->setExpanded($name, true);
@@ -280,21 +305,6 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->hideIf('phraseoptions[' . $i . ']', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
         }
         $mform->hideIf('phraseaddgroup', 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
-
-        // Uploaded files have no live transcript, so without AI assessment
-        // an AI provider must transcribe them first. (With AI assessment,
-        // the AI provider below does that.) This is saved in the same
-        // aiproviderid field as the AI provider (see data_preprocessing()
-        // and qtype_speakup::save_question_options()). It is a separate form
-        // field because hideIf() can't show one field for "AI assessment,
-        // or uploads without AI assessment".
-        $name = 'transcriptionproviderid';
-        $label = get_string($name, $plugin);
-        $this->add_provider_menu($name, $label, true);
-        $mform->addHelpButton($name, $name, $plugin);
-        $mform->hideIf($name, 'gradingmethod', 'neq', SPEAKUP_GRADING_AUTO);
-        $mform->hideIf($name, 'responsemethod', 'neq', SPEAKUP_RESPONSE_UPLOAD);
-        $mform->hideIf($name, 'aiassessment', 'checked');
 
         // AI assessment settings, shown only for automated grading.
         $name = 'aisettings';

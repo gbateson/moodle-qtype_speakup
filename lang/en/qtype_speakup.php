@@ -461,7 +461,11 @@ $string['timeremaining'] = 'Time remaining: {$a}';
 $string['toomanyfiles'] = 'You can upload up to {$a} files.';
 $string['transcript'] = 'Transcript';
 $string['transcriptionproviderid'] = 'Transcription provider';
-$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so without AI assessment, this AI provider transcribes them first, and the transcript is then graded by the target phrases. The provider must be one that receives the audio or video file itself. "Automatic" lets the AI bridge choose one.';
+$string['transcriptionproviderid_help'] = 'Uploaded files have no live transcript, so an AI provider transcribes them first, and the transcript is then graded by the target phrases and items.
+
+* Without AI assessment, choose the AI provider here. It must be one that receives the audio or video file itself. "Automatic" lets the AI bridge choose one.
+* With AI assessment, the AI provider in the AI assessment settings transcribes the file, as well as assessing it.';
+$string['transcriptionprovidernote'] = 'Uploaded files will be transcribed by the "AI provider" in the <a href="#id_aisettings">AI assessment settings</a> below.';
 $string['transcriptviewed'] = 'Transcript viewed.';
 $string['transcriptviewedexempt'] = 'Transcript viewed (exempt: no penalty).';
 $string['ttsheading'] = 'Text-to-speech';
