@@ -209,12 +209,14 @@
 }
 
 /*
- * Atto's editing area grows to fit its content, up to 80% of the window's
- * height (as the other editors and text areas do, see amd/src/editform.js).
- * Atto gives it a fixed height, so this needs !important.
+ * Atto's editing area grows and shrinks to fit its content, from one line up
+ * to 80% of the window's height (as the other editors and text areas do, see
+ * amd/src/editform.js). Atto gives it a fixed height and a minimum height
+ * for its number of rows, so this needs !important.
  */
 #speakup_edit_form .editor_atto_content {
     height: auto !important; /* stylelint-disable-line declaration-no-important */
+    min-height: 0 !important; /* stylelint-disable-line declaration-no-important */
     max-height: 80vh;
     overflow-y: auto;
 }

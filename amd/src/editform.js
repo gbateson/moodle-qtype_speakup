@@ -239,30 +239,33 @@ const MAX_HEIGHT = 0.8;
 const getMaxHeight = () => Math.round(window.innerHeight * MAX_HEIGHT);
 
 /**
- * Make the text areas grow to fit their text, e.g. the rubric, the audio
- * prompt transcript, and the question text if the plain text editor is used.
- * (The text areas behind TinyMCE and Atto are hidden, so they are left alone.
- * Atto's editing area grows by itself: see styles.css.)
+ * Make the text areas grow and shrink to fit their text, from one line up to
+ * a maximum, e.g. the rubric, the audio prompt transcript, and the question
+ * text if the plain text editor is used. (The text areas behind TinyMCE and
+ * Atto are hidden, so they are left alone. Atto's editing area grows and
+ * shrinks by itself: see styles.css.)
  *
  * @param {HTMLFormElement} form
  */
 const initTextAreas = (form) => {
     const textareas = Array.from(form.querySelectorAll('textarea'));
-    const minHeights = new Map();
 
     const resize = (textarea) => {
         if (!textarea.offsetWidth) {
             return; // Hidden, e.g. in a collapsed section, or behind an editor.
         }
-        if (!minHeights.has(textarea)) {
-            minHeights.set(textarea, textarea.offsetHeight);
-        }
         const style = window.getComputedStyle(textarea);
         const borders = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-        textarea.style.height = 'auto';
-        const height = Math.max(minHeights.get(textarea), Math.min(textarea.scrollHeight + borders, getMaxHeight()));
+        // With no height, scrollHeight is the height of the text (at least
+        // one line), rather than of the number of rows the text area has.
+        // Shrinking the text area can make the page scroll, so keep its place.
+        const scrollY = window.scrollY;
+        textarea.style.height = '0';
+        const content = textarea.scrollHeight + borders;
+        const height = Math.min(content, getMaxHeight());
         textarea.style.height = height + 'px';
-        textarea.style.overflowY = (textarea.scrollHeight + borders > height) ? 'auto' : 'hidden';
+        textarea.style.overflowY = (content > height) ? 'auto' : 'hidden';
+        window.scrollTo(window.scrollX, scrollY);
     };
 
     // Resize each text area when it is first shown (e.g. when its section
@@ -311,13 +314,13 @@ const initTinyEditors = (form) => {
 };
 
 /**
- * Make one TinyMCE editor grow to fit its content.
+ * Make one TinyMCE editor grow and shrink to fit its content, from one line
+ * up to a maximum.
  *
  * @param {Object} editor a TinyMCE editor.
  */
 const initTinyEditor = (editor) => {
     const container = editor.getContainer();
-    let minHeight = 0;
 
     const resize = () => {
         const area = editor.getContentAreaContainer();
@@ -325,15 +328,12 @@ const initTinyEditor = (editor) => {
         if (!container.offsetHeight || !area || !body) {
             return; // Hidden, e.g. in a collapsed section.
         }
-        if (!minHeight) {
-            minHeight = container.offsetHeight;
-        }
         // The height of the content (not of the editing area, which is at
         // least as tall as the editor), plus the menus, toolbar and status bar.
         const style = editor.getWin().getComputedStyle(body);
         const content = body.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
         const chrome = container.offsetHeight - area.offsetHeight;
-        const height = Math.max(minHeight, Math.min(content + chrome, getMaxHeight()));
+        const height = Math.min(content + chrome, getMaxHeight());
         if (Math.abs(height - container.offsetHeight) > 1) {
             container.style.height = height + 'px';
         }
