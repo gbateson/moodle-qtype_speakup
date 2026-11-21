@@ -80,7 +80,7 @@ You can also include the question\'s settings, in words:
 * "{{promptplays}}" - e.g. "once", "twice"
 * "{{responses}}" - e.g. "1 response"
 * "{{language}}" - e.g. "English (en-US)"
-* "{{target.words}}" - the target for words, e.g. "30 words" (or another item type, e.g. "{{target.longwords}}")
+* "{{target.words}}" - the highest target for words, e.g. "30 words" (or another item type, e.g. "{{target.longwords}}")
 
 The names used in GIFT also work, e.g. "{{AUDIO}}" and "{{TIMELIMIT}}", and case does not matter. In a shared rubric, these are filled in with each question\'s own settings.
 
@@ -119,7 +119,12 @@ $string['browsertranscript'] = 'Live transcript (from browser speech recognition
 $string['calccapped'] = 'This is more than 100%, so it was reduced to 100%.';
 $string['calcgrade'] = 'Therefore, the automatic grade for this response was set to {$a->grade} ({$a->percent}% of {$a->maxgrade}).';
 $string['calcholistic'] = '+ {$a->percent}% for the holistic assessment ({$a->score} out of 100, weighted at {$a->weighting}%)';
-$string['calcitem'] = '+ {$a->percent}% for {$a->value} (target: {$a->target})';
+$string['calcitemfirst'] = '+ {$a->percent}% for the first {$a->amount}';
+$string['calcitemfirstpart'] = '+ {$a->percent}% for {$a->progress} of the first {$a->amount} ({$a->progress}/{$a->width} × {$a->award}%)';
+$string['calcitemnext'] = '+ {$a->percent}% for the next {$a->amount}';
+$string['calcitemnextpart'] = '+ {$a->percent}% for {$a->progress} of the next {$a->amount} ({$a->progress}/{$a->width} × {$a->award}%)';
+$string['calcitemreached'] = '+ {$a->percent}% for reaching {$a->amount}';
+$string['calcitemreachedpart'] = '+ {$a->percent}% for {$a->amount} ({$a->progress}/{$a->width} × {$a->award}%)';
 $string['calcmaxgrade'] = 'The maximum grade for this question is {$a}.';
 $string['calcoverride'] = 'Later, on {$a->date}, the grade was manually set to {$a->grade}.';
 $string['calcpenalty'] = 'However, {$a}% was deducted for showing the transcript of the audio prompt.';
@@ -131,19 +136,22 @@ $string['confirmtranscript'] = 'Viewing the transcript will reduce your grade by
 $string['confirmtranscripttitle'] = 'Show the transcript?';
 $string['convertvideos'] = 'Convert videos to MP4';
 $string['convertvideos_desc'] = 'If checked, students\' videos that are not MP4 (e.g. WebM videos recorded in Chrome, Edge or Firefox) are converted to MP4, whatever their size, in the background, after the quiz is submitted. iPhones and iPads cannot play WebM videos, in the browser or in the Moodle app, but they can play MP4. This needs ffmpeg (see above).';
+$string['detailsband'] = 'Band';
 $string['detailsgrade'] = 'Grade';
 $string['detailsitem'] = 'Item';
 $string['detailspercentof'] = '{$a->percent}% (of {$a->max}%)';
 $string['detailsphrase'] = 'Target phrase';
+$string['detailsprogress'] = '{$a->progress} / {$a->width}';
+$string['detailsrange'] = '{$a->lower} – {$a->upper}';
 $string['detailsresponse'] = 'Your response';
 $string['detailsresult'] = 'Result';
 $string['detailsstatistic'] = 'Statistic';
-$string['detailstarget'] = 'Target';
 $string['detailsvalue'] = 'Value';
 $string['downloadrecording'] = 'Download {$a}';
 $string['durationtoolong'] = 'This recording is {$a->duration} seconds long. The time limit is {$a->limit} seconds.';
 $string['err_compatibility'] = 'While iOS/iPadOS devices can record video files in open formats, they cannot currently play them back. Until Apple fix this, you will have to use another device to view this video.';
 $string['err_invalidregex'] = 'This does not look like a valid regular expression: {$a}';
+$string['err_itemduplicate'] = 'There is already a target of {$a} for this item. Each target for the same item must be different.';
 $string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
 $string['err_itempercent'] = 'Choose a percent for this item.';
 $string['err_itemtarget'] = 'Enter a target greater than 0 for this item.';
@@ -221,14 +229,13 @@ $string['itemfogindex'] = 'Fog index';
 $string['itemgroup'] = 'Target item [{no}]';
 $string['itemgroup_help'] = 'The award for this item is the percent multiplied by the multiplier. It is given in full when the response reaches the target. Below the target, the award is in proportion to the value. For example, "Target for Words is 100. Award up to 20% exactly" awards 10% for 50 words, 15% for 75 words, and 20% for 100 words or more. "Multiplied by 2" would double each of these.
 
-The awards of all the target items add up, together with the target phrases and the AI assessment (if used), and the total is capped at 100%.
+Several targets for the same item work as grade bands, as in the Essay (auto-grade) question type. Each band runs from the previous target (or 0) to its own target, and awards its percent in proportion to how much of that range the response covers. For example, with "Target for Words is 100. Award up to 15%" and "Target for Words is 130. Award up to 5%":
 
-* **Characters** - letters and digits, not counting spaces or punctuation.
-* **Words** - separated by spaces.
-* **Long words** - words with three or more syllables.
-* **Unique words** - different words, ignoring capital letters.
-* **Lexical density** - unique words as a percentage of words.
-* **Speech rate** - words per minute of recording.';
+* 83 words earn 15% × 83/100 = 12.5%
+* 106 words earn 15% + 5% × 6/30 = 16%
+* 130 words or more earn 15% + 5% = 20%
+
+The awards of all the target items add up, together with the target phrases and the AI assessment (if used), and the total is capped at 100%.';
 $string['itemlexicaldensity'] = 'Lexical density (%)';
 $string['itemlongwords'] = 'Long words';
 $string['itemlongwordspersentence'] = 'Long words per sentence';
@@ -444,7 +451,7 @@ $string['showcomment_help'] = 'Show the feedback from the AI assessment. It is s
 $string['showheader'] = 'Grading details';
 $string['showheader_help'] = 'Choose who sees each detail of an automated grade, when the response is reviewed. Viewers who can grade quizzes count as teachers; everyone else counts as a student.';
 $string['showitems'] = 'Show target items';
-$string['showitems_help'] = 'Show the value of each target item for the response (e.g. the number of words), its target, and the share of the question grade it earned. Students are also given hints for the targets they did not reach.';
+$string['showitems_help'] = 'Show each target item (or grade band) for the response, e.g. the number of words: how much of it the response covers, and the share of the question grade it earned. Students are also given hints for the targets they did not reach.';
 $string['showphrases'] = 'Show target phrases';
 $string['showphrases_help'] = 'Show which target phrases were used in the response, the words that matched, and the share of the question grade each one earned. Students see each phrase\'s label, if it has one. Students are also given hints for the phrases they did not use.';
 $string['showstats'] = 'Show statistics';

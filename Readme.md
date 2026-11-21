@@ -101,7 +101,7 @@ rubric fits many questions:
 | `{{promptplays}}` | once, twice, 3 times |
 | `{{responses}}` | 1 response |
 | `{{language}}` | English (en-US) |
-| `{{target.words}}` | 30 words (the first target for words; or another item type) |
+| `{{target.words}}` | 30 words (the highest target for words; or another item type) |
 
 The names used in GIFT also work, e.g. `{{AUDIO}}`, `{{TIMELIMIT}}`,
 `{{MAXPROMPTPLAYS}}` and `{{TARGETITEM.words}}`, and case does not matter.
@@ -226,8 +226,11 @@ that are left out get their usual defaults.
   of handwriting) can have `MAXFILES=1` to `5`, and leave out the settings
   for recordings, such as `TIMELIMIT`. Video responses can have
   `AIAUDIOONLY=yes` (or `AUDIOONLY=yes`), to send only the sound to the AI.
-- `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)` and
-  `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
+- `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)`. Several
+  targets for the same item type are grade bands, as in Essay
+  (auto-grade): e.g. `(words, 100, 15%)(words, 130, 5%)` awards 15% for
+  the first 100 words, and 5% for the next 30, in proportion.
+- `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
   case|nocase, "label")`. The label is optional: students see it in place
   of the phrase, e.g. when the phrase is a regular expression. Repeat the
   line, or put several in one line, for more.

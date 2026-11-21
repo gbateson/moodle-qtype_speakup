@@ -111,7 +111,9 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->assertStringContainsString('Target phrase 3', $output);
         $this->assertStringContainsString('/\\bviolins?\\b/i', $output);
         $this->assertStringContainsString('The maximum grade for this question is 1.00.', $output);
-        $this->assertStringContainsString('+ 7.5% for 5 words (target: 20)', $output);
+        $this->assertStringContainsString('1 – 20', $output);
+        $this->assertStringContainsString('5 / 20', $output);
+        $this->assertStringContainsString('+ 7.5% for 5 of the first 20 words (5/20 × 30%)', $output);
         $this->assertStringContainsString('+ 40% for using "guitar"', $output);
         $this->assertStringContainsString('(77.5% of 1.00)', $output);
         $this->assertStringContainsString('Aim for 20 words next time.', $output);
@@ -132,6 +134,39 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->manual_grade('Well done.', 0.5, FORMAT_HTML);
         $this->render();
         $this->assertStringContainsString('the grade was manually set to 0.50', $this->currentoutput);
+    }
+
+    /**
+     * Several targets for the same item are shown as grade bands.
+     */
+    public function test_grade_bands(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $question = test_question_maker::make_question('speakup', 'basic');
+        $question->targetitems = [
+            (object) ['id' => 1, 'itemtype' => 'words', 'itemtarget' => 3, 'percent' => 10, 'multiplier' => 1],
+            (object) ['id' => 2, 'itemtype' => 'words', 'itemtarget' => 10, 'percent' => 14, 'multiplier' => 1],
+            (object) ['id' => 3, 'itemtype' => 'lexicaldensity', 'itemtarget' => 50, 'percent' => 5, 'multiplier' => 1],
+        ];
+        $this->start_attempt_at_question($question, 'deferredfeedback', 1);
+        $this->process_submission(['recording' => $this->make_recording(),
+                'browsertranscript' => 'I have played the guitar.']);
+        $this->finish();
+        $this->render();
+        $output = $this->currentoutput;
+
+        // The ranges of the bands, and how much of each the response covers.
+        $this->assertStringContainsString('1 – 3', $output);
+        $this->assertStringContainsString('4 – 10', $output);
+        $this->assertStringContainsString('0 – 50', $output);
+        $this->assertStringContainsString('2 / 7', $output);
+
+        // 5 words: all of the first band, and 2 of the 7 words in the next.
+        $this->assertStringContainsString('+ 10% for the first 3 words', $output);
+        $this->assertStringContainsString('+ 4% for 2 of the next 7 words (2/7 × 14%)', $output);
+        // Every word is different: a lexical density of 100%.
+        $this->assertStringContainsString('+ 5% for reaching a lexical density of 50%', $output);
+        $this->assertStringContainsString('Aim for 10 words next time.', $output);
     }
 
     /**

@@ -361,8 +361,9 @@ class qtype_speakup_question extends question_graded_automatically {
      * Score a transcript against the target items.
      *
      * Each item reads "Target for [itemtype] is [itemtarget]. Award up to
-     * [percent] [multiplied by multiplier] of the question grade". See
-     * item_percent(). The items' scores add up, capped at 100%.
+     * [percent] [multiplied by multiplier] of the question grade". The
+     * targets for the same item type are grade bands: see item_results().
+     * The items' scores add up, capped at 100%.
      *
      * @param string $transcript
      * @param float|null $duration length of the recording in seconds, if known.
@@ -394,55 +395,79 @@ class qtype_speakup_question extends question_graded_automatically {
     }
 
     /**
-     * Get the share of the question grade (0..100) a target item awards for
-     * a value.
-     *
-     * The full award is the percent multiplied by the multiplier. It is
-     * given at or above the target (itemtarget). Below the target, the award
-     * is in proportion to the value, e.g. half the target earns half the
-     * award.
+     * Get the share of the question grade (0..100) that a target item
+     * awards in full: its percent multiplied by its multiplier.
      *
      * @param stdClass $item a target item.
-     * @param float|null $value the item's value for the response, or null
-     *      if unknown.
      * @return float
      */
-    public static function item_percent(stdClass $item, ?float $value): float {
-        $target = (float) $item->itemtarget;
-        if ($value === null || $value <= 0 || $target <= 0) {
-            return 0.0;
+    public static function item_award(stdClass $item): float {
+        return (float) ((int) $item->percent * max(1, (int) ($item->multiplier ?? 1)));
+    }
+
+    /**
+     * Get the target items as grade bands, as in qtype_essayautograde: the
+     * items for each item type, in order of their targets.
+     *
+     * @return array itemtype => stdClass[] the items for that type, in the
+     *      order the types first appear.
+     */
+    protected function get_item_bands(): array {
+        $bands = [];
+        foreach ($this->get_active_items() as $item) {
+            $bands[$item->itemtype][] = $item;
         }
-        $award = (int) $item->percent * max(1, (int) ($item->multiplier ?? 1));
-        return $award * min($value / $target, 1.0);
+        foreach ($bands as $itemtype => $items) {
+            usort($items, fn($a, $b) => (float) $a->itemtarget <=> (float) $b->itemtarget);
+            $bands[$itemtype] = $items;
+        }
+        return $bands;
     }
 
     /**
      * Get the result of each target item for a transcript.
      *
+     * The targets for the same item type are grade bands, as in
+     * qtype_essayautograde. Each band runs from the previous target (or 0)
+     * to its own target, and awards its percent (multiplied by its
+     * multiplier) in proportion to how much of the band the response
+     * covers. For example, with "Words: 100, 15%" and "Words: 130, 5%",
+     * 83 words earn 15% x 83/100 = 12.45%, and 106 words earn 15% + 5% x
+     * 6/30 = 16%.
+     *
      * @param string $transcript
      * @param float|null $duration length of the recording in seconds, if known.
-     * @return stdClass[] each with ->itemtype, ->label (the item's name),
-     *      ->value (or null if unknown), ->target, ->percent (the share of
-     *      the question grade it awards) and ->maxpercent (the share it
-     *      awards at the target). Empty if there are no target items.
+     * @return stdClass[] one for each band, in order, each with ->itemtype,
+     *      ->label (the item's name), ->value (the response's value, or
+     *      null if unknown), ->lower and ->target (the band's range),
+     *      ->progress (how much of the band the response covers, or null if
+     *      unknown), ->percent (the share of the question grade it earns)
+     *      and ->maxpercent (the share it awards in full). Empty if there
+     *      are no target items.
      */
     public function item_results(string $transcript, ?float $duration): array {
+        $hastranscript = (trim($transcript) !== '');
         $results = [];
-        foreach ($this->get_active_items() as $item) {
-            $value = null;
-            $percent = 0.0;
-            if (trim($transcript) !== '') {
-                $value = \qtype_speakup\text_stats::get_value($item->itemtype, $transcript, $duration);
-                $percent = self::item_percent($item, $value);
+        foreach ($this->get_item_bands() as $itemtype => $items) {
+            $value = $hastranscript ? \qtype_speakup\text_stats::get_value($itemtype, $transcript, $duration) : null;
+            $lower = 0.0;
+            foreach ($items as $item) {
+                $target = (float) $item->itemtarget;
+                $award = self::item_award($item);
+                $progress = ($value === null) ? null : max(0.0, min((float) $value, $target) - $lower);
+                $percent = ($progress && $target > $lower) ? $award * $progress / ($target - $lower) : 0.0;
+                $results[] = (object) [
+                    'itemtype' => $itemtype,
+                    'label' => get_string('item' . $itemtype, 'qtype_speakup'),
+                    'value' => $value,
+                    'lower' => $lower,
+                    'target' => $target,
+                    'progress' => $progress,
+                    'percent' => $percent,
+                    'maxpercent' => $award,
+                ];
+                $lower = $target;
             }
-            $results[] = (object) [
-                'itemtype' => $item->itemtype,
-                'label' => get_string('item' . $item->itemtype, 'qtype_speakup'),
-                'value' => $value,
-                'target' => (float) $item->itemtarget,
-                'percent' => $percent,
-                'maxpercent' => self::item_percent($item, (float) $item->itemtarget),
-            ];
         }
         return $results;
     }
@@ -499,15 +524,19 @@ class qtype_speakup_question extends question_graded_automatically {
             'responses' => self::rubric_count((int) $this->maxresponses, 'rubricresponses'),
             'language' => $this->get_language_name(),
         ];
-        // The first target for each item type, e.g. "30 words".
+        // The highest target for each item type, e.g. "30 words": the top
+        // of its highest grade band.
+        $tops = [];
         foreach ($this->targetitems as $item) {
-            $name = 'target.' . $item->itemtype;
-            if (!isset($values[$name]) && (float) $item->itemtarget > 0) {
-                $values[$name] = self::rubric_string(
-                    'rubricitem' . $item->itemtype,
-                    format_float((float) $item->itemtarget, 2, false, true)
-                );
+            if ((float) $item->itemtarget > ($tops[$item->itemtype] ?? 0)) {
+                $tops[$item->itemtype] = (float) $item->itemtarget;
             }
+        }
+        foreach ($tops as $itemtype => $target) {
+            $values['target.' . $itemtype] = self::rubric_string(
+                'rubricitem' . $itemtype,
+                format_float($target, 2, false, true)
+            );
         }
         return $values;
     }

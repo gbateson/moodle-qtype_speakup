@@ -102,6 +102,8 @@ final class question_test extends \advanced_testcase {
         $this->assertSame('words', $result->itemtype);
         $this->assertEquals(5, $result->value);
         $this->assertEquals(20, $result->target);
+        $this->assertEquals(0, $result->lower);
+        $this->assertEquals(5, $result->progress);
         $this->assertEqualsWithDelta(15, $result->percent, 0.0001);
         $this->assertEqualsWithDelta(60, $result->maxpercent, 0.0001);
     }
@@ -164,15 +166,59 @@ final class question_test extends \advanced_testcase {
     }
 
     /**
-     * Test the share of the grade that one item awards.
+     * Test the share of the grade that one item awards in full.
      */
-    public function test_item_percent(): void {
+    public function test_item_award(): void {
         $item = (object) ['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 20, 'multiplier' => 2];
-        $this->assertEquals(40.0, \qtype_speakup_question::item_percent($item, 50.0));
-        $this->assertEquals(40.0, \qtype_speakup_question::item_percent($item, 80.0));
-        $this->assertEquals(20.0, \qtype_speakup_question::item_percent($item, 25.0));
-        $this->assertEquals(0.0, \qtype_speakup_question::item_percent($item, null));
-        $this->assertEquals(0.0, \qtype_speakup_question::item_percent($item, 0.0));
+        $this->assertEquals(40.0, \qtype_speakup_question::item_award($item));
+        $item->multiplier = 0;
+        $this->assertEquals(20.0, \qtype_speakup_question::item_award($item));
+    }
+
+    /**
+     * Data for test_item_bands().
+     *
+     * @return array
+     */
+    public static function item_bands_provider(): array {
+        // Bands: words 0-100 for 15%, and 100-130 for 5%.
+        return [
+            'part of the first band' => [83, [83, 0], [12.45, 0]],
+            'all of the first band' => [100, [100, 0], [15, 0]],
+            'part of the second band' => [106, [100, 6], [15, 1]],
+            'all the bands' => [150, [100, 30], [15, 5]],
+        ];
+    }
+
+    /**
+     * Several targets for the same item are grade bands, as in qtype_essayautograde.
+     *
+     * @dataProvider item_bands_provider
+     * @param int $words
+     * @param float[] $progress how much of each band the response covers.
+     * @param float[] $percent what each band earns.
+     */
+    public function test_item_bands(int $words, array $progress, array $percent): void {
+        $question = $this->make();
+        // In any order: the bands are sorted by their targets.
+        $question->targetitems = [
+            (object) ['itemtype' => 'words', 'itemtarget' => '130.00', 'percent' => 5, 'multiplier' => 1],
+            (object) ['itemtype' => 'speechrate', 'itemtarget' => '100.00', 'percent' => 10, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '100.00', 'percent' => 15, 'multiplier' => 1],
+        ];
+        $results = $question->item_results(trim(str_repeat('word ', $words)), 60.0);
+        $this->assertSame(['words', 'words', 'speechrate'], array_column($results, 'itemtype'));
+        $this->assertEquals([0, 100, 0], array_column($results, 'lower'));
+        $this->assertEquals([100, 130, 100], array_column($results, 'target'));
+        $this->assertEquals([15, 5, 10], array_column($results, 'maxpercent'));
+        $this->assertEqualsWithDelta($progress, array_slice(array_column($results, 'progress'), 0, 2), 0.0001);
+        $this->assertEqualsWithDelta($percent, array_slice(array_column($results, 'percent'), 0, 2), 0.0001);
+
+        // Bands of one item do not affect another: words per minute in 60 seconds.
+        $this->assertEqualsWithDelta(10 * min($words, 100) / 100, $results[2]->percent, 0.0001);
+
+        [$fraction] = $question->grade_by_items(trim(str_repeat('word ', $words)), 60.0);
+        $this->assertEqualsWithDelta((array_sum($percent) + $results[2]->percent) / 100, $fraction, 0.0001);
     }
 
     /**
@@ -383,7 +429,8 @@ final class question_test extends \advanced_testcase {
         $this->assertSame('once', $values['promptplays']);
         $this->assertSame('any number of responses', $values['responses']);
         $this->assertSame('English (en-US)', $values['language']);
-        $this->assertSame('30 words', $values['target.words']);
+        // The highest target, i.e. the top of the highest grade band.
+        $this->assertSame('45 words', $values['target.words']);
         $this->assertSame('a lexical density of 42.5%', $values['target.lexicaldensity']);
 
         $expected = [

@@ -925,9 +925,9 @@ class qtype_speakup_renderer extends qtype_renderer {
     }
 
     /**
-     * Show the target items: for each one, the value for the response, the
-     * target, and the share of the question grade it earned, out of the
-     * share it awards at the target.
+     * Show the target items, as grade bands: for each band, its range, how
+     * much of it the response covers, and the share of the question grade
+     * it earned, out of the share it awards in full.
      *
      * @param stdClass[] $items as returned by qtype_speakup_question::item_results().
      * @return string HTML
@@ -936,23 +936,80 @@ class qtype_speakup_renderer extends qtype_renderer {
         $plugin = 'qtype_speakup';
         $table = $this->details_table([
             get_string('detailsitem', $plugin),
+            get_string('detailsband', $plugin),
             get_string('detailsresponse', $plugin),
-            get_string('detailstarget', $plugin),
             get_string('detailsgrade', $plugin),
         ]);
         foreach ($items as $item) {
-            $target = $this->format_number($item->target);
-            if ($item->value !== null && $item->value >= $item->target) {
-                $target .= ' ' . $this->feedback_image(1.0);
+            $width = $item->target - $item->lower;
+            if ($item->progress === null) {
+                $response = $this->format_number(null);
+            } else {
+                $response = get_string('detailsprogress', $plugin, (object) [
+                    'progress' => $this->format_number($item->progress),
+                    'width' => $this->format_number($width),
+                ]);
+                if ($item->progress >= $width) {
+                    $response .= ' ' . $this->feedback_image(1.0);
+                }
             }
             $table->data[] = [
                 $item->label,
-                $this->format_number($item->value),
-                $target,
+                $this->band_range($item),
+                $response,
                 $this->percent_of($item->percent, $item->maxpercent),
             ];
         }
         return $this->details_section(get_string('itemsheader', $plugin), html_writer::table($table), 'qtype_speakup-items');
+    }
+
+    /**
+     * Show the range of a grade band, e.g. "101 - 130" words, or "100 - 130"
+     * for an item that can have decimals, such as the speech rate.
+     *
+     * @param stdClass $item as returned by qtype_speakup_question::item_results().
+     * @return string
+     */
+    protected function band_range(stdClass $item): string {
+        $lower = $item->lower;
+        if (\qtype_speakup\text_stats::is_count($item->itemtype) && $lower == floor($lower)) {
+            // Counts start at the next whole number: the first band at 1.
+            $lower++;
+        }
+        return get_string('detailsrange', 'qtype_speakup', (object) [
+            'lower' => $this->format_number($lower),
+            'upper' => $this->format_number($item->target),
+        ]);
+    }
+
+    /**
+     * Explain what a grade band earned, for the grade calculation, e.g. "+
+     * 15% for the first 100 words" or "+ 1% for 6 of the next 30 words
+     * (6/30 x 5%)".
+     *
+     * @param stdClass $item as returned by qtype_speakup_question::item_results().
+     * @return string
+     */
+    protected function band_detail(stdClass $item): string {
+        $plugin = 'qtype_speakup';
+        $width = $item->target - $item->lower;
+        $a = (object) [
+            'percent' => $this->format_number($item->percent),
+            'progress' => $this->format_number($item->progress),
+            'width' => $this->format_number($width),
+            'award' => $this->format_number($item->maxpercent),
+        ];
+        $complete = ($item->progress >= $width);
+        if (\qtype_speakup\text_stats::is_count($item->itemtype)) {
+            // E.g. "the first 100 words", "6 of the next 30 words".
+            $a->amount = $this->item_amount($item->itemtype, $width);
+            $name = ($item->lower > 0) ? 'calcitemnext' : 'calcitemfirst';
+        } else {
+            // E.g. "reaching 120 words per minute", "106 words per minute".
+            $a->amount = $this->item_amount($item->itemtype, $complete ? $item->target : $item->value);
+            $name = 'calcitemreached';
+        }
+        return get_string($name . ($complete ? '' : 'part'), $plugin, $a);
     }
 
     /**
@@ -1037,13 +1094,9 @@ class qtype_speakup_renderer extends qtype_renderer {
         $raw = 0.0;
         $details = [];
         foreach ($items as $item) {
-            if ($item->value !== null && $item->percent > 0) {
+            if ($item->progress !== null && $item->percent > 0) {
                 $raw += $item->percent;
-                $details[] = get_string('calcitem', $plugin, (object) [
-                    'percent' => $this->format_number($item->percent),
-                    'value' => $this->item_amount($item->itemtype, $item->value),
-                    'target' => $this->format_number($item->target),
-                ]);
+                $details[] = $this->band_detail($item);
             }
         }
         foreach (array_values($phrases) as $i => $phrase) {

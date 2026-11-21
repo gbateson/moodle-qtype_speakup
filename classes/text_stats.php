@@ -81,6 +81,24 @@ class text_stats {
     }
 
     /**
+     * Is an item or statistic a count of things, i.e. a whole number, such
+     * as words? (Others, such as the speech rate, can have decimals.)
+     *
+     * @param string $type e.g. "words"
+     * @return bool
+     */
+    public static function is_count(string $type): bool {
+        return in_array($type, [
+            self::ITEM_CHARS,
+            self::ITEM_WORDS,
+            self::ITEM_SENTENCES,
+            self::ITEM_UNIQUEWORDS,
+            self::ITEM_LONGWORDS,
+            self::ITEM_PARAGRAPHS,
+        ]);
+    }
+
+    /**
      * Get the statistics that can be shown on the review page, in the
      * order they appear on the question form.
      *

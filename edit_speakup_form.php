@@ -771,6 +771,9 @@ class qtype_speakup_edit_form extends question_edit_form {
         // both. Items that count sentences need a transcript with
         // punctuation, which only AI makes: the live transcript has none.
         if ($isautomated && !empty($data['itemtype'])) {
+            // The targets for each item type, which must be different, as
+            // they are the tops of its grade bands.
+            $targets = [];
             foreach ($data['itemtype'] as $key => $itemtype) {
                 $count = trim($data['itemtarget'][$key] ?? '');
                 $percent = (int) ($data['itempercent'][$key] ?? 0);
@@ -785,6 +788,11 @@ class qtype_speakup_edit_form extends question_edit_form {
                     $errors["itemgroup[$key]"] = get_string('err_itemneedsai', 'qtype_speakup');
                 } else if ($isimage && $itemtype === \qtype_speakup\text_stats::ITEM_SPEECHRATE) {
                     $errors["itemgroup[$key]"] = get_string('err_speechrateimage', 'qtype_speakup');
+                } else if (in_array((float) $count, $targets[$itemtype] ?? [])) {
+                    $errors["itemgroup[$key]"] = get_string('err_itemduplicate', 'qtype_speakup', $count);
+                }
+                if (is_numeric($count)) {
+                    $targets[$itemtype][] = (float) $count;
                 }
             }
         }

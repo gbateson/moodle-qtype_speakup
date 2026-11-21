@@ -42,6 +42,20 @@ Feature: Test editing a SpeakUp question
     And I choose "Edit question" action for "speakup-001 edited" in the question bank
     And the field "id_phrasematch_0" matches value "violin"
 
+  Scenario: Several targets for the same item are grade bands, and must be different
+    When I am on the "speakup-001" "core_question > edit" page logged in as teacher
+    And I press "id_itemadd"
+    And I set the following fields to these values:
+      | id_itemtype_1    | Words |
+      | id_itemtarget_1  | 20    |
+      | id_itempercent_1 | 10%   |
+    And I press "id_submitbutton"
+    Then I should see "There is already a target of 20 for this item."
+    And I set the field "id_itemtarget_1" to "30"
+    And I press "id_submitbutton"
+    And I should see "speakup-001"
+    And I should not see "There is already a target"
+
   Scenario: Extra rows of target phrases can be added
     When I am on the "speakup-001" "core_question > edit" page logged in as teacher
     And I set the field "id_phraseaddcount" to "2 more target phrases"
