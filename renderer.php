@@ -1055,7 +1055,7 @@ class qtype_speakup_renderer extends qtype_renderer {
                 $this->percent_of($phrase->used ? $phrase->percent : 0, $phrase->percent),
             ];
         }
-        return $this->details_section(get_string('expectedanswers', $plugin), html_writer::table($table), 'qtype_speakup-phrases');
+        return $this->details_section(get_string('phrasesheader', $plugin), html_writer::table($table), 'qtype_speakup-phrases');
     }
 
     /**

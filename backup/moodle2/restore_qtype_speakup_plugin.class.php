@@ -146,7 +146,7 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
         $questiondata->options->aiproviderid = ($providerid === null) ? null : (string) $providerid;
         unset($questiondata->options->aiprovidername);
 
-        $questiondata->options->expectedanswers = array_map(
+        $questiondata->options->phrases = array_map(
             fn($phrase) => (object) $phrase,
             $plugindata['phrases']['phrase'] ?? []
         );
@@ -166,8 +166,8 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
     #[\Override]
     protected function define_excluded_identity_hash_fields(): array {
         return [
-            '/options/expectedanswers/id',
-            '/options/expectedanswers/questionid',
+            '/options/phrases/id',
+            '/options/phrases/questionid',
             '/options/targetitems/id',
             '/options/targetitems/questionid',
         ];

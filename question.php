@@ -145,7 +145,7 @@ class qtype_speakup_question extends question_graded_automatically {
      *      (shown to students in place of phrasetext, if set), ->isregex,
      *      ->percent, ->divisor, ->fullmatch and ->casesensitive.
      */
-    public $expectedanswers = [];
+    public $phrases = [];
 
     /**
      * @var stdClass[] target items, each with ->itemtype, ->itemtarget,
@@ -1017,7 +1017,7 @@ class qtype_speakup_question extends question_graded_automatically {
      */
     public function phrase_results(string $transcript): array {
         $results = [];
-        foreach ($this->expectedanswers as $phrase) {
+        foreach ($this->phrases as $phrase) {
             if (trim($phrase->phrasetext) === '' || self::phrase_percent($phrase) <= 0) {
                 continue;
             }

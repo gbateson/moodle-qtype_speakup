@@ -83,7 +83,7 @@ final class question_test extends \advanced_testcase {
      */
     public function test_phrase_results_matched(): void {
         $question = $this->make();
-        $question->expectedanswers[2]->phraselabel = ' Violin ';
+        $question->phrases[2]->phraselabel = ' Violin ';
         $results = $question->phrase_results('I Have  played two Violins.');
         $this->assertSame([null, 'I Have  played', 'Violins'], array_column($results, 'matched'));
         $this->assertSame(['', '', 'Violin'], array_column($results, 'label'));
@@ -113,7 +113,7 @@ final class question_test extends \advanced_testcase {
      */
     public function test_case_sensitive_phrase(): void {
         $question = $this->make();
-        $question->expectedanswers[1]->casesensitive = 1;
+        $question->phrases[1]->casesensitive = 1;
         $this->assertTrue($question->phrase_results('I have played')[1]->used);
         $this->assertFalse($question->phrase_results('i have played')[1]->used);
     }
@@ -140,7 +140,7 @@ final class question_test extends \advanced_testcase {
      */
     public function test_phrase_score_cap(): void {
         $question = $this->make();
-        foreach ($question->expectedanswers as $phrase) {
+        foreach ($question->phrases as $phrase) {
             $phrase->percent = 60;
             $phrase->divisor = 1;
         }

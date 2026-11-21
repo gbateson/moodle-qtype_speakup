@@ -96,7 +96,7 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertEquals(60, $qdata->options->timelimitinseconds);
         $this->assertSame('', (string) $qdata->options->statstypes);
 
-        $phrases = $qdata->options->expectedanswers;
+        $phrases = $qdata->options->phrases;
         $this->assertCount(3, $phrases);
         $this->assertSame('guitar', $phrases[0]->phrasetext);
         $this->assertEquals(1, $phrases[0]->fullmatch);
@@ -112,7 +112,7 @@ final class questiontype_test extends \advanced_testcase {
 
         // The question definition gets the phrases and items too.
         $question = question_bank::load_question($qdata->id);
-        $this->assertCount(3, $question->expectedanswers);
+        $this->assertCount(3, $question->phrases);
         $this->assertCount(1, $question->targetitems);
     }
 
@@ -133,7 +133,7 @@ final class questiontype_test extends \advanced_testcase {
             'itempercent' => [20, 20, 20],
             'itemmultiplier' => [1, 1, 1],
         ]);
-        $this->assertSame(['kept'], array_column($qdata->options->expectedanswers, 'phrasetext'));
+        $this->assertSame(['kept'], array_column($qdata->options->phrases, 'phrasetext'));
         $this->assertSame(['words'], array_column($qdata->options->targetitems, 'itemtype'));
     }
 
@@ -505,14 +505,14 @@ ARCHETYPE=no-such-question
         $this->assertSame('What is your favorite season?', $season->options->prompttranscript);
         $this->assertSame('Listen, then answer.', $season->questiontext);
         $this->assertEquals([30], array_values(array_map(fn($i) => (float) $i->itemtarget, $season->options->targetitems)));
-        $this->assertCount(1, $season->options->expectedanswers);
+        $this->assertCount(1, $season->options->phrases);
 
         // Its own settings win, and its own target items replace the archetype's.
         $weekend = $this->imported('Weekend');
         $this->assertEquals(45, $weekend->options->timelimitinseconds);
         $this->assertEquals(1, $weekend->options->maxpromptplays);
         $this->assertEquals([40], array_values(array_map(fn($i) => (float) $i->itemtarget, $weekend->options->targetitems)));
-        $this->assertCount(1, $weekend->options->expectedanswers);
+        $this->assertCount(1, $weekend->options->phrases);
 
         // Not found: a warning, and the usual defaults.
         $this->assertStringContainsString('ARCHETYPE=no-such-question', $output);

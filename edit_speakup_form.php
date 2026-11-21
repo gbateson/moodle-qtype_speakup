@@ -253,8 +253,8 @@ class qtype_speakup_edit_form extends question_edit_form {
         // Modelled on qtype_essayautograde's target phrases: "If [phrase] is
         // used, award [percent] [divided by n] of the question grade".
         $name = 'phrasesheader';
-        $mform->addElement('header', $name, get_string('expectedanswers', $plugin));
-        $mform->addHelpButton($name, 'expectedanswers', $plugin);
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
         $mform->setExpanded($name, true);
         // If all elements in a section are hidden, using the "d-none" class,
         // we want to hide the section header, but this cannot be done using
@@ -303,7 +303,7 @@ class qtype_speakup_edit_form extends question_edit_form {
             'phrasecasesensitive' => ['type' => PARAM_INT],
         ];
 
-        $saved = count($this->question->options->expectedanswers ?? []);
+        $saved = count($this->question->options->phrases ?? []);
         $defaults = ['phrasepercent' => 0, 'phrasedivisor' => 1];
         $repeatno = $this->add_repeat_rows($mform, 'phrase', $elements, $options, $saved, $defaults);
         for ($i = 0; $i < $repeatno; $i++) {
@@ -708,7 +708,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $question->phrasedivisor = [];
         $question->phrasefullmatch = [];
         $question->phrasecasesensitive = [];
-        foreach ($question->options->expectedanswers ?? [] as $row) {
+        foreach ($question->options->phrases ?? [] as $row) {
             $question->phrasematch[] = $row->phrasetext;
             $question->phraselabel[] = (string) $row->phraselabel;
             $question->phrasepercent[] = (int) $row->percent;

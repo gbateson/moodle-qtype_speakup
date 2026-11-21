@@ -169,8 +169,6 @@ $string['errornotranscript'] = 'No transcript is available to assess (the studen
 $string['errorpolicynotaccepted'] = 'The student has not accepted the AI policy, so the response was not sent to the AI.';
 $string['errorproviderconfig'] = 'No AI provider is configured for this question, or the configured provider could not be found.';
 $string['errorrubricquestion'] = 'The AI rubric uses the question text of the question with the ID number "{$a}", but there is no such question in this question\'s category, or in the categories above it.';
-$string['expectedanswers'] = 'Target phrases';
-$string['expectedanswers_help'] = 'Each target phrase that is used in the response awards its own share of the question grade. The shares add up, capped at 100%. The phrases are checked in a transcript of the response: the live transcript from the browser for recordings, or a transcript made by the AI provider.';
 $string['fileuploaded'] = 'File uploaded.';
 $string['giftarchetypenotspeakup'] = 'ARCHETYPE={$a}: that question is not a SpeakUp question, so its settings were not used.';
 $string['giftbadparts'] = 'not recognised: {$a}';
@@ -327,6 +325,8 @@ $string['phraselabelplaceholder'] = 'Label for students (optional)';
 $string['phrasenotused'] = 'Not used';
 $string['phrasenumber'] = 'Target phrase {$a}';
 $string['phraseoptions'] = 'Target phrase [{no}] options';
+$string['phrasesheader'] = 'Target phrases';
+$string['phrasesheader_help'] = 'Each target phrase that is used in the response awards its own share of the question grade. The shares add up, capped at 100%. The phrases are checked in a transcript of the response: the live transcript from the browser for recordings, or a transcript made by the AI provider.';
 $string['phrasesmatched'] = 'Target phrases used: {$a->matched} of {$a->total} ({$a->percent}% of the question grade).';
 $string['phrasetext1'] = 'If';
 $string['phrasetext2'] = 'is used, award';

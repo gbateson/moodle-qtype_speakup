@@ -159,9 +159,9 @@ class qtype_speakup_test_helper extends question_test_helper {
         foreach (self::get_options($which) as $field => $value) {
             $q->$field = $value;
         }
-        $q->expectedanswers = [];
+        $q->phrases = [];
         foreach (self::get_phrases($which) as $i => [$text, $percent, $divisor, $full, $case]) {
-            $q->expectedanswers[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
+            $q->phrases[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
                     'isregex' => (int) preg_match('#^/.*/[a-zA-Z]*$#', $text), 'percent' => $percent,
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }
@@ -293,9 +293,9 @@ class qtype_speakup_test_helper extends question_test_helper {
         $qdata->questiontext = 'Talk about a musical instrument.';
         $qdata->generalfeedback = 'Thank you.';
         $qdata->options = (object) self::get_options($which);
-        $qdata->options->expectedanswers = [];
+        $qdata->options->phrases = [];
         foreach (self::get_phrases($which) as $i => [$text, $percent, $divisor, $full, $case]) {
-            $qdata->options->expectedanswers[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
+            $qdata->options->phrases[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
                     'isregex' => (int) preg_match('#^/.*/[a-zA-Z]*$#', $text), 'percent' => $percent,
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }

@@ -258,8 +258,8 @@ class qtype_speakup extends question_type {
         global $DB;
         parent::get_question_options($question);
 
-        $answers = $DB->get_records('qtype_speakup_phrases', ['questionid' => $question->id], 'id ASC');
-        $question->options->expectedanswers = array_values($answers);
+        $phrases = $DB->get_records('qtype_speakup_phrases', ['questionid' => $question->id], 'id ASC');
+        $question->options->phrases = array_values($phrases);
 
         $items = $DB->get_records('qtype_speakup_items', ['questionid' => $question->id], 'id ASC');
         $question->options->targetitems = array_values($items);
@@ -268,17 +268,17 @@ class qtype_speakup extends question_type {
     }
 
     /**
-     * Copy the expected-answers array from $questiondata->options onto the
+     * Copy the target phrases and items from $questiondata->options onto the
      * live question instance.
      *
      * Moodle's base question_type::initialise_question_instance() only
      * auto-copies scalar fields from $questiondata->options onto $question
-     * - it deliberately skips arrays. Since our expected answers live in a
+     * - it deliberately skips arrays. Since our target phrases live in a
      * separate child table (qtype_speakup_phrases) rather than a flat
      * column, and are loaded as an array in get_question_options() above,
      * they need to be wired across explicitly here - the same pattern
      * Moodle core's own qtype_shortanswer uses for its own answers table.
-     * Without this, $question->expectedanswers is always empty and
+     * Without this, $question->phrases is always empty and
      * grade_by_pattern() silently never matches anything, regardless of
      * what was actually said.
      *
@@ -288,7 +288,7 @@ class qtype_speakup extends question_type {
     #[\Override]
     protected function initialise_question_instance(question_definition $question, $questiondata) {
         parent::initialise_question_instance($question, $questiondata);
-        $question->expectedanswers = $questiondata->options->expectedanswers ?? [];
+        $question->phrases = $questiondata->options->phrases ?? [];
         $question->targetitems = $questiondata->options->targetitems ?? [];
     }
 
@@ -349,7 +349,7 @@ class qtype_speakup extends question_type {
             $output .= "    </targetitem>\n";
         }
 
-        foreach ($question->options->expectedanswers ?? [] as $phrase) {
+        foreach ($question->options->phrases ?? [] as $phrase) {
             $output .= "    <targetphrase>\n";
             $output .= '      <text>' . $format->xml_escape($phrase->phrasetext) . "</text>\n";
             if (trim((string) ($phrase->phraselabel ?? '')) !== '') {
@@ -680,7 +680,7 @@ class qtype_speakup extends question_type {
             $lines[] = 'TARGETITEM=(' . self::gift_escape($item->itemtype) . ', ' . (float) $item->itemtarget . ', ' .
                     (int) $item->percent . '%, x' . (int) $item->multiplier . ')';
         }
-        foreach ($o->expectedanswers ?? [] as $phrase) {
+        foreach ($o->phrases ?? [] as $phrase) {
             $text = str_replace(['\\', '"'], ['\\\\', '\\"'], $phrase->phrasetext);
             $label = trim((string) ($phrase->phraselabel ?? ''));
             if ($label !== '') {
