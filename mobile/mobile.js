@@ -68,6 +68,20 @@ var result = {
             formulation.querySelectorAll('h4.accesshide').forEach(function(heading) {
                 heading.remove();
             });
+            // On the site, the page's JavaScript gives each recorded video
+            // its source, from data-source, and shows it once it has loaded
+            // (see addPlaybackErrorHandlingToVideoElements() in
+            // amd/src/avrecording.js). That does not run in the app, so give
+            // the videos their sources here, as the audio players have, so
+            // that the app can add its token to their URLs.
+            formulation.querySelectorAll('video[data-source]').forEach(function(video) {
+                if (video.dataset.source) {
+                    var source = document.createElement('source');
+                    source.setAttribute('src', video.dataset.source);
+                    video.appendChild(source);
+                    video.classList.remove('d-none');
+                }
+            });
             question.speakupReview = formulation.innerHTML;
             return true;
         }
