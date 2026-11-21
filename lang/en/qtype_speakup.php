@@ -35,6 +35,8 @@ $string['aiassessment_help'] = 'If checked, the response is also assessed by AI,
 $string['aiassessmentfailed'] = 'Your response could not be processed. It will be graded manually by your teacher.';
 $string['aiassessmentfailedreason'] = 'The response could not be assessed, so it needs to be graded manually. Reason: {$a}';
 $string['aiassessmentpending'] = 'Your response is waiting to be assessed. Your grade and feedback will appear here when they are ready.';
+$string['aiassessmentpendingnote'] = 'This usually takes a few minutes. This page will update when they are ready.';
+$string['aiassessmentready'] = 'Your grade and feedback are ready. Pull down to refresh the page and see them.';
 $string['aiassessmentretrying'] = 'Assessing the response failed, and will be tried again later. Reason: {$a}';
 $string['aiaudioonly'] = 'Send only the sound of videos to the AI';
 $string['aiaudioonly_help'] = 'If checked, only the sound of a video response is sent to the AI provider, to be transcribed and assessed. This is quicker and costs less, and works with providers that accept audio but not video. Use it when only what the student says is assessed, and the video is there to show who is speaking.
@@ -87,6 +89,8 @@ $string['aisettings'] = 'AI assessment settings';
 $string['aisettings_help'] = 'Settings for assessing the response by AI, as part of automated grading.';
 $string['aiweighting'] = 'AI weighting';
 $string['aiweighting_help'] = 'The percentage of the question grade given by the AI assessment. For example, with a weighting of 50%, an AI score of 80 adds 40% to the grade. With a weighting of 0%, the AI\'s feedback is shown, but it does not affect the grade.';
+$string['assessmentdonemessage'] = 'Your response to the question "{$a->question}" in the quiz "{$a->quiz}" has been assessed. Review your attempt to see your grade and feedback: {$a->url}';
+$string['assessmentdonesubject'] = 'Your response has been assessed';
 $string['assessmentfailedmessage'] = 'The response of {$a->student} to the question "{$a->question}" in the quiz "{$a->quiz}" could not be assessed, so it needs to be graded manually.
 
 Reason: {$a->reason}
@@ -249,6 +253,7 @@ $string['mediatype_help'] = 'What students give as their response:
 * **Image**: they upload one or more images or PDFs, e.g. scans or photos of their handwriting, or a drawing. Images are always uploaded, and need a multimodal AI provider to read them for automated grading.';
 $string['mediatype_image'] = 'Image (e.g. a handwriting scan)';
 $string['mediatype_video'] = 'Audio + video (webcam)';
+$string['messageprovider:assessmentdone'] = 'SpeakUp responses of yours that have been assessed';
 $string['messageprovider:assessmentfailed'] = 'SpeakUp responses that could not be assessed';
 $string['messageprovider:audiopromptfailed'] = 'SpeakUp audio prompts that could not be generated';
 $string['mobileapp'] = 'Allow SpeakUp questions in the Moodle app';

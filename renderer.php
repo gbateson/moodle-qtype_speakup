@@ -283,11 +283,19 @@ class qtype_speakup_renderer extends qtype_renderer {
                         // background grading, so queue them here instead.
                         \qtype_speakup\ai_queue::queue_preview($qa);
                     }
+                    // The page checks for the result, and updates itself when it
+                    // is ready: on the site, see amd/src/assessmentstatus.js; in
+                    // the Moodle app, see mobile/mobile.js.
+                    $qaid = (int) $qa->get_database_id();
                     $output .= html_writer::tag(
                         'div',
-                        get_string('aiassessmentpending', 'qtype_speakup'),
-                        ['class' => 'qtype_speakup-ai-feedback text-muted']
+                        get_string('aiassessmentpending', 'qtype_speakup') . ' ' .
+                                get_string('aiassessmentpendingnote', 'qtype_speakup'),
+                        ['class' => 'qtype_speakup-ai-feedback text-muted', 'data-qtype-speakup-pending' => $qaid]
                     );
+                    if ($qaid) {
+                        $this->page->requires->js_call_amd('qtype_speakup/assessmentstatus', 'init', [$qaid]);
+                    }
                     if ($airesponse && !empty($airesponse->aierror) && $this->can_see_errors($options)) {
                         // An earlier try failed, and it will be tried again.
                         $output .= html_writer::tag(

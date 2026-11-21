@@ -156,16 +156,18 @@ class task_failure {
      * @param int $courseid
      * @param string $subject
      * @param string $body plain text.
-     * @param string|null $url a link to where to fix the problem.
+     * @param string|null $url a link to where to fix the problem, or to see the result.
+     * @param string|null $urlname the link's name, or null for "Grade it now".
      * @return int how many people were sent it.
      */
-    protected static function send(
+    public static function send(
         string $name,
         array $recipients,
         int $courseid,
         string $subject,
         string $body,
-        ?string $url
+        ?string $url,
+        ?string $urlname = null
     ): int {
         $count = 0;
         foreach ($recipients as $recipient) {
@@ -183,7 +185,7 @@ class task_failure {
             $message->courseid = $courseid;
             if ($url) {
                 $message->contexturl = $url;
-                $message->contexturlname = get_string('gradeitnow', 'qtype_speakup');
+                $message->contexturlname = $urlname ?? get_string('gradeitnow', 'qtype_speakup');
             }
             try {
                 if (message_send($message)) {

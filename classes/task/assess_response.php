@@ -292,6 +292,10 @@ class assess_response extends \core\task\adhoc_task {
                 $gradecalculator = $quizobj->get_grade_calculator();
                 $gradecalculator->recompute_all_attempt_sumgrades();
                 $gradecalculator->recompute_final_grade((int) $attemptrecord->userid);
+
+                // Tell the student that their grade and feedback are ready.
+                $count = \qtype_speakup\assessment_notifier::notify_done($qa, $usageid);
+                mtrace('qtype_speakup: ' . ($count ? 'the student was' : 'nobody was') . ' told that it was assessed.');
             } else {
                 // Not actually a quiz attempt (shouldn't happen given this
                 // task is only ever queued from the quiz observer, but

@@ -52,6 +52,7 @@ $addons = [
         'lang' => [
             ['pluginname', 'qtype_speakup'],
             ['mobileloading', 'qtype_speakup'],
+            ['aiassessmentready', 'qtype_speakup'],
         ],
     ],
 ];

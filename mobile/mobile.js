@@ -41,6 +41,68 @@
 
 var that = this;
 
+/** The seconds to wait before each check of an assessment; the last one is repeated. */
+var CHECK_DELAYS = [10, 15, 20, 30, 45, 60];
+
+/** Stop checking an assessment after this many minutes. */
+var CHECK_MINUTES = 15;
+
+/**
+ * While a response is waiting to be assessed in the background, check now
+ * and then whether it has been (as amd/src/assessmentstatus.js does on the
+ * site). When it has, say that the grade and feedback are ready, and
+ * refresh the review page, as pulling it down does, so that they appear.
+ *
+ * @param {Object} question
+ * @param {number} questionattemptid
+ */
+function checkAssessment(question, questionattemptid) {
+    var site = that.CoreSitesProvider.getCurrentSite();
+    var stop = Date.now() + CHECK_MINUTES * 60 * 1000;
+    var count = 0;
+    var element = null;
+
+    // The review page's own refresher: firing its event makes the page
+    // clear its cached data and load it again.
+    var getRefresher = function() {
+        var page = element ? element.closest('.ion-page') : null;
+        return page ? page.querySelector('ion-refresher') : null;
+    };
+
+    var check = function() {
+        // Stop if the page has been left.
+        element = element || document.querySelector('[data-qtype-speakup-pending="' + questionattemptid + '"]');
+        if (element && !document.body.contains(element)) {
+            return;
+        }
+        site.read('qtype_speakup_get_assessment_status', {questionattemptid: questionattemptid},
+                {getFromCache: false, saveToCache: false}).then(function(result) {
+            if (result.status === 'pending') {
+                wait();
+                return result;
+            }
+            // Say so, in case the page cannot be refreshed. If it can, the
+            // refreshed page shows the grade instead.
+            question.speakupGradeReady = true;
+            var refresher = getRefresher();
+            if (refresher) {
+                refresher.dispatchEvent(new CustomEvent('ionRefresh', {detail: refresher}));
+            }
+            return result;
+        }).catch(function() {
+            // E.g. no connection: stop checking.
+        });
+    };
+
+    var wait = function() {
+        if (Date.now() < stop) {
+            setTimeout(check, CHECK_DELAYS[Math.min(count++, CHECK_DELAYS.length - 1)] * 1000);
+        }
+    };
+
+    wait();
+}
+
 var result = {
     componentInit: function() {
         var question = this.question;
@@ -83,6 +145,13 @@ var result = {
                 }
             });
             question.speakupReview = formulation.innerHTML;
+
+            // If the response is waiting to be assessed, check now and then
+            // whether it has been, and then update the page.
+            var pending = formulation.querySelector('[data-qtype-speakup-pending]');
+            if (pending) {
+                checkAssessment(question, parseInt(pending.dataset.qtypeSpeakupPending, 10));
+            }
             return true;
         }
 

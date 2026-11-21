@@ -14,6 +14,10 @@
             </core-format-text>
         </ion-label>
     </ion-item>
+    <!-- Review: the response has just been assessed (see checkAssessment() in mobile.js). -->
+    <ion-item class="ion-text-wrap" lines="none" *ngIf="question.speakupGradeReady">
+        <ion-label color="success">{{ 'plugin.qtype_speakup.aiassessmentready' | translate }}</ion-label>
+    </ion-item>
     <!-- Attempt: the response is given in a frame from the site (see mobile.js). -->
     <div *ngIf="question.speakupFrameId" class="qtype-speakup-frame" [attr.id]="question.speakupFrameId">
         <p class="qtype-speakup-loading" *ngIf="question.speakupLoading">{{ 'plugin.qtype_speakup.mobileloading' | translate }}</p>

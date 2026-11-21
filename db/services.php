@@ -31,4 +31,11 @@ $functions = [
         'type' => 'write',
         'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
     ],
+    'qtype_speakup_get_assessment_status' => [
+        'classname' => \qtype_speakup\external\get_assessment_status::class,
+        'description' => 'Say whether a SpeakUp response that is graded in the background has been assessed yet.',
+        'type' => 'read',
+        'ajax' => true,
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
+    ],
 ];
