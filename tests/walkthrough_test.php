@@ -121,7 +121,7 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->assertStringNotContainsString('manually set', $output);
 
         // Students see the label, and never the regular expression.
-        $question->expectedanswers[2]->answerlabel = 'Violin';
+        $question->expectedanswers[2]->phraselabel = 'Violin';
         $this->setUser($this->getDataGenerator()->create_user());
         $this->render();
         $output = $this->currentoutput;

@@ -709,8 +709,8 @@ class qtype_speakup_edit_form extends question_edit_form {
         $question->phrasefullmatch = [];
         $question->phrasecasesensitive = [];
         foreach ($question->options->expectedanswers ?? [] as $row) {
-            $question->phrasematch[] = $row->answertext;
-            $question->phraselabel[] = (string) $row->answerlabel;
+            $question->phrasematch[] = $row->phrasetext;
+            $question->phraselabel[] = (string) $row->phraselabel;
             $question->phrasepercent[] = (int) $row->percent;
             $question->phrasedivisor[] = (int) $row->divisor;
             $question->phrasefullmatch[] = (int) $row->fullmatch;

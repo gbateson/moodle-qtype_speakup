@@ -23,10 +23,15 @@
  * upgrade step for each change. Based on xmldb_vocab_check_structure() in
  * mod_vocab.
  *
- * The one thing it cannot tell is a rename: it would see a column that is
- * not expected (and drop it, with its data) and a column that is missing
- * (and add it, empty). So renamed fields are listed in db/upgrade.php, and
- * renamed first by xmldb_qtype_speakup_rename_fields().
+ * The one thing it cannot tell is a rename: it would see a table or column
+ * that is not expected (and drop it, with its data) and one that is missing
+ * (and add it, empty). So renamed tables and fields are listed in
+ * db/upgrade.php, and renamed first by xmldb_qtype_speakup_rename_tables()
+ * and xmldb_qtype_speakup_rename_fields().
+ *
+ * Columns added to a table go at the end of it, so afterwards,
+ * xmldb_qtype_speakup_reorder_fields() puts them in the order of
+ * db/install.xml.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -49,6 +54,62 @@ function xmldb_qtype_speakup_get_structure(): xmldb_structure {
         throw new ddl_exception('ddlxmlfileerror', null, "$filepath $errors");
     }
     return $file->getStructure();
+}
+
+/**
+ * Rename tables, if they have not been renamed already.
+ *
+ * @param database_manager $dbman
+ * @param array $renames old table name => new table name
+ */
+function xmldb_qtype_speakup_rename_tables(database_manager $dbman, array $renames): void {
+    foreach ($renames as $oldname => $newname) {
+        if ($dbman->table_exists($oldname) && !$dbman->table_exists($newname)) {
+            $dbman->rename_table(new xmldb_table($oldname), $newname);
+        }
+    }
+}
+
+/**
+ * Put the columns of each table in the order of db/install.xml, e.g. after
+ * columns have been added at the end of a table. Databases cannot move
+ * columns in the same way, so a table in the wrong order is copied to a new
+ * table, in the right order, which then replaces it.
+ *
+ * This is for tables that already have the right columns: run
+ * xmldb_qtype_speakup_check_structure() first.
+ *
+ * @param database_manager $dbman
+ */
+function xmldb_qtype_speakup_reorder_fields(database_manager $dbman): void {
+    global $DB;
+    foreach (xmldb_qtype_speakup_get_structure()->getTables() as $table) {
+        $tablename = $table->getName();
+        if (!$dbman->table_exists($tablename)) {
+            continue;
+        }
+        $fields = array_map(fn($field) => $field->getName(), array_values($table->getFields()));
+        $columns = array_keys($DB->get_columns($tablename, false));
+        if ($columns === $fields || count($columns) != count($fields) || array_diff($fields, $columns)) {
+            // In order already; or the columns themselves differ.
+            continue;
+        }
+
+        // A copy of the table, in the right order, e.g. "qtype_speakup_options_tmp".
+        $temp = clone($table);
+        $temp->setName($tablename . '_tmp');
+        if ($dbman->table_exists($temp)) {
+            // Left over from an upgrade that did not finish.
+            $dbman->drop_table($temp);
+        }
+        $dbman->create_table($temp);
+        $list = implode(', ', $fields);
+        $DB->execute("INSERT INTO {{$temp->getName()}} ($list) SELECT $list FROM {{$tablename}}");
+
+        $dbman->drop_table(new xmldb_table($tablename));
+        $dbman->rename_table($temp, $tablename);
+        $dbman->reset_sequence($tablename);
+    }
 }
 
 /**

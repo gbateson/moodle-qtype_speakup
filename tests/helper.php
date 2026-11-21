@@ -114,7 +114,7 @@ class qtype_speakup_test_helper extends question_test_helper {
      * The target phrases of each test question.
      *
      * @param string $which
-     * @return array of [answertext, percent, divisor, fullmatch, casesensitive]
+     * @return array of [phrasetext, percent, divisor, fullmatch, casesensitive]
      */
     protected static function get_phrases(string $which): array {
         if ($which === 'manual') {
@@ -161,7 +161,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         }
         $q->expectedanswers = [];
         foreach (self::get_phrases($which) as $i => [$text, $percent, $divisor, $full, $case]) {
-            $q->expectedanswers[] = (object) ['id' => $i + 1, 'answertext' => $text,
+            $q->expectedanswers[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
                     'isregex' => (int) preg_match('#^/.*/[a-zA-Z]*$#', $text), 'percent' => $percent,
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }
@@ -295,7 +295,7 @@ class qtype_speakup_test_helper extends question_test_helper {
         $qdata->options = (object) self::get_options($which);
         $qdata->options->expectedanswers = [];
         foreach (self::get_phrases($which) as $i => [$text, $percent, $divisor, $full, $case]) {
-            $qdata->options->expectedanswers[] = (object) ['id' => $i + 1, 'answertext' => $text,
+            $qdata->options->expectedanswers[] = (object) ['id' => $i + 1, 'phrasetext' => $text,
                     'isregex' => (int) preg_match('#^/.*/[a-zA-Z]*$#', $text), 'percent' => $percent,
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }

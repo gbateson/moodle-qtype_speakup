@@ -30,6 +30,8 @@ require_once($CFG->dirroot . '/question/type/speakup/db/upgrade.php');
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers    ::xmldb_qtype_speakup_check_structure
  * @covers    ::xmldb_qtype_speakup_rename_fields
+ * @covers    ::xmldb_qtype_speakup_rename_tables
+ * @covers    ::xmldb_qtype_speakup_reorder_fields
  * @covers    ::xmldb_qtype_speakup_upgrade
  */
 final class upgradelib_test extends \advanced_testcase {
@@ -38,12 +40,14 @@ final class upgradelib_test extends \advanced_testcase {
         global $DB;
         // Whatever happened, leave the tables as db/install.xml says.
         $dbman = $DB->get_manager();
+        xmldb_qtype_speakup_rename_tables($dbman, ['qtype_speakup_answers' => 'qtype_speakup_phrases']);
         foreach (['qtype_speakup_oldtable', 'qtype_speakup_ai_providers'] as $tablename) {
             if ($dbman->table_exists($tablename)) {
                 $dbman->drop_table(new \xmldb_table($tablename));
             }
         }
         xmldb_qtype_speakup_check_structure($dbman);
+        xmldb_qtype_speakup_reorder_fields($dbman);
         parent::tearDown();
     }
 
@@ -128,6 +132,67 @@ final class upgradelib_test extends \advanced_testcase {
         $item = $DB->get_record('qtype_speakup_items', ['id' => $itemid]);
         $this->assertEquals(42.5, $item->itemtarget);
         $this->assertObjectNotHasProperty('mincount', $item);
+    }
+
+    /**
+     * Get the names of a table's columns, in the database and in db/install.xml.
+     *
+     * @param string $tablename
+     * @return array [columns in the database, fields in db/install.xml]
+     */
+    protected function get_column_order(string $tablename): array {
+        global $DB;
+        $fields = xmldb_qtype_speakup_get_structure()->getTable($tablename)->getFields();
+        return [
+            array_keys($DB->get_columns($tablename, false)),
+            array_values(array_map(fn($field) => $field->getName(), $fields)),
+        ];
+    }
+
+    /**
+     * A renamed table keeps its data, and the columns are put in the order of
+     * db/install.xml, keeping their data, and the next id.
+     */
+    public function test_rename_table_and_reorder_fields(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $dbman = $DB->get_manager();
+
+        // The target phrases table, with its old names.
+        $dbman->rename_table(new \xmldb_table('qtype_speakup_phrases'), 'qtype_speakup_answers');
+        $answers = new \xmldb_table('qtype_speakup_answers');
+        $dbman->rename_field($answers, new \xmldb_field('phrasetext', XMLDB_TYPE_TEXT), 'answertext');
+        $dbman->rename_field($answers, new \xmldb_field('phraselabel', XMLDB_TYPE_CHAR, '255'), 'answerlabel');
+        $phraseid = $DB->insert_record('qtype_speakup_answers', (object) [
+            'questionid' => 123, 'answertext' => 'guitar', 'answerlabel' => 'Instrument', 'percent' => 40,
+        ]);
+
+        // A field added later, so it is at the end of the table.
+        $options = new \xmldb_table('qtype_speakup_options');
+        $dbman->drop_field($options, new \xmldb_field('promptvoice'));
+        $dbman->add_field($options, new \xmldb_field('promptvoice', XMLDB_TYPE_CHAR, '255'));
+        [$columns, $fields] = $this->get_column_order('qtype_speakup_options');
+        $this->assertNotSame($fields, $columns);
+        $optionid = $DB->insert_record('qtype_speakup_options', (object) [
+            'questionid' => 123, 'promptvoice' => 'Kore', 'prompttranscript' => 'Hello',
+        ]);
+
+        $this->assertTrue(xmldb_qtype_speakup_upgrade(0));
+
+        $this->assertSame([], $this->get_schema_errors());
+        $this->assertFalse($dbman->table_exists('qtype_speakup_answers'));
+        $phrase = $DB->get_record('qtype_speakup_phrases', ['id' => $phraseid]);
+        $this->assertSame('guitar', $phrase->phrasetext);
+        $this->assertSame('Instrument', $phrase->phraselabel);
+
+        [$columns, $fields] = $this->get_column_order('qtype_speakup_options');
+        $this->assertSame($fields, $columns);
+        $this->assertFalse($dbman->table_exists('qtype_speakup_options_tmp'));
+        $option = $DB->get_record('qtype_speakup_options', ['id' => $optionid]);
+        $this->assertSame('Kore', $option->promptvoice);
+        $this->assertSame('Hello', $option->prompttranscript);
+        // New records get new ids.
+        $this->assertGreaterThan($optionid, $DB->insert_record('qtype_speakup_options', (object) ['questionid' => 124]));
     }
 
     /**

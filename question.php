@@ -141,8 +141,8 @@ class qtype_speakup_question extends question_graded_automatically {
     public $aiproviderid;
 
     /**
-     * @var stdClass[] target phrases, each with ->answertext, ->answerlabel
-     *      (shown to students in place of answertext, if set), ->isregex,
+     * @var stdClass[] target phrases, each with ->phrasetext, ->phraselabel
+     *      (shown to students in place of phrasetext, if set), ->isregex,
      *      ->percent, ->divisor, ->fullmatch and ->casesensitive.
      */
     public $expectedanswers = [];
@@ -949,7 +949,7 @@ class qtype_speakup_question extends question_graded_automatically {
      *      if the phrase is not used.
      */
     protected function phrase_match(stdClass $phrase, string $transcript): ?string {
-        $text = trim($phrase->answertext);
+        $text = trim($phrase->phrasetext);
         if ($text === '') {
             return null;
         }
@@ -1018,13 +1018,13 @@ class qtype_speakup_question extends question_graded_automatically {
     public function phrase_results(string $transcript): array {
         $results = [];
         foreach ($this->expectedanswers as $phrase) {
-            if (trim($phrase->answertext) === '' || self::phrase_percent($phrase) <= 0) {
+            if (trim($phrase->phrasetext) === '' || self::phrase_percent($phrase) <= 0) {
                 continue;
             }
             $matched = (trim($transcript) === '') ? null : $this->phrase_match($phrase, $transcript);
             $results[] = (object) [
-                'phrase' => $phrase->answertext,
-                'label' => trim((string) ($phrase->answerlabel ?? '')),
+                'phrase' => $phrase->phrasetext,
+                'label' => trim((string) ($phrase->phraselabel ?? '')),
                 'isregex' => !empty($phrase->isregex),
                 'used' => ($matched !== null),
                 'matched' => $matched,

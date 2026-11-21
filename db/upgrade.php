@@ -21,9 +21,9 @@
  * upgrade, the database is made to match it (see db/upgradelib.php). So to
  * add, change or remove a field, just change db/install.xml and the version.
  *
- * To rename a field, also add it to the list of renames below, or else its
- * data will be lost. Keep old renames in the list, for sites that are still
- * on older versions.
+ * To rename a table or field, also add it to the lists of renames below,
+ * or else its data will be lost. Keep old renames in the lists, for sites
+ * that are still on older versions.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -46,6 +46,11 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
 
+    // Renamed tables: old name => new name.
+    xmldb_qtype_speakup_rename_tables($dbman, [
+        'qtype_speakup_answers' => 'qtype_speakup_phrases',
+    ]);
+
     // Renamed fields: old name => new name. Where a field was renamed more
     // than once, list its newer old names first.
     xmldb_qtype_speakup_rename_fields($dbman, [
@@ -62,6 +67,10 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
             'itemcount' => 'itemtarget',
             'maxcount' => 'itemtarget',
         ],
+        'qtype_speakup_phrases' => [
+            'answertext' => 'phrasetext',
+            'answerlabel' => 'phraselabel',
+        ],
     ]);
 
     // SpeakUp's own AI providers have moved to the AI bridge (tool_aibridge).
@@ -70,6 +79,7 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
     \qtype_speakup\provider_migration::run();
 
     xmldb_qtype_speakup_check_structure($dbman, ['qtype_speakup_ai_providers']);
+    xmldb_qtype_speakup_reorder_fields($dbman);
 
     // Files are now converted by the AI bridge, so its settings say where ffmpeg is.
     $path = get_config('qtype_speakup', 'pathtoffmpeg');

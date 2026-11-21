@@ -83,7 +83,7 @@ final class question_test extends \advanced_testcase {
      */
     public function test_phrase_results_matched(): void {
         $question = $this->make();
-        $question->expectedanswers[2]->answerlabel = ' Violin ';
+        $question->expectedanswers[2]->phraselabel = ' Violin ';
         $results = $question->phrase_results('I Have  played two Violins.');
         $this->assertSame([null, 'I Have  played', 'Violins'], array_column($results, 'matched'));
         $this->assertSame(['', '', 'Violin'], array_column($results, 'label'));

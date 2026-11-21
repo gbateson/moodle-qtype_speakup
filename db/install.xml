@@ -69,13 +69,13 @@
       </KEYS>
     </TABLE>
 
-    <TABLE NAME="qtype_speakup_answers" COMMENT="Target phrases for automated grading of SpeakUp questions.">
+    <TABLE NAME="qtype_speakup_phrases" COMMENT="Target phrases for automated grading of SpeakUp questions.">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="answertext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="answerlabel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
-            COMMENT="Shown to students in place of answertext, e.g. when answertext is a regular expression."/>
+        <FIELD NAME="phrasetext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="phraselabel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Shown to students in place of phrasetext, e.g. when phrasetext is a regular expression."/>
         <FIELD NAME="isregex" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="casesensitive" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"

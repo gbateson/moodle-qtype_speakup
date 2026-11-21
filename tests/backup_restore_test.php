@@ -171,10 +171,10 @@ final class backup_restore_test extends \advanced_testcase {
         }
         $this->assertEquals($provider->id, $restored->options->aiproviderid);
         $this->assertSame(
-            array_column($original->options->expectedanswers, 'answertext'),
-            array_column($restored->options->expectedanswers, 'answertext')
+            array_column($original->options->expectedanswers, 'phrasetext'),
+            array_column($restored->options->expectedanswers, 'phrasetext')
         );
-        $this->assertSame(['', '', 'Violin'], array_column($restored->options->expectedanswers, 'answerlabel'));
+        $this->assertSame(['', '', 'Violin'], array_column($restored->options->expectedanswers, 'phraselabel'));
         $this->assertSame(
             array_column($original->options->targetitems, 'itemtype'),
             array_column($restored->options->targetitems, 'itemtype')

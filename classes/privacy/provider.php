@@ -46,7 +46,7 @@ use core_privacy\local\request\writer;
  *   and the AI feedback is commentary specifically about that student's
  *   performance - so this plugin is responsible for it here.
  *
- * - qtype_speakup_options and qtype_speakup_answers hold only the
+ * - qtype_speakup_options and qtype_speakup_phrases hold only the
  *   teacher's own question configuration (grading method, target phrases,
  *   AI rubric, etc.) - authored content about the question, not about any
  *   individual student, in the same way core's own question_answers table

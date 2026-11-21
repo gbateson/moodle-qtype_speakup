@@ -202,7 +202,7 @@ class qtype_speakup extends question_type {
         // (see edit_speakup_form.php): "If [phrasematch] is used, award
         // [phrasepercent] divided by [phrasedivisor] of the question grade",
         // modelled on qtype_essayautograde's target phrases.
-        $DB->delete_records('qtype_speakup_answers', ['questionid' => $question->id]);
+        $DB->delete_records('qtype_speakup_phrases', ['questionid' => $question->id]);
 
         if (!empty($question->phrasematch)) {
             foreach ($question->phrasematch as $key => $phrase) {
@@ -212,8 +212,8 @@ class qtype_speakup extends question_type {
                 }
                 $record = new stdClass();
                 $record->questionid = $question->id;
-                $record->answertext = $phrase;
-                $record->answerlabel = trim((string) ($question->phraselabel[$key] ?? ''));
+                $record->phrasetext = $phrase;
+                $record->phraselabel = trim((string) ($question->phraselabel[$key] ?? ''));
                 $record->isregex = (int) preg_match('#^/.*/[a-zA-Z]*$#', $phrase);
                 $record->percent = min(100, max(0, (int) ($question->phrasepercent[$key] ?? 0)));
                 if ($record->percent == 0) {
@@ -223,7 +223,7 @@ class qtype_speakup extends question_type {
                 $record->divisor = min(20, max(1, (int) ($question->phrasedivisor[$key] ?? 1)));
                 $record->fullmatch = empty($question->phrasefullmatch[$key]) ? 0 : 1;
                 $record->casesensitive = empty($question->phrasecasesensitive[$key]) ? 0 : 1;
-                $DB->insert_record('qtype_speakup_answers', $record);
+                $DB->insert_record('qtype_speakup_phrases', $record);
             }
         }
 
@@ -258,7 +258,7 @@ class qtype_speakup extends question_type {
         global $DB;
         parent::get_question_options($question);
 
-        $answers = $DB->get_records('qtype_speakup_answers', ['questionid' => $question->id], 'id ASC');
+        $answers = $DB->get_records('qtype_speakup_phrases', ['questionid' => $question->id], 'id ASC');
         $question->options->expectedanswers = array_values($answers);
 
         $items = $DB->get_records('qtype_speakup_items', ['questionid' => $question->id], 'id ASC');
@@ -274,7 +274,7 @@ class qtype_speakup extends question_type {
      * Moodle's base question_type::initialise_question_instance() only
      * auto-copies scalar fields from $questiondata->options onto $question
      * - it deliberately skips arrays. Since our expected answers live in a
-     * separate child table (qtype_speakup_answers) rather than a flat
+     * separate child table (qtype_speakup_phrases) rather than a flat
      * column, and are loaded as an array in get_question_options() above,
      * they need to be wired across explicitly here - the same pattern
      * Moodle core's own qtype_shortanswer uses for its own answers table.
@@ -351,9 +351,9 @@ class qtype_speakup extends question_type {
 
         foreach ($question->options->expectedanswers ?? [] as $phrase) {
             $output .= "    <targetphrase>\n";
-            $output .= '      <text>' . $format->xml_escape($phrase->answertext) . "</text>\n";
-            if (trim((string) ($phrase->answerlabel ?? '')) !== '') {
-                $output .= '      <label>' . $format->xml_escape($phrase->answerlabel) . "</label>\n";
+            $output .= '      <text>' . $format->xml_escape($phrase->phrasetext) . "</text>\n";
+            if (trim((string) ($phrase->phraselabel ?? '')) !== '') {
+                $output .= '      <label>' . $format->xml_escape($phrase->phraselabel) . "</label>\n";
             }
             foreach (['percent', 'divisor', 'fullmatch', 'casesensitive'] as $field) {
                 $output .= "      <{$field}>" . $format->xml_escape((string) $phrase->$field) . "</{$field}>\n";
@@ -681,8 +681,8 @@ class qtype_speakup extends question_type {
                     (int) $item->percent . '%, x' . (int) $item->multiplier . ')';
         }
         foreach ($o->expectedanswers ?? [] as $phrase) {
-            $text = str_replace(['\\', '"'], ['\\\\', '\\"'], $phrase->answertext);
-            $label = trim((string) ($phrase->answerlabel ?? ''));
+            $text = str_replace(['\\', '"'], ['\\\\', '\\"'], $phrase->phrasetext);
+            $label = trim((string) ($phrase->phraselabel ?? ''));
             if ($label !== '') {
                 $label = ', "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $label) . '"';
             }
@@ -1105,9 +1105,9 @@ class qtype_speakup extends question_type {
             }
         }
         if (empty($question->phrasematch)) {
-            foreach ($DB->get_records('qtype_speakup_answers', ['questionid' => $archetype->id], 'id ASC') as $phrase) {
-                $question->phrasematch[] = $phrase->answertext;
-                $question->phraselabel[] = (string) $phrase->answerlabel;
+            foreach ($DB->get_records('qtype_speakup_phrases', ['questionid' => $archetype->id], 'id ASC') as $phrase) {
+                $question->phrasematch[] = $phrase->phrasetext;
+                $question->phraselabel[] = (string) $phrase->phraselabel;
                 $question->phrasepercent[] = $phrase->percent;
                 $question->phrasedivisor[] = $phrase->divisor;
                 $question->phrasefullmatch[] = $phrase->fullmatch;
@@ -1150,7 +1150,7 @@ class qtype_speakup extends question_type {
     #[\Override]
     public function delete_question($questionid, $contextid) {
         global $DB;
-        $DB->delete_records('qtype_speakup_answers', ['questionid' => $questionid]);
+        $DB->delete_records('qtype_speakup_phrases', ['questionid' => $questionid]);
         $DB->delete_records('qtype_speakup_items', ['questionid' => $questionid]);
         parent::delete_question($questionid, $contextid);
     }

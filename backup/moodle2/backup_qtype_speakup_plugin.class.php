@@ -59,7 +59,7 @@ class backup_qtype_speakup_plugin extends backup_qtype_plugin {
         $phrase = new backup_nested_element(
             'phrase',
             ['id'],
-            ['answertext', 'answerlabel', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']
+            ['phrasetext', 'phraselabel', 'isregex', 'casesensitive', 'percent', 'divisor', 'fullmatch']
         );
         $items = new backup_nested_element('items');
         $item = new backup_nested_element('item', ['id'], ['itemtype', 'itemtarget', 'percent', 'multiplier']);
@@ -76,7 +76,7 @@ class backup_qtype_speakup_plugin extends backup_qtype_plugin {
                   FROM {qtype_speakup_options} o
              LEFT JOIN {tool_aibridge_providers} p ON p.id = o.aiproviderid
                  WHERE o.questionid = ?", [backup::VAR_PARENTID]);
-        $phrase->set_source_table('qtype_speakup_answers', ['questionid' => backup::VAR_PARENTID], 'id ASC');
+        $phrase->set_source_table('qtype_speakup_phrases', ['questionid' => backup::VAR_PARENTID], 'id ASC');
         $item->set_source_table('qtype_speakup_items', ['questionid' => backup::VAR_PARENTID], 'id ASC');
 
         return $plugin;

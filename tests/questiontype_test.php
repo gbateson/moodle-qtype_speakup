@@ -98,12 +98,12 @@ final class questiontype_test extends \advanced_testcase {
 
         $phrases = $qdata->options->expectedanswers;
         $this->assertCount(3, $phrases);
-        $this->assertSame('guitar', $phrases[0]->answertext);
+        $this->assertSame('guitar', $phrases[0]->phrasetext);
         $this->assertEquals(1, $phrases[0]->fullmatch);
         $this->assertEquals(0, $phrases[0]->isregex);
         $this->assertEquals(1, $phrases[2]->isregex);
         $this->assertEquals(2, $phrases[2]->divisor);
-        $this->assertSame('', (string) $phrases[2]->answerlabel);
+        $this->assertSame('', (string) $phrases[2]->phraselabel);
 
         $items = $qdata->options->targetitems;
         $this->assertCount(1, $items);
@@ -133,7 +133,7 @@ final class questiontype_test extends \advanced_testcase {
             'itempercent' => [20, 20, 20],
             'itemmultiplier' => [1, 1, 1],
         ]);
-        $this->assertSame(['kept'], array_column($qdata->options->expectedanswers, 'answertext'));
+        $this->assertSame(['kept'], array_column($qdata->options->expectedanswers, 'phrasetext'));
         $this->assertSame(['words'], array_column($qdata->options->targetitems, 'itemtype'));
     }
 
@@ -162,7 +162,7 @@ final class questiontype_test extends \advanced_testcase {
 
         question_delete_question($qdata->id);
         $this->assertFalse($DB->record_exists('qtype_speakup_options', ['questionid' => $qdata->id]));
-        $this->assertFalse($DB->record_exists('qtype_speakup_answers', ['questionid' => $qdata->id]));
+        $this->assertFalse($DB->record_exists('qtype_speakup_phrases', ['questionid' => $qdata->id]));
         $this->assertFalse($DB->record_exists('qtype_speakup_items', ['questionid' => $qdata->id]));
         $this->assertTrue(get_file_storage()->is_area_empty($qdata->contextid, 'qtype_speakup', 'audioprompt', $qdata->id));
     }

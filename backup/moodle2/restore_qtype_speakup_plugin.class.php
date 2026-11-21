@@ -87,9 +87,16 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
         global $DB;
         if ($this->is_question_created()) {
             $data = (object) $data;
+            // Backups made before the fields were renamed.
+            foreach (['answertext' => 'phrasetext', 'answerlabel' => 'phraselabel'] as $oldname => $newname) {
+                if (isset($data->$oldname)) {
+                    $data->$newname = $data->$oldname;
+                    unset($data->$oldname);
+                }
+            }
             $data->questionid = $this->get_new_parentid('question');
             unset($data->id);
-            $DB->insert_record('qtype_speakup_answers', $data);
+            $DB->insert_record('qtype_speakup_phrases', $data);
         }
     }
 
