@@ -62,7 +62,7 @@ class observer {
             if ($question->is_graded_later()) {
                 // This also makes large files smaller, first.
                 ai_queue::queue((int) $attempt->uniqueid, (int) $slot, (int) $attempt->userid, (int) $event->contextid);
-            } else if (file_reducer::is_enabled() && file_reducer::replaces_originals()) {
+            } else if (file_reducer::replaces_files()) {
                 ai_queue::queue_reduce_files((int) $attempt->uniqueid, (int) $slot, (int) $event->contextid);
             }
         }

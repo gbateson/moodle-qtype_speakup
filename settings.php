@@ -106,6 +106,12 @@ if ($hassiteconfig) {
         get_string('replaceoriginals_desc', 'qtype_speakup'),
         1
     ));
+    $settings->add(new admin_setting_configcheckbox(
+        'qtype_speakup/convertvideos',
+        get_string('convertvideos', 'qtype_speakup'),
+        get_string('convertvideos_desc', 'qtype_speakup'),
+        1
+    ));
 
     // The Moodle app: SpeakUp works there when the site meets some
     // conditions; otherwise the app opens the quiz in the browser.

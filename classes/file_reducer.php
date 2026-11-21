@@ -32,6 +32,10 @@ namespace qtype_speakup;
  * smaller. If the tools are missing, or PHP cannot run programs, files are
  * kept as they are.
  *
+ * Videos that are not MP4 (e.g. WebM, from browsers other than Safari) can
+ * also be converted to MP4 whatever their size, so that they play on every
+ * device: iPhones and iPads cannot play WebM.
+ *
  * For questions that send only the sound of videos to the AI, this also
  * takes the sound out of a video, as MP3, for the AI only.
  *
@@ -75,6 +79,35 @@ class file_reducer {
      */
     public static function replaces_originals(): bool {
         return (bool) get_config('qtype_speakup', 'replaceoriginals');
+    }
+
+    /**
+     * Are videos that are not MP4 converted to MP4, whatever their size?
+     *
+     * @return bool
+     */
+    public static function converts_videos(): bool {
+        return (bool) get_config('qtype_speakup', 'convertvideos');
+    }
+
+    /**
+     * Are any of a response's files replaced, i.e. made smaller or converted?
+     *
+     * @return bool
+     */
+    public static function replaces_files(): bool {
+        return (self::is_enabled() && self::replaces_originals()) || self::converts_videos();
+    }
+
+    /**
+     * Should a file be converted to MP4, whatever its size?
+     *
+     * @param \stored_file $file
+     * @return bool
+     */
+    public static function needs_converting(\stored_file $file): bool {
+        $mimetype = (string) $file->get_mimetype();
+        return self::converts_videos() && strpos($mimetype, 'video/') === 0 && $mimetype !== 'video/mp4';
     }
 
     /**
@@ -131,11 +164,13 @@ class file_reducer {
      *
      * @param \stored_file $file
      * @param bool $audioonly for a video, take out only the sound.
+     * @param float $minsaving keep the copy only if it is at most this
+     *      fraction of the original's size, or 0 to keep it whatever its size.
      * @return array|null [path, filename, mimetype] of the copy, or null if it
      *      could not be made, or would not be clearly smaller (except for the
      *      sound of a video, which is always returned if it can be made).
      */
-    public static function reduce(\stored_file $file, bool $audioonly = false): ?array {
+    public static function reduce(\stored_file $file, bool $audioonly = false, float $minsaving = self::MIN_SAVING): ?array {
         return \tool_aibridge\media_converter::convert_file($file, [
             'audioonly' => $audioonly,
             'audioformat' => 'mp3',
@@ -146,21 +181,23 @@ class file_reducer {
             'imagequality' => self::IMAGE_QUALITY,
             'reencode' => true,
             'pdf' => true,
-            'minsaving' => self::MIN_SAVING,
+            'minsaving' => $minsaving,
         ]);
     }
 
     /**
-     * Replace a response's large files by smaller ones, if this site does so.
+     * Replace a response's large files by smaller ones, and its videos that
+     * are not MP4 by MP4 ones, if this site does so.
      *
      * @param \question_attempt $qa
      * @param int $contextid the context of the question usage.
      * @return int how many files were replaced.
      */
     public static function reduce_response(\question_attempt $qa, int $contextid): int {
-        if (!self::is_enabled() || !self::replaces_originals()) {
+        if (!self::replaces_files()) {
             return 0;
         }
+        $reduce = self::is_enabled() && self::replaces_originals();
         $step = $qa->get_last_step_with_qt_var('recording');
         if (!$step->get_id()) {
             return 0;
@@ -169,15 +206,18 @@ class file_reducer {
         $count = 0;
         $threshold = self::get_threshold();
         foreach ($fs->get_area_files($contextid, 'question', 'response_recording', $step->get_id(), 'filename', false) as $file) {
-            if ($file->get_filesize() <= $threshold) {
+            // Videos to be converted are kept whatever their new size.
+            $convert = self::needs_converting($file);
+            if (!$convert && !($reduce && $file->get_filesize() > $threshold)) {
                 continue;
             }
             try {
-                $result = self::reduce($file);
+                $result = self::reduce($file, false, $convert ? 0 : self::MIN_SAVING);
                 if (!$result) {
                     $why = \tool_aibridge\media_converter::get_last_error();
                     mtrace('qtype_speakup: ' . $file->get_filename() . ' (' . display_size($file->get_filesize()) .
-                            ') could not be made smaller, so it was kept as it is.' . ($why === '' ? '' : ' ' . $why));
+                            ') could not be ' . ($convert ? 'converted' : 'made smaller') . ', so it was kept as it is.' .
+                            ($why === '' ? '' : ' ' . $why));
                     continue;
                 }
                 [$path, $filename, $mimetype] = $result;

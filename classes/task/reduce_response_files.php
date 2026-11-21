@@ -46,8 +46,8 @@ class reduce_response_files extends \core\task\adhoc_task {
         $usageid = (int) $data->usageid;
         $slot = (int) $data->slot;
 
-        if (!file_reducer::is_enabled() || !file_reducer::replaces_originals()) {
-            mtrace('qtype_speakup: large response files are not replaced on this site.');
+        if (!file_reducer::replaces_files()) {
+            mtrace('qtype_speakup: response files are not made smaller or converted on this site.');
             return;
         }
         if (!\qtype_speakup\task_cleanup::response_exists($usageid, $slot)) {

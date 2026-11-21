@@ -239,12 +239,25 @@ final class file_reducer_test extends \advanced_testcase {
      * @return array [usage id, slot]
      */
     protected function attempt_with_photo(): array {
+        return $this->attempt_with_file('image', [], '01-photo.png', $this->make_photo(2400, 1800));
+    }
+
+    /**
+     * Start a response with a file, as a new user, and finish it.
+     *
+     * @param string $template the test question, e.g. "image".
+     * @param array $overrides the question's settings that differ from the template's.
+     * @param string $filename
+     * @param string $content
+     * @return array [usage id, slot]
+     */
+    protected function attempt_with_file(string $template, array $overrides, string $filename, string $content): array {
         global $USER;
         $this->setUser($this->getDataGenerator()->create_user());
         /** @var \core_question_generator $generator */
         $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $category = $generator->create_question_category();
-        $questionid = $generator->create_question('speakup', 'image', ['category' => $category->id,
+        $questionid = $generator->create_question('speakup', $template, $overrides + ['category' => $category->id,
                 'gradingmethod' => SPEAKUP_GRADING_MANUAL])->id;
 
         $quba = question_engine::make_questions_usage_by_activity('core_question_preview', \context_system::instance());
@@ -254,7 +267,7 @@ final class file_reducer_test extends \advanced_testcase {
         $draftid = file_get_unused_draft_itemid();
         get_file_storage()->create_file_from_string(['contextid' => \context_user::instance($USER->id)->id,
                 'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftid, 'filepath' => '/',
-                'filename' => '01-photo.png'], $this->make_photo(2400, 1800));
+                'filename' => $filename], $content);
         $quba->process_action($slot, ['recording' => new \question_file_saver($draftid, 'question', 'response_recording')]);
         $quba->finish_all_questions();
         question_engine::save_questions_usage_by_activity($quba);
@@ -295,6 +308,32 @@ final class file_reducer_test extends \advanced_testcase {
         set_config('replaceoriginals', 1, 'qtype_speakup');
         $task->execute();
         $this->assertSame(['01-photo.jpg'], $this->response_filenames($usageid, $slot));
+    }
+
+    /**
+     * Videos that are not MP4 are converted to MP4, whatever their size, if
+     * the site does so, even if it does not make large files smaller.
+     */
+    public function test_convert_videos(): void {
+        $this->require_ffmpeg();
+        set_config('reducefiles', 0, 'qtype_speakup');
+        $webm = $this->make_media('recording.webm', ['-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=15:duration=2',
+                '-f', 'lavfi', '-i', 'sine=frequency=300:duration=2', '-c:v', 'libvpx', '-c:a', 'libopus']);
+        $this->assertLessThan(1048576, $webm->get_filesize()); // Smaller than the threshold.
+        $video = ['mediatype' => SPEAKUP_MEDIA_VIDEO];
+        [$usageid, $slot] = $this->attempt_with_file('basic', $video, 'recording.webm', $webm->get_content());
+
+        $task = new task\reduce_response_files();
+        $task->set_custom_data(['usageid' => $usageid, 'slot' => $slot, 'contextid' => \context_system::instance()->id]);
+
+        set_config('convertvideos', 0, 'qtype_speakup');
+        $this->expectOutputRegex('/not made smaller or converted.*1 file\(s\) were made smaller/s');
+        $task->execute();
+        $this->assertSame(['recording.webm'], $this->response_filenames($usageid, $slot));
+
+        set_config('convertvideos', 1, 'qtype_speakup');
+        $task->execute();
+        $this->assertSame(['recording.mp4'], $this->response_filenames($usageid, $slot));
     }
 
     /**
