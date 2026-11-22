@@ -155,6 +155,8 @@ $string['err_itemduplicate'] = 'There is already a target of {$a} for this item.
 $string['err_itemneedsai'] = 'This item counts sentences, which needs a transcript with punctuation. The browser\'s live transcript has none, so use AI assessment, or "Upload", or choose a different item.';
 $string['err_itempercent'] = 'Choose a percent for this item.';
 $string['err_itemtarget'] = 'Enter a target greater than 0 for this item.';
+$string['err_phrasebrackets'] = 'Each "(" in this phrase needs a ")" after it, and each ")" needs a "(" before it.';
+$string['err_phraseoperator'] = 'OR, AND and commas need words on both sides, e.g. "Then OR Next" and "First AND Finally".';
 $string['err_phrasepercent'] = 'Choose a percent for this phrase.';
 $string['err_rubricplaceholders'] = 'These placeholders cannot be filled in: {$a}. Check their spelling, and that the question has a target for each item type in {{target...}}.';
 $string['err_rubricquestion'] = 'There is no question with the ID number "{$a}" in this question\'s category, or in the categories above it.';
@@ -178,7 +180,7 @@ $string['giftexpectlanguage'] = 'expected a language code, e.g. en-US';
 $string['giftexpectnumber'] = 'expected a whole number from {$a->min} to {$a->max}';
 $string['giftexpectoneof'] = 'expected one of: {$a}';
 $string['giftexpecttargetitem'] = 'expected (itemtype, target, percent%, xmultiplier), e.g. (words, 50, 40%, x1)';
-$string['giftexpecttargetphrase'] = 'expected ("phrase", percent%, /divisor, full|partial, case|nocase, "label"), e.g. ("I have played", 10%, /1, partial, nocase), where the label is optional';
+$string['giftexpecttargetphrase'] = 'expected ("phrase", percent%, /divisor, full|partial, case|nocase, "label"), e.g. ("I have played", 10%, /1, partial, nocase) or ("Then OR Next", 5%), where the label is optional';
 $string['giftexpectyesno'] = 'expected yes or no';
 $string['giftnearestvalue'] = 'not allowed, so {$a} was used';
 $string['giftnoarchetype'] = 'ARCHETYPE={$a}: there is no question with this ID number in this category, or the categories above it, so the usual defaults were used. An archetype in the same GIFT file must come before the questions that use it.';
@@ -313,20 +315,48 @@ $string['phrasedivisorn'] = 'divided by {$a}';
 $string['phrasefullmatch0'] = 'Match full or partial words.';
 $string['phrasefullmatch1'] = 'Match full words only.';
 $string['phrasegroup'] = 'Target phrase [{no}]';
-$string['phrasegroup_help'] = 'The share of the question grade awarded if this phrase is used in the response. The shares of all the target phrases that are used add up, together with the target items and the AI assessment (if used), and the total is capped at 100%.
+$string['phrasegroup_help'] = 'The share of the question grade awarded if this phrase is used in the response. The shares of all the target phrases that are used add up, together with the target items and the AI assessment (if used), and the total is capped at 100%. "Divided by" makes shares that are not whole numbers, e.g. 100% divided by 3 is 33.33%.
 
-A phrase matches anywhere in the transcript. Spaces in the phrase match any spaces in the transcript. To use a regular expression instead, start the phrase with "/" and end it with "/" plus optional flags, e.g. "/\\bgood (morning|afternoon)\\b/i".
+A phrase matches anywhere in the transcript, and spaces in the phrase match any spaces in the transcript.
 
-"Divided by" makes shares that are not whole numbers, e.g. 100% divided by 3 is 33.33%.';
+> **e.g.** If [I have played] is used, award [10% of the question grade.]
+
+A phrase can be written in plain English, as in Essay (auto-grade), using these words and symbols:
+
+* **OR**, or a comma, separates alternatives.
+
+> **e.g.** If [Finally OR In the end] is used, award [5% of the question grade.]
+
+* **AND** means that what follows comes later in the response. **ANY** means the same as AND.
+
+> **e.g.** If [First AND Finally] is used, award [5% of the question grade.]
+
+* **Brackets** group parts of a phrase.
+
+> **e.g.** If [First AND (Then OR Next) AND (Finally OR In the end)] is used, award [10% of the question grade.]
+
+* **\*** in a word matches any number of letters (including none), and **?** matches one letter (or none). On its own, \* matches any one word.
+
+> **e.g.** If [walk\*] is used, award [5% of the question grade.] This matches "walk", "walks", "walked" and "walking".
+
+OR, AND and ANY must be in capital letters; in lower case, they are ordinary words. AND binds more tightly than OR, so "Hello OR Good AND bye" means "Hello", or "Good" followed later by "bye". Since a comma means OR, a phrase can not include a comma itself; this is rarely a problem, as transcripts do not reliably include punctuation.
+
+Students see the phrase itself in their feedback and hints, unless it has a label.
+
+For more control, a phrase can be a regular expression: start it with "/" and end it with "/" plus optional flags.
+
+> **e.g.** If [/\\bgood (morning|afternoon)\\b/i] is used, award [5% of the question grade.]';
 $string['phraselabel'] = 'Target phrase label';
-$string['phraselabel_help'] = 'Shown to students in place of the target phrase, e.g. "Relative clause (who, which, whose, where)". This is useful when the phrase is a regular expression, which students would not understand. If there is no label, students see the phrase itself, or, for a regular expression, "Target phrase 1", "Target phrase 2" and so on. Teachers always see the phrase.';
+$string['phraselabel_help'] = 'Shown to students in place of the target phrase, e.g. "Relative clause (who, which, whose, where)". This is useful when the phrase is a regular expression, which students would not understand, or when a phrase written in plain English would give the answer away. If there is no label, students see the phrase itself, or, for a regular expression, "Target phrase 1", "Target phrase 2" and so on. Teachers always see the phrase.';
 $string['phraselabelno'] = 'Target phrase [{no}] label';
 $string['phraselabelplaceholder'] = 'Label for students (optional)';
 $string['phrasenotused'] = 'Not used';
 $string['phrasenumber'] = 'Target phrase {$a}';
 $string['phraseoptions'] = 'Target phrase [{no}] options';
 $string['phrasesheader'] = 'Target phrases';
-$string['phrasesheader_help'] = 'Each target phrase that is used in the response awards its own share of the question grade. The shares add up, capped at 100%. The phrases are checked in a transcript of the response: the live transcript from the browser for recordings, or a transcript made by the AI provider.';
+$string['phrasesheader_help'] = 'Each target phrase that is used in the response awards its own share of the question grade. The shares add up, capped at 100%. The phrases are checked in a transcript of the response: the live transcript from the browser for recordings, or a transcript made by the AI provider.
+
+A phrase can be a single word or phrase, or use OR, AND and brackets, e.g. "First AND (Then OR Next) AND (Finally OR In the end)". See the help for each target phrase for details.';
 $string['phrasesmatched'] = 'Target phrases used: {$a->matched} of {$a->total} ({$a->percent}% of the question grade).';
 $string['phrasetext1'] = 'If';
 $string['phrasetext2'] = 'is used, award';

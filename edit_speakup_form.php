@@ -805,8 +805,8 @@ class qtype_speakup_edit_form extends question_edit_form {
                 if ($phrase === '') {
                     continue;
                 }
-                if (preg_match('#^/.*/[a-zA-Z]*$#', $phrase) && @preg_match($phrase, '') === false) {
-                    $errors["phrasegroup[$key]"] = get_string('err_invalidregex', 'qtype_speakup', s($phrase));
+                if ($error = \qtype_speakup\phrase_pattern::get_error($phrase)) {
+                    $errors["phrasegroup[$key]"] = $error;
                 } else if (empty($data['phrasepercent'][$key])) {
                     $errors["phrasegroup[$key]"] = get_string('err_phrasepercent', 'qtype_speakup');
                 }

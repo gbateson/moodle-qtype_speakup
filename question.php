@@ -938,10 +938,10 @@ class qtype_speakup_question extends question_graded_automatically {
     /**
      * Find a target phrase in a transcript.
      *
-     * A plain phrase matches anywhere in the transcript, case-insensitively
-     * unless "case sensitive" is set, and only as whole words if "full
-     * match" is set. Spaces in the phrase match any run of spaces. A
-     * phrase written as /pattern/flags is used as a regular expression.
+     * A phrase is written in plain English, e.g. "First AND (Then OR Next)",
+     * or as a regular expression, /pattern/flags (see phrase_pattern). A
+     * plain-English phrase matches case-insensitively unless "case
+     * sensitive" is set, and only as whole words if "full match" is set.
      *
      * @param stdClass $phrase a target phrase.
      * @param string $transcript
@@ -949,21 +949,12 @@ class qtype_speakup_question extends question_graded_automatically {
      *      if the phrase is not used.
      */
     protected function phrase_match(stdClass $phrase, string $transcript): ?string {
-        $text = trim($phrase->phrasetext);
-        if ($text === '') {
-            return null;
-        }
-        if (!empty($phrase->isregex)) {
-            return @preg_match($this->to_php_regex($text), $transcript, $match) ? $match[0] : null;
-        }
-        $pattern = preg_replace('/\s+/u', '\\s+', preg_quote($text, '/'));
-        if (!empty($phrase->fullmatch)) {
-            // Not touching a letter or digit on either side. Unlike \b,
-            // this also works for letters outside a-z, e.g. "café".
-            $pattern = '(?<![\p{L}\p{N}])' . $pattern . '(?![\p{L}\p{N}])';
-        }
-        $flags = 'u' . (empty($phrase->casesensitive) ? 'i' : '');
-        return preg_match('/' . $pattern . '/' . $flags, $transcript, $match) ? $match[0] : null;
+        return \qtype_speakup\phrase_pattern::match(
+            $phrase->phrasetext,
+            $transcript,
+            !empty($phrase->fullmatch),
+            !empty($phrase->casesensitive)
+        );
     }
 
     /**
@@ -1032,17 +1023,5 @@ class qtype_speakup_question extends question_graded_automatically {
             ];
         }
         return $results;
-    }
-
-    /**
-     * Convert an author-entered "/pattern/flags" line into a PHP-safe PCRE,
-     * defending against an unescaped delimiter breaking preg_match().
-     *
-     * @param string $line
-     * @return string
-     */
-    protected function to_php_regex(string $line): string {
-        // Line is already validated to match #^/.*/[a-zA-Z]*$# in questiontype.php.
-        return $line;
     }
 }

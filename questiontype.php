@@ -214,7 +214,7 @@ class qtype_speakup extends question_type {
                 $record->questionid = $question->id;
                 $record->phrasetext = $phrase;
                 $record->phraselabel = trim((string) ($question->phraselabel[$key] ?? ''));
-                $record->isregex = (int) preg_match('#^/.*/[a-zA-Z]*$#', $phrase);
+                $record->isregex = (int) \qtype_speakup\phrase_pattern::is_regex($phrase);
                 $record->percent = min(100, max(0, (int) ($question->phrasepercent[$key] ?? 0)));
                 if ($record->percent == 0) {
                     // A phrase that awards nothing is ignored, like an empty one.

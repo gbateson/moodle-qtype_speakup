@@ -3,7 +3,7 @@
 A Moodle question type where students give a **timed spoken response** to a
 written or audio prompt. Responses can be graded by:
 
-- **Pattern matching** - transcript compared against model answers / regular expressions.
+- **Pattern matching** - transcript compared against target phrases, in plain English (e.g. `First AND (Then OR Next)`) or as regular expressions.
 - **AI holistic assessment** - transcript (and/or audio) sent to an AI engine with a rubric.
 - **Manual only** - teacher listens and grades by hand.
 
@@ -234,6 +234,11 @@ that are left out get their usual defaults.
   case|nocase, "label")`. The label is optional: students see it in place
   of the phrase, e.g. when the phrase is a regular expression. Repeat the
   line, or put several in one line, for more.
+- A phrase can use the plain-English syntax of Essay (auto-grade): `OR`
+  (or a comma) for alternatives, `AND` for "later in the response",
+  brackets, and the wildcards `*` and `?` in words, e.g.
+  `("First AND (Then OR Next) AND (Finally OR In the end)", 5%)`. A phrase
+  written as `/pattern/flags` is a regular expression.
 - As usual in GIFT, a blank line ends the question, so write line breaks as
   `\n`, and escape `{`, `}`, `=`, `#`, `~` and `:` in values with a
   backslash (only `{` and `}` are essential).
