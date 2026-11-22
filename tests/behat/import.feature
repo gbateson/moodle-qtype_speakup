@@ -38,6 +38,8 @@ Feature: Test importing SpeakUp questions
       | Number of responses allowed              | 1                                                  |
       | Penalty for showing the transcript       | 30%                                                |
       | id_phrasematch_0                         | I have played                                      |
+      | id_phrasematch_1                         | I have played AND (year*, month*)                  |
+      | id_phraselabel_1                         | How long you have played                           |
       | id_itemtarget_0                           | 50                                                 |
     And I press "Cancel"
     And I choose "Edit question" action for "speakup-gift-003" in the question bank

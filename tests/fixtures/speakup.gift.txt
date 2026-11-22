@@ -14,6 +14,7 @@ PROMPTTRANSCRIPTPENALTY=30%
 GRADING=auto
 TARGETITEM=(words, 50, 40%, x1)
 TARGETPHRASE=("I have played", 10%, /1, partial, nocase)
+TARGETPHRASE=("I have played AND (year*, month*)", 10%, /1, full, nocase, "How long you have played")
 COLOUR=blue
 #### Thank you for your answer.
 }
