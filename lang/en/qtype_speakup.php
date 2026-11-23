@@ -130,7 +130,7 @@ $string['calcoverride'] = 'Later, on {$a->date}, the grade was manually set to {
 $string['calcpenalty'] = 'However, {$a}% was deducted for showing the transcript of the audio prompt.';
 $string['calcphrase'] = '{$a->percent}% for using "{$a->phrase}"';
 $string['calcrawpercent'] = 'The raw percentage grade for this response is {$a}%.';
-$string['calcrawpercentdetails'] = 'The raw percentage grade for this response is {$a->percent}%<br>= ({$a->details})';
+$string['calcrawpercentdetails'] = 'The raw percentage grade for this response is {$a->percent}%<br>= {$a->details}';
 $string['calculation'] = 'Grade calculation';
 $string['confirmtranscript'] = 'Viewing the transcript will reduce your grade by {$a}%. Are you sure you want to see it?';
 $string['confirmtranscripttitle'] = 'Show the transcript?';
