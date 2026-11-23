@@ -231,7 +231,7 @@ class qtype_speakup_renderer extends qtype_renderer {
             if ($transcript !== '' && $this->can_show((int) $question->showtranscript, $options)) {
                 $output .= html_writer::tag(
                     'div',
-                    html_writer::tag('strong', $transcriptlabel . ': ') . s($transcript),
+                    html_writer::tag('strong', $transcriptlabel . ': ') . nl2br(s(trim($transcript))),
                     ['class' => 'qtype_speakup-transcript']
                 );
             }
@@ -1122,7 +1122,7 @@ class qtype_speakup_renderer extends qtype_renderer {
         if ($details) {
             $lines[] = get_string('calcrawpercentdetails', $plugin, (object) [
                 'percent' => $this->format_number($raw),
-                'details' => implode(html_writer::empty_tag('br'), $details),
+                'details' => implode(html_writer::empty_tag('br') . '+ ', $details),
             ]);
         } else {
             $lines[] = get_string('calcrawpercent', $plugin, $this->format_number($raw));

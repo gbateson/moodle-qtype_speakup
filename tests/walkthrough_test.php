@@ -113,7 +113,7 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->assertStringContainsString('The maximum grade for this question is 1.00.', $output);
         $this->assertStringContainsString('1 – 20', $output);
         $this->assertStringContainsString('5 / 20', $output);
-        $this->assertStringContainsString('+ 7.5% for 5 of the first 20 words (5/20 × 30%)', $output);
+        $this->assertStringContainsString('= (7.5% for 5 of the first 20 words (5/20 × 30%)', $output);
         $this->assertStringContainsString('+ 40% for using "guitar"', $output);
         $this->assertStringContainsString('(77.5% of 1.00)', $output);
         $this->assertStringContainsString('Aim for 20 words next time.', $output);
@@ -162,7 +162,7 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->assertStringContainsString('2 / 7', $output);
 
         // 5 words: all of the first band, and 2 of the 7 words in the next.
-        $this->assertStringContainsString('+ 10% for the first 3 words', $output);
+        $this->assertStringContainsString('= (10% for the first 3 words', $output);
         $this->assertStringContainsString('+ 4% for 2 of the next 7 words (2/7 × 14%)', $output);
         // Every word is different: a lexical density of 100%.
         $this->assertStringContainsString('+ 5% for reaching a lexical density of 50%', $output);
