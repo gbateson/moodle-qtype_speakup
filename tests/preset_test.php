@@ -522,4 +522,36 @@ final class preset_test extends \advanced_testcase {
             'Everyone on this site',
         ], $labels);
     }
+
+    /**
+     * When a user, a course or a category is deleted, so are its presets.
+     * A deleted user's shared presets are kept, without an owner.
+     *
+     * @covers \qtype_speakup\observer
+     */
+    public function test_deleted_owner_or_context(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $speakup = $generator->get_plugin_generator('qtype_speakup');
+        $user = $generator->create_user();
+        $category = $generator->create_category();
+        $course = $generator->create_course(['category' => $category->id]);
+        $private = $speakup->create_preset(['name' => 'Private', 'shortname' => 'private',
+            'contextid' => \context_user::instance($user->id)->id, 'userid' => $user->id]);
+        $incourse = $speakup->create_preset(['name' => 'Course', 'shortname' => 'course',
+            'contextid' => \context_course::instance($course->id)->id, 'userid' => $user->id]);
+        $incategory = $speakup->create_preset(['name' => 'Category', 'shortname' => 'category',
+            'contextid' => \context_coursecat::instance($category->id)->id, 'userid' => $user->id]);
+
+        delete_user($user);
+        $this->assertNull(preset::get($private->id));
+        $this->assertSame(0, preset::get($incourse->id)->userid);
+
+        delete_course($course, false);
+        $this->assertNull(preset::get($incourse->id));
+        $this->assertNotNull(preset::get($incategory->id));
+
+        \core_course_category::get($category->id)->delete_full(false);
+        $this->assertNull(preset::get($incategory->id));
+    }
 }

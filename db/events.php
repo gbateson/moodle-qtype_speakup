@@ -50,4 +50,17 @@ $observers = [
         'eventname' => '\core\event\question_deleted',
         'callback' => '\qtype_speakup\observer::question_deleted',
     ],
+    // Remove presets whose owner or context has been deleted.
+    [
+        'eventname' => '\core\event\user_deleted',
+        'callback' => '\qtype_speakup\observer::user_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => '\qtype_speakup\observer::delete_presets',
+    ],
+    [
+        'eventname' => '\core\event\course_category_deleted',
+        'callback' => '\qtype_speakup\observer::delete_presets',
+    ],
 ];

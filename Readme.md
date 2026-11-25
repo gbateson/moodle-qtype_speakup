@@ -198,6 +198,10 @@ and audio prompt are never part of a preset.
   Question types > SpeakUp presets for the site's presets.
 - Questions imported from GIFT or Moodle XML can name a preset too (see
   below).
+- When a teacher is deleted (or their data is deleted through the privacy
+  API), their own presets are deleted, and those they shared are kept,
+  without an owner. When a course or category is deleted, so are the
+  presets shared there. Presets are not part of course backups.
 
 ## GIFT format
 

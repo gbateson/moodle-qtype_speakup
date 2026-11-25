@@ -625,17 +625,68 @@ class preset {
 
     /**
      * Delete or keep the presets of a user who is being deleted: their own
-     * presets are deleted; those they shared are kept, without an owner.
+     * presets (in their user context) are deleted; those they shared are
+     * kept, without an owner.
      *
      * @param int $userid
+     * @param int|null $usercontextid the id of their user context, if it
+     *     has been deleted already, e.g. from the user_deleted event.
      */
-    public static function delete_user(int $userid): void {
+    public static function delete_user(int $userid, ?int $usercontextid = null): void {
         global $DB;
-        $context = \context_user::instance($userid, IGNORE_MISSING);
-        if ($context) {
-            $DB->delete_records(self::TABLE, ['contextid' => $context->id]);
+        if ($usercontextid === null) {
+            $context = \context_user::instance($userid, IGNORE_MISSING);
+            $usercontextid = $context ? (int) $context->id : 0;
+        }
+        if ($usercontextid) {
+            $DB->delete_records(self::TABLE, ['contextid' => $usercontextid]);
         }
         $DB->set_field(self::TABLE, 'userid', 0, ['userid' => $userid]);
+    }
+
+    /**
+     * Delete or keep the presets of a user in one context, for the privacy
+     * API: in their own user context, they are deleted; elsewhere, they are
+     * shared with others, so they are kept, without an owner.
+     *
+     * @param int $userid
+     * @param context $context
+     */
+    public static function delete_user_in_context(int $userid, context $context): void {
+        global $DB;
+        if ($context->contextlevel == CONTEXT_USER) {
+            if ((int) $context->instanceid === $userid) {
+                $DB->delete_records(self::TABLE, ['contextid' => $context->id]);
+            }
+            return;
+        }
+        $DB->set_field(self::TABLE, 'userid', 0, ['contextid' => $context->id, 'userid' => $userid]);
+    }
+
+    /**
+     * Delete or keep the presets of all users in one context, for the
+     * privacy API: in a user context, they are deleted; elsewhere, they are
+     * kept, without owners.
+     *
+     * @param context $context
+     */
+    public static function delete_all_users_in_context(context $context): void {
+        global $DB;
+        if ($context->contextlevel == CONTEXT_USER) {
+            $DB->delete_records(self::TABLE, ['contextid' => $context->id]);
+        } else {
+            $DB->set_field(self::TABLE, 'userid', 0, ['contextid' => $context->id]);
+        }
+    }
+
+    /**
+     * Delete the presets in a context that has been deleted, e.g. a course.
+     *
+     * @param int $contextid
+     */
+    public static function delete_context(int $contextid): void {
+        global $DB;
+        $DB->delete_records(self::TABLE, ['contextid' => $contextid]);
     }
 
     /**

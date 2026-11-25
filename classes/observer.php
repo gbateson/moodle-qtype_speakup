@@ -26,7 +26,8 @@ namespace qtype_speakup;
  * using AI grading with a real recording to assess.
  *
  * It also removes queued background tasks that are no longer needed,
- * when attempts, quizzes, courses or questions are deleted.
+ * when attempts, quizzes, courses or questions are deleted, and presets
+ * whose owner, course or category is deleted.
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
@@ -110,5 +111,24 @@ class observer {
         // Its previews should be deleted with it, but are not (in Moodle 4.5),
         // so remove the tasks for responses that can no longer be loaded.
         task_cleanup::remove_orphans();
+    }
+
+    /**
+     * When a user is deleted, delete their own presets, and keep those they
+     * shared, without an owner.
+     *
+     * @param \core\event\user_deleted $event
+     */
+    public static function user_deleted(\core\event\user_deleted $event): void {
+        preset::delete_user((int) $event->objectid, (int) $event->contextid);
+    }
+
+    /**
+     * When a course or a category is deleted, delete the presets shared there.
+     *
+     * @param \core\event\base $event course_deleted or course_category_deleted.
+     */
+    public static function delete_presets(\core\event\base $event): void {
+        preset::delete_context((int) $event->contextid);
     }
 }

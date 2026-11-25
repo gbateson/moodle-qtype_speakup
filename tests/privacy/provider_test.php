@@ -99,6 +99,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $collection = provider::get_metadata(new collection('qtype_speakup'));
         $names = array_map(fn($item) => $item->get_name(), $collection->get_collection());
         $this->assertContains('qtype_speakup_response', $names);
+        $this->assertContains('qtype_speakup_presets', $names);
         $this->assertContains('ai_provider', $names);
     }
 
@@ -186,5 +187,102 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         provider::delete_data_for_users(new approved_userlist($context1, 'qtype_speakup', [$user1->id]));
         $transcripts = $DB->get_fieldset_select('qtype_speakup_response', 'transcript', '1 = 1');
         $this->assertEqualsCanonicalizing(['User 1 in course 2', 'User 2 in course 1'], $transcripts);
+    }
+
+    /**
+     * Set up two teachers, each with a preset of their own, and one shared
+     * in a course.
+     *
+     * @return array [teacher1, teacher2, usercontext1, coursecontext, private1, shared1, shared2]
+     */
+    protected function setup_presets(): array {
+        $generator = $this->getDataGenerator();
+        $speakup = $generator->get_plugin_generator('qtype_speakup');
+        $teacher1 = $generator->create_user();
+        $teacher2 = $generator->create_user();
+        $usercontext1 = \context_user::instance($teacher1->id);
+        $coursecontext = \context_course::instance($generator->create_course()->id);
+        $private1 = $speakup->create_preset(['name' => 'Mine', 'shortname' => 'mine',
+            'contextid' => $usercontext1->id, 'userid' => $teacher1->id, 'timelimitinseconds' => 40]);
+        $speakup->create_preset(['name' => 'Theirs', 'shortname' => 'theirs',
+            'contextid' => \context_user::instance($teacher2->id)->id, 'userid' => $teacher2->id]);
+        $shared1 = $speakup->create_preset(['name' => 'Shared', 'shortname' => 'shared',
+            'contextid' => $coursecontext->id, 'userid' => $teacher1->id]);
+        $shared2 = $speakup->create_preset(['name' => 'Also shared', 'shortname' => 'alsoshared',
+            'contextid' => $coursecontext->id, 'userid' => $teacher2->id]);
+        return [$teacher1, $teacher2, $usercontext1, $coursecontext, $private1, $shared1, $shared2];
+    }
+
+    /**
+     * The presets a teacher owns are their data, where the presets are kept.
+     */
+    public function test_presets_contexts_and_users(): void {
+        $this->resetAfterTest();
+        [$teacher1, $teacher2, $usercontext1, $coursecontext] = $this->setup_presets();
+        $this->assertEqualsCanonicalizing(
+            [$usercontext1->id, $coursecontext->id],
+            provider::get_contexts_for_userid($teacher1->id)->get_contextids()
+        );
+
+        $userlist = new userlist($coursecontext, 'qtype_speakup');
+        provider::get_users_in_context($userlist);
+        $this->assertEqualsCanonicalizing([$teacher1->id, $teacher2->id], $userlist->get_userids());
+
+        // The site's presets, owned by the admin, are the admin's.
+        $userlist = new userlist(\context_system::instance(), 'qtype_speakup');
+        provider::get_users_in_context($userlist);
+        $this->assertEquals([get_admin()->id], $userlist->get_userids());
+    }
+
+    /**
+     * A teacher's presets are exported where they are kept.
+     */
+    public function test_export_presets(): void {
+        $this->resetAfterTest();
+        [$teacher1, , $usercontext1, $coursecontext] = $this->setup_presets();
+        provider::export_user_data(new approved_contextlist($teacher1, 'qtype_speakup', [
+            $usercontext1->id, $coursecontext->id,
+        ]));
+        $presets = get_string('presets', 'qtype_speakup');
+        $data = writer::with_context($usercontext1)->get_data([get_string('pluginname', 'qtype_speakup'), $presets, 'mine']);
+        $this->assertSame('Mine', $data->name);
+        $this->assertEquals(40, $data->settings['timelimitinseconds']);
+        $data = writer::with_context($coursecontext)->get_data([get_string('pluginname', 'qtype_speakup'), $presets, 'shared']);
+        $this->assertSame('Shared', $data->name);
+        $this->assertEmpty(writer::with_context($coursecontext)->get_data(
+            [get_string('pluginname', 'qtype_speakup'), $presets, 'alsoshared']
+        ));
+    }
+
+    /**
+     * Deleting a teacher's data deletes their own presets, and keeps those
+     * they shared, without an owner.
+     */
+    public function test_delete_presets_for_user(): void {
+        $this->resetAfterTest();
+        [$teacher1, $teacher2, $usercontext1, $coursecontext, $private1, $shared1, $shared2] = $this->setup_presets();
+        provider::delete_data_for_user(new approved_contextlist($teacher1, 'qtype_speakup', [
+            $usercontext1->id, $coursecontext->id,
+        ]));
+        $this->assertNull(\qtype_speakup\preset::get($private1->id));
+        $this->assertSame(0, \qtype_speakup\preset::get($shared1->id)->userid);
+        $this->assertSame((int) $teacher2->id, \qtype_speakup\preset::get($shared2->id)->userid);
+
+        provider::delete_data_for_users(new approved_userlist($coursecontext, 'qtype_speakup', [$teacher2->id]));
+        $this->assertSame(0, \qtype_speakup\preset::get($shared2->id)->userid);
+    }
+
+    /**
+     * Deleting all the data in a context deletes the presets in a user
+     * context, and keeps those in a course, without owners.
+     */
+    public function test_delete_presets_for_all_users_in_context(): void {
+        $this->resetAfterTest();
+        [, , $usercontext1, $coursecontext, $private1, $shared1, $shared2] = $this->setup_presets();
+        provider::delete_data_for_all_users_in_context($usercontext1);
+        $this->assertNull(\qtype_speakup\preset::get($private1->id));
+        provider::delete_data_for_all_users_in_context($coursecontext);
+        $this->assertSame(0, \qtype_speakup\preset::get($shared1->id)->userid);
+        $this->assertSame(0, \qtype_speakup\preset::get($shared2->id)->userid);
     }
 }

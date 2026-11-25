@@ -26,6 +26,7 @@ use core_privacy\local\request\plugin\provider as plugin_provider;
 use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
+use qtype_speakup\preset;
 
 /**
  * Privacy Subsystem implementation for qtype_speakup.
@@ -53,6 +54,12 @@ use core_privacy\local\request\writer;
  *   is documented as containing no personal data. Not declared here for
  *   that reason.
  *
+ * - qtype_speakup_presets holds presets: settings for new questions, saved
+ *   by teachers. Each has an owner, so it is declared here. A teacher's own
+ *   presets (in their user context) are deleted with their data; presets
+ *   they shared in a course, a category or the site are used by others,
+ *   so they are kept, without an owner.
+ *
  * - AI providers are set up in the AI bridge (tool_aibridge), which logs
  *   each request, and declares and exports that data itself.
  *
@@ -76,6 +83,16 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
             'timecreated' => 'privacy:metadata:qtype_speakup_response:timecreated',
             'timemodified' => 'privacy:metadata:qtype_speakup_response:timemodified',
         ], 'privacy:metadata:qtype_speakup_response');
+
+        $collection->add_database_table('qtype_speakup_presets', [
+            'userid' => 'privacy:metadata:qtype_speakup_presets:userid',
+            'name' => 'privacy:metadata:qtype_speakup_presets:name',
+            'shortname' => 'privacy:metadata:qtype_speakup_presets:shortname',
+            'description' => 'privacy:metadata:qtype_speakup_presets:description',
+            'settings' => 'privacy:metadata:qtype_speakup_presets:settings',
+            'timecreated' => 'privacy:metadata:qtype_speakup_presets:timecreated',
+            'timemodified' => 'privacy:metadata:qtype_speakup_presets:timemodified',
+        ], 'privacy:metadata:qtype_speakup_presets');
 
         // For AI-graded questions, the student's recording and/or
         // transcript is sent, through the AI bridge, to an AI service
@@ -110,6 +127,10 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
                                   AND qas.userid = :userid)";
         $contextlist->add_from_sql($sql, ['userid' => $userid]);
 
+        // Presets that the user owns.
+        $sql = "SELECT contextid FROM {qtype_speakup_presets} WHERE userid = :userid";
+        $contextlist->add_from_sql($sql, ['userid' => $userid]);
+
         return $contextlist;
     }
 
@@ -126,6 +147,10 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
                   JOIN {question_usages} qu ON qu.id = qa.questionusageid
                   JOIN {question_attempt_steps} qas ON qas.questionattemptid = qa.id
                  WHERE qu.contextid = :contextid";
+        $userlist->add_from_sql('userid', $sql, ['contextid' => $userlist->get_context()->id]);
+
+        // The owners of presets.
+        $sql = "SELECT userid FROM {qtype_speakup_presets} WHERE contextid = :contextid AND userid > 0";
         $userlist->add_from_sql('userid', $sql, ['contextid' => $userlist->get_context()->id]);
     }
 
@@ -155,6 +180,35 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
                     $data
                 );
             }
+            self::export_presets($userid, $context);
+        }
+    }
+
+    /**
+     * Export the presets that a user owns in a context.
+     *
+     * @param int $userid
+     * @param \context $context
+     */
+    protected static function export_presets(int $userid, \context $context): void {
+        global $DB;
+        $records = $DB->get_records(preset::TABLE, ['contextid' => $context->id, 'userid' => $userid], 'sortorder, id');
+        foreach ($records as $record) {
+            $preset = new preset($record);
+            $data = (object) [
+                'name' => $preset->name,
+                'shortname' => $preset->shortname,
+                'description' => $preset->description,
+                'settings' => $preset->settings,
+                'items' => $preset->items,
+                'phrases' => $preset->phrases,
+                'timecreated' => transform::datetime($preset->timecreated),
+                'timemodified' => transform::datetime($preset->timemodified),
+            ];
+            writer::with_context($context)->export_data(
+                [get_string('pluginname', 'qtype_speakup'), get_string('presets', 'qtype_speakup'), $preset->shortname],
+                $data
+            );
         }
     }
 
@@ -166,6 +220,7 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
     public static function delete_data_for_all_users_in_context(\context $context): void {
         $ids = self::get_response_ids_in_context($context->id);
         self::delete_response_records($ids);
+        preset::delete_all_users_in_context($context);
     }
 
     /**
@@ -179,6 +234,7 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
         foreach ($contextlist->get_contexts() as $context) {
             $ids = self::get_response_ids_in_context($context->id, $userid);
             self::delete_response_records($ids);
+            preset::delete_user_in_context((int) $userid, $context);
         }
     }
 
@@ -191,6 +247,7 @@ class provider implements metadata_provider, plugin_provider, userlist_provider 
         $contextid = $userlist->get_context()->id;
         foreach ($userlist->get_userids() as $userid) {
             self::delete_response_records(self::get_response_ids_in_context($contextid, (int) $userid));
+            preset::delete_user_in_context((int) $userid, $userlist->get_context());
         }
     }
 
