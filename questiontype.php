@@ -138,8 +138,16 @@ class qtype_speakup extends question_type {
 
         // A question imported from GIFT with ARCHETYPE=idnumber takes the
         // archetype's settings, for those it does not give itself.
+        $hasarchetype = false;
         if (!empty($question->giftarchetype)) {
-            $this->apply_gift_archetype($question);
+            $hasarchetype = $this->apply_gift_archetype($question);
+        }
+
+        // A question imported with a preset (PRESET=shortname in GIFT, or
+        // <preset> in Moodle XML) takes the preset's settings, for those it
+        // does not give itself, or get from its archetype.
+        if (!empty($question->importpreset)) {
+            $this->apply_import_preset($question, $hasarchetype);
         }
 
         // Images (e.g. scans of handwriting) are always uploaded.
@@ -395,12 +403,29 @@ class qtype_speakup extends question_type {
 
         $fields = $this->extra_question_fields();
         array_shift($fields); // Omit the table name.
+        $given = [];
         foreach ($fields as $field) {
             if ($field === 'aiproviderid') {
                 continue;
             }
-            $default = $this->get_field_default($field);
-            $qo->$field = $format->getpath($data, ['#', $field, 0, '#'], $default);
+            $value = $format->getpath($data, ['#', $field, 0, '#'], null);
+            if ($value === null) {
+                $value = $this->get_field_default($field);
+            } else {
+                $given[] = $field;
+            }
+            $qo->$field = $value;
+        }
+
+        // A preset gives the settings that are not in the file (see
+        // apply_import_preset()).
+        $preset = trim($format->getpath($data, ['#', 'preset', 0, '#'], ''));
+        if ($preset !== '') {
+            $qo->importpreset = \qtype_speakup\preset::clean_shortname($preset);
+            $qo->giftsettings = $given;
+            if ($format->getpath($data, ['#', 'aiprovider', 0, '#'], null) !== null) {
+                $qo->giftsettings[] = 'aiproviderid';
+            }
         }
 
         $qo->aiproviderid = null;
@@ -499,6 +524,7 @@ class qtype_speakup extends question_type {
             'ITEM' => 'targetitem',
             'ITEMS' => 'targetitem',
             'ARCHETYPE' => 'archetype',
+            'PRESET' => 'preset',
             'TARGETPHRASE' => 'targetphrase',
             'TARGETPHRASES' => 'targetphrase',
             'PHRASE' => 'targetphrase',
@@ -800,9 +826,10 @@ class qtype_speakup extends question_type {
             }
         }
 
-        // Remember which settings were given, so that an archetype only
-        // fills in the others (see apply_gift_archetype()).
-        if (!empty($question->giftarchetype)) {
+        // Remember which settings were given, so that an archetype or a
+        // preset only fills in the others (see apply_gift_archetype() and
+        // apply_import_preset()).
+        if (!empty($question->giftarchetype) || !empty($question->importpreset)) {
             $fields = $this->extra_question_fields();
             array_shift($fields); // Omit the table name.
             $question->giftsettings = array_values(array_filter($fields, function ($field) use ($question) {
@@ -930,6 +957,16 @@ class qtype_speakup extends question_type {
                     return get_string('giftexpectarchetype', $plugin);
                 }
                 $question->giftarchetype = $value;
+                return null;
+
+            case 'preset':
+                // The short name of a preset whose settings this question
+                // takes, for those it does not give itself. It is found when
+                // the question is saved (see apply_import_preset()).
+                if (!\qtype_speakup\preset::is_valid_shortname($value)) {
+                    return get_string('giftexpectpreset', $plugin);
+                }
+                $question->importpreset = \qtype_speakup\preset::clean_shortname($value);
                 return null;
 
             case 'ai':
@@ -1073,22 +1110,23 @@ class qtype_speakup extends question_type {
      * copied, so later changes to the archetype do not change the question.
      *
      * @param stdClass $question the question being saved.
+     * @return bool true if the archetype was found, and its settings used.
      */
-    protected function apply_gift_archetype(stdClass $question): void {
+    protected function apply_gift_archetype(stdClass $question): bool {
         global $DB;
         $idnumber = $question->giftarchetype;
         $categoryid = (int) explode(',', (string) ($question->category ?? 0))[0];
         $archetype = \qtype_speakup\rubric_placeholders::find_question($idnumber, $categoryid);
         if (!$archetype || (int) $archetype->id === (int) ($question->id ?? 0)) {
             $this->gift_warning($question, get_string('giftnoarchetype', 'qtype_speakup', $idnumber));
-            return;
+            return false;
         }
         if (
             $archetype->qtype !== $this->name()
                 || !$options = $DB->get_record('qtype_speakup_options', ['questionid' => $archetype->id])
         ) {
             $this->gift_warning($question, get_string('giftarchetypenotspeakup', 'qtype_speakup', $idnumber));
-            return;
+            return false;
         }
 
         \qtype_speakup\preset::apply_base(
@@ -1098,6 +1136,37 @@ class qtype_speakup extends question_type {
             $DB->get_records('qtype_speakup_phrases', ['questionid' => $archetype->id], 'id ASC'),
             $question->giftsettings ?? []
         );
+        return true;
+    }
+
+    /**
+     * Give a question imported with a preset (PRESET=shortname in GIFT, or
+     * <preset> in Moodle XML) the settings of that preset: one of the
+     * importing teacher's own, or one shared in the question's category's
+     * context or a context above it (the nearest, if there are several).
+     *
+     * The question keeps the settings it gives itself, and those it gets from
+     * its archetype, if it has one. It takes the preset's target items and
+     * target phrases only if it still has none.
+     *
+     * @param stdClass $question the question being saved.
+     * @param bool $hasarchetype true if the question has taken the settings of an archetype.
+     */
+    protected function apply_import_preset(stdClass $question, bool $hasarchetype): void {
+        global $DB, $USER;
+        $context = $question->context ?? null;
+        if (!$context instanceof \context) {
+            $categoryid = (int) explode(',', (string) ($question->category ?? 0))[0];
+            $contextid = $DB->get_field('question_categories', 'contextid', ['id' => $categoryid]);
+            $context = $contextid ? \context::instance_by_id($contextid) : \context_system::instance();
+        }
+        $preset = \qtype_speakup\preset::find($question->importpreset, $context, (int) $USER->id);
+        if (!$preset) {
+            $this->gift_warning($question, get_string('importnopreset', 'qtype_speakup', $question->importpreset));
+            return;
+        }
+        $given = $hasarchetype ? \qtype_speakup\preset::get_setting_fields() : ($question->giftsettings ?? []);
+        $preset->apply_to($question, $context, $given);
     }
 
     /**

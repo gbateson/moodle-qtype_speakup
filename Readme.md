@@ -175,6 +175,30 @@ which also needs ffmpeg; teachers still see the whole video.
 The tests for audio and video need ffmpeg at `/usr/bin/ffmpeg`, and are
 skipped without it.
 
+## Presets
+
+A preset is a set of saved settings, target items and target phrases that
+a new SpeakUp question can start from: choose it at the top of the
+question form ("Start from a preset"). The question name, question text
+and audio prompt are never part of a preset.
+
+- Three presets are added when the plugin is installed, for everyone on the
+  site: Instant spoken response, Video monologue and Handwriting sample
+  (see `db/presets.php`). Admins can change or delete them.
+- To save a preset, tick "Save these settings as a preset" at the end of
+  the question form. A preset can be for the teacher alone, or shared with
+  the teachers in a course or category, or everyone on the site; sharing
+  needs the capability `qtype/speakup:sharepresets` there (editing
+  teachers have it in their courses, managers everywhere).
+- To change a preset's settings, start a new question from it, change the
+  settings, and save it as a preset with the same short name, ticking
+  "Replace the preset with the same short name".
+- Presets are renamed, shared, reordered and deleted on the presets page:
+  "Manage presets" on the question form, or Site administration > Plugins >
+  Question types > SpeakUp presets for the site's presets.
+- Questions imported from GIFT or Moodle XML can name a preset too (see
+  below).
+
 ## GIFT format
 
 SpeakUp questions can be imported and exported in GIFT. The settings go
@@ -267,6 +291,16 @@ that are left out get their usual defaults.
       ARCHETYPE=quickfire-archetype
       }
 
+- `PRESET=shortname` gives a question the settings of a preset (see
+  Presets), for the settings it does not give itself, e.g.
+  `PRESET=instant-response`. The preset is one of the importing teacher's
+  own, or one shared in the question's course or category, or the site's;
+  if there are several with the same short name, the nearest one is used.
+  As with an archetype, the question takes the preset's target items and
+  phrases only if it has none of its own. A question can have both: its
+  own settings come first, then the archetype's, then the preset's. In
+  Moodle XML, a preset is given by `<preset>shortname</preset>`, and gives
+  the settings that are not in the file.
 - GIFT cannot hold files, so the audio prompt file is not exported. When a
   question is imported (or saved) with a transcript but no audio prompt, the
   audio prompt is generated from the transcript in the background, by the

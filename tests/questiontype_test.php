@@ -529,4 +529,123 @@ ARCHETYPE=quickfire-archetype
         $this->assertEquals(30, $hometown->options->timelimitinseconds);
         $this->assertEquals(70, $hometown->options->aiweighting);
     }
+
+    /**
+     * A question imported from GIFT with PRESET=shortname takes the
+     * settings of that preset, for those it does not give itself, or get
+     * from its archetype.
+     */
+    public function test_gift_preset(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $teacher = $generator->create_user();
+        $course = $generator->create_course();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $coursecontext = \context_course::instance($course->id);
+        /** @var \core_question_generator $qgenerator */
+        $qgenerator = $generator->get_plugin_generator('core_question');
+        $category = $qgenerator->create_question_category(['contextid' => $coursecontext->id]);
+        $speakup = $generator->get_plugin_generator('qtype_speakup');
+        $speakup->create_preset([
+            'name' => 'Course drill',
+            'shortname' => 'drill',
+            'contextid' => $coursecontext->id,
+            'timelimitinseconds' => 25,
+            'maxresponses' => 2,
+            'items' => [['itemtype' => 'words', 'itemtarget' => 15, 'percent' => 60, 'multiplier' => 1]],
+        ]);
+        $this->setUser($teacher);
+
+        $output = $this->import_gift('
+::Breakfast::Listen, then answer.{
+AUDIO: What did you have for breakfast?
+PRESET=Instant-Response
+}
+
+::Lunch::Listen, then answer.{
+AUDIO: What will you have for lunch?
+PRESET=drill
+MAXRESPONSES=3
+}
+
+// [id:slow-archetype]
+::Slow::Settings for slow questions.{
+SPEAKUP
+TIMELIMIT=90
+}
+
+::Dinner::Listen, then answer.{
+AUDIO: What will you have for dinner?
+ARCHETYPE=slow-archetype
+PRESET=drill
+}
+
+::Snack::Listen, then answer.{
+AUDIO: What is your favourite snack?
+PRESET=no-such-preset
+}
+', $category);
+
+        // The site's preset, whatever the case of its short name.
+        $breakfast = $this->imported('Breakfast');
+        $this->assertEquals(30, $breakfast->options->timelimitinseconds);
+        $this->assertEquals(1, $breakfast->options->autorecord);
+        $this->assertEquals(1, $breakfast->options->maxpromptplays);
+        $this->assertSame('What did you have for breakfast?', $breakfast->options->prompttranscript);
+        $this->assertEquals([20], array_values(array_map(fn($i) => (float) $i->itemtarget, $breakfast->options->targetitems)));
+
+        // The course's preset; its own settings win.
+        $lunch = $this->imported('Lunch');
+        $this->assertEquals(25, $lunch->options->timelimitinseconds);
+        $this->assertEquals(3, $lunch->options->maxresponses);
+        $this->assertEquals([15], array_values(array_map(fn($i) => (float) $i->itemtarget, $lunch->options->targetitems)));
+
+        // An archetype's settings win over a preset's, but the archetype has
+        // no target items, so it takes the preset's.
+        $dinner = $this->imported('Dinner');
+        $this->assertEquals(90, $dinner->options->timelimitinseconds);
+        $this->assertEquals(0, $dinner->options->maxresponses);
+        $this->assertEquals([15], array_values(array_map(fn($i) => (float) $i->itemtarget, $dinner->options->targetitems)));
+
+        // Not found: a warning, and the usual defaults.
+        $this->assertStringContainsString('Preset "no-such-preset"', $output);
+        $this->assertEquals(60, $this->imported('Snack')->options->timelimitinseconds);
+    }
+
+    /**
+     * A question imported from Moodle XML with <preset> takes the settings
+     * of that preset, for those that are not in the file.
+     */
+    public function test_xml_preset(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $qdata = $this->create_question('prompt');
+        $xml = (new \qformat_xml())->writequestion($qdata);
+
+        // Leave out the time limit and the target items, and add a preset.
+        $xml = preg_replace('~\s*<timelimitinseconds>.*?</timelimitinseconds>~', '', $xml);
+        $xml = preg_replace('~\s*<targetitem>.*?</targetitem>~s', '', $xml);
+        $xml = str_replace('</question>', "  <preset>video-monologue</preset>\n</question>", $xml);
+
+        $importer = new \qformat_xml();
+        $data = xmlize($xml);
+        $imported = $importer->try_importing_using_qtypes($data['question'], null, null, 'speakup');
+        $this->assertSame('video-monologue', $imported->importpreset);
+        $this->assertNotContains('timelimitinseconds', $imported->giftsettings);
+        $this->assertContains('maxpromptplays', $imported->giftsettings);
+
+        // Saved in the question's category, it takes the preset's settings.
+        $category = $this->getDataGenerator()->get_plugin_generator('core_question')->create_question_category();
+        $imported->category = $category->id;
+        $imported->context = \context::instance_by_id($category->contextid);
+        $imported->name = 'From XML';
+        $saved = question_bank::get_qtype('speakup')->save_question((object) ['qtype' => 'speakup'], $imported);
+        $options = question_bank::load_question_data($saved->id)->options;
+        $this->assertEquals(180, $options->timelimitinseconds);
+        // The settings in the file win.
+        $this->assertSame('audio', $options->mediatype);
+        $this->assertEquals(2, $options->maxpromptplays);
+        $this->assertEquals([250], array_values(array_map(fn($i) => (float) $i->itemtarget, $options->targetitems)));
+        $this->assertCount(3, $options->phrases);
+    }
 }
