@@ -420,6 +420,8 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->hideIf($name, 'showstats', 'eq', 0);
         }
         $mform->setType('statstypes', PARAM_BOOL);
+
+        $this->add_save_preset($mform);
     }
 
     /**
@@ -482,6 +484,56 @@ class qtype_speakup_edit_form extends question_edit_form {
         $mform->addHelpButton('presetgroup', 'preset', $plugin);
         $mform->setType('preset', PARAM_INT);
         $mform->setDefault('preset', $presetid);
+    }
+
+    /**
+     * Add a section where the teacher can save the settings, target items and
+     * target phrases of the question as a preset, for new questions to start
+     * from: a new preset, or one that replaces a preset with the same short
+     * name. It is saved with the question (see qtype_speakup::save_question_options()).
+     *
+     * @param MoodleQuickForm $mform
+     */
+    protected function add_save_preset($mform): void {
+        global $USER;
+        $plugin = 'qtype_speakup';
+
+        $name = 'presetsaveheader';
+        $mform->addElement('header', $name, get_string($name, $plugin));
+        $mform->setExpanded($name, false);
+
+        $name = 'savepreset';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+
+        $name = 'presetname';
+        $mform->addElement('text', $name, get_string($name, $plugin), ['size' => 40]);
+        $mform->setType($name, PARAM_TEXT);
+
+        $name = 'presetshortname';
+        $mform->addElement('text', $name, get_string($name, $plugin), ['size' => 20]);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setType($name, PARAM_RAW_TRIMMED);
+
+        $name = 'presetdescription';
+        $mform->addElement('textarea', $name, get_string($name, $plugin), ['rows' => 2, 'cols' => 60]);
+        $mform->setType($name, PARAM_TEXT);
+
+        $name = 'presetcontextid';
+        $menu = \qtype_speakup\preset::get_save_contexts($this->context, (int) $USER->id);
+        $mform->addElement('select', $name, get_string($name, $plugin), $menu);
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setType($name, PARAM_INT);
+
+        $name = 'presetreplace';
+        $mform->addElement('advcheckbox', $name, get_string($name, $plugin));
+        $mform->addHelpButton($name, $name, $plugin);
+        $mform->setDefault($name, 0);
+
+        foreach (['presetname', 'presetshortname', 'presetdescription', 'presetcontextid', 'presetreplace'] as $name) {
+            $mform->hideIf($name, 'savepreset', 'notchecked');
+        }
     }
 
     /**
@@ -932,6 +984,12 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
         }
 
+        // A preset needs a name and a short name, and somewhere to be saved.
+        // A preset with the same short name there is only replaced if asked.
+        if (!empty($data['savepreset'])) {
+            $errors += $this->validate_save_preset($data);
+        }
+
         // Other questions named in the rubric's placeholders, e.g.
         // {{xyz/questiontext.rubric}}, must be in this question's category,
         // or a category above it.
@@ -961,6 +1019,39 @@ class qtype_speakup_edit_form extends question_edit_form {
             }
         }
 
+        return $errors;
+    }
+
+    /**
+     * Check the fields for saving the question's settings as a preset.
+     *
+     * @param array $data the data from the form.
+     * @return string[] field name => error.
+     */
+    protected function validate_save_preset(array $data): array {
+        global $USER;
+        $plugin = 'qtype_speakup';
+        $errors = [];
+        if (trim($data['presetname'] ?? '') === '') {
+            $errors['presetname'] = get_string('required');
+        }
+        $shortname = (string) ($data['presetshortname'] ?? '');
+        if (trim($shortname) === '') {
+            $errors['presetshortname'] = get_string('required');
+        } else if (!\qtype_speakup\preset::is_valid_shortname($shortname)) {
+            $errors['presetshortname'] = get_string('err_presetshortname', $plugin);
+        }
+        $contextid = (int) ($data['presetcontextid'] ?? 0);
+        $contexts = \qtype_speakup\preset::get_save_contexts($this->context, (int) $USER->id);
+        if (!isset($contexts[$contextid])) {
+            $errors['presetcontextid'] = get_string('required');
+        }
+        if (!$errors && empty($data['presetreplace'])) {
+            $preset = \qtype_speakup\preset::get_in_context($shortname, $contextid);
+            if ($preset) {
+                $errors['presetshortname'] = get_string('err_presetexists', $plugin, format_string($preset->name));
+            }
+        }
         return $errors;
     }
 

@@ -334,4 +334,142 @@ final class preset_test extends \advanced_testcase {
         $this->assertNull(preset::get($private->id));
         $this->assertSame(0, preset::get($shared->id)->userid);
     }
+
+    public function test_is_valid_shortname(): void {
+        $this->assertTrue(preset::is_valid_shortname('instant-response'));
+        $this->assertTrue(preset::is_valid_shortname(' Video_2 '));
+        $this->assertFalse(preset::is_valid_shortname(''));
+        $this->assertFalse(preset::is_valid_shortname('-dash-first'));
+        $this->assertFalse(preset::is_valid_shortname('two words'));
+        $this->assertFalse(preset::is_valid_shortname(str_repeat('a', 101)));
+        $this->assertSame('video_2', preset::clean_shortname(' Video_2 '));
+    }
+
+    public function test_get_save_contexts(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $teacher = $generator->create_user();
+        $category = $generator->create_category(['name' => 'Languages']);
+        $course = $generator->create_course(['category' => $category->id, 'fullname' => 'French 1']);
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $coursecontext = \context_course::instance($course->id);
+        $usercontext = \context_user::instance($teacher->id);
+
+        $this->assertSame([
+            $usercontext->id => 'Only me',
+            $coursecontext->id => 'Teachers in the course: French 1',
+        ], preset::get_save_contexts($coursecontext, $teacher->id));
+
+        $admin = get_admin();
+        $menu = preset::get_save_contexts($coursecontext, $admin->id);
+        $this->assertSame([
+            \context_user::instance($admin->id)->id => 'Only me',
+            $coursecontext->id => 'Teachers in the course: French 1',
+            \context_coursecat::instance($category->id)->id => 'Teachers in the category: Languages',
+            \context_system::instance()->id => 'Everyone on this site',
+        ], $menu);
+    }
+
+    /**
+     * Save a SpeakUp question, as from the question form.
+     *
+     * @param int $categoryid
+     * @param array $data fields of the form that differ from the "prompt" test question's.
+     * @return stdClass the question.
+     */
+    protected function save_question(int $categoryid, array $data): \stdClass {
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        return $generator->create_question('speakup', 'prompt', array_merge(['category' => $categoryid], $data));
+    }
+
+    public function test_save_from_question(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $teacher = $generator->create_user(['firstname' => 'Tess', 'lastname' => 'Teacher']);
+        $course = $generator->create_course();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $coursecontext = \context_course::instance($course->id);
+        $usercontext = \context_user::instance($teacher->id);
+        $category = $generator->get_plugin_generator('core_question')->create_question_category([
+            'contextid' => $coursecontext->id,
+        ]);
+        $this->setUser($teacher);
+        $count = $DB->count_records(preset::TABLE);
+
+        // A question saved without asking for a preset saves none.
+        $this->save_question($category->id, []);
+        $this->assertSame($count, $DB->count_records(preset::TABLE));
+
+        // A preset for the teacher alone.
+        $question = $this->save_question($category->id, [
+            'savepreset' => 1,
+            'presetname' => 'Strings',
+            'presetshortname' => 'Strings',
+            'presetdescription' => 'Talk about a string instrument.',
+            'presetcontextid' => $usercontext->id,
+            'timelimitinseconds' => 45,
+        ]);
+        $preset = preset::find('strings', $coursecontext, $teacher->id);
+        $this->assertNotNull($preset);
+        $this->assertSame($usercontext->id, $preset->contextid);
+        $this->assertSame((int) $teacher->id, $preset->userid);
+        $this->assertSame('strings', $preset->shortname);
+        $this->assertSame('Strings (TT)', $preset->get_display_name());
+        $this->assertSame('Talk about a string instrument.', $preset->description);
+        $this->assertEquals(45, $preset->settings['timelimitinseconds']);
+        $this->assertEquals(2, $preset->settings['maxpromptplays']);
+        $this->assertArrayNotHasKey('prompttranscript', $preset->settings);
+        $this->assertCount(1, $preset->items);
+        $this->assertCount(3, $preset->phrases);
+        $this->assertEquals(preset::from_question($question->id), (function () use ($preset) {
+            $copy = new preset();
+            $copy->settings = $preset->settings;
+            $copy->items = $preset->items;
+            $copy->phrases = $preset->phrases;
+            return $copy;
+        })());
+
+        // The same short name again is refused, unless it replaces the preset.
+        $data = [
+            'savepreset' => 1,
+            'presetname' => 'Strings, short',
+            'presetshortname' => 'strings',
+            'presetcontextid' => $usercontext->id,
+            'timelimitinseconds' => 20,
+        ];
+        try {
+            $this->save_question($category->id, $data);
+            $this->fail('A preset with the same short name should not be saved.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('err_presetexists', $e->errorcode);
+        }
+        $this->save_question($category->id, $data + ['presetreplace' => 1]);
+        $replaced = preset::find('strings', $coursecontext, $teacher->id);
+        $this->assertSame($preset->id, $replaced->id);
+        $this->assertSame('Strings, short', $replaced->name);
+        $this->assertEquals(20, $replaced->settings['timelimitinseconds']);
+
+        // Shared in the course, where the teacher can share presets.
+        $this->save_question($category->id, [
+            'savepreset' => 1,
+            'presetname' => 'Strings for all',
+            'presetshortname' => 'strings',
+            'presetcontextid' => $coursecontext->id,
+        ]);
+        $this->assertTrue($DB->record_exists(preset::TABLE, ['contextid' => $coursecontext->id, 'shortname' => 'strings']));
+
+        // Not on the whole site, where they cannot.
+        try {
+            $this->save_question($category->id, [
+                'savepreset' => 1,
+                'presetname' => 'Strings for everyone',
+                'presetshortname' => 'strings',
+                'presetcontextid' => \context_system::instance()->id,
+            ]);
+            $this->fail('The teacher should not be able to share a preset with the whole site.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('nopermissions', $e->errorcode);
+        }
+    }
 }

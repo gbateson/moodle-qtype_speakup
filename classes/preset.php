@@ -159,7 +159,7 @@ class preset {
      * @return self|null null if there is no such preset.
      */
     public static function find(string $shortname, context $context, int $userid): ?self {
-        $shortname = trim($shortname);
+        $shortname = self::clean_shortname($shortname);
         foreach (self::get_visible($context, $userid) as $preset) {
             if ($preset->shortname === $shortname) {
                 return $preset;
@@ -250,7 +250,7 @@ class preset {
         $record = (object) [
             'contextid' => $this->contextid,
             'userid' => $this->userid,
-            'shortname' => trim($this->shortname),
+            'shortname' => self::clean_shortname($this->shortname),
             'name' => trim($this->name),
             'description' => $this->description,
             'settings' => json_encode((object) $this->settings),
@@ -267,6 +267,133 @@ class preset {
             $record->timecreated = $now;
             $this->id = (int) $DB->insert_record(self::TABLE, $record);
         }
+    }
+
+    /**
+     * Tidy a shortname: no spaces around it, and in lower case, so that
+     * imports find a preset whatever case its shortname is written in.
+     *
+     * @param string $shortname
+     * @return string
+     */
+    public static function clean_shortname(string $shortname): string {
+        return \core_text::strtolower(trim($shortname));
+    }
+
+    /**
+     * Is a shortname valid? It has letters, digits, "-" and "_", and starts
+     * with a letter or digit, e.g. "instant-response".
+     *
+     * @param string $shortname
+     * @return bool
+     */
+    public static function is_valid_shortname(string $shortname): bool {
+        return (bool) preg_match('/^[a-z0-9][a-z0-9_-]*$/', self::clean_shortname($shortname))
+            && \core_text::strlen($shortname) <= 100;
+    }
+
+    /**
+     * Get the preset with a shortname in a context, if there is one.
+     *
+     * @param string $shortname
+     * @param int $contextid
+     * @return self|null
+     */
+    public static function get_in_context(string $shortname, int $contextid): ?self {
+        global $DB;
+        $record = $DB->get_record(self::TABLE, [
+            'contextid' => $contextid,
+            'shortname' => self::clean_shortname($shortname),
+        ]);
+        return $record ? new self($record) : null;
+    }
+
+    /**
+     * Get the contexts where a user can save a preset made on the form of a
+     * question: their own user context ("Only me"), and the course, the
+     * categories and the site above the question bank, where they have
+     * qtype/speakup:sharepresets.
+     *
+     * @param context $context the context of the question bank.
+     * @param int $userid
+     * @return string[] context id => who can use a preset saved there.
+     */
+    public static function get_save_contexts(context $context, int $userid): array {
+        $plugin = 'qtype_speakup';
+        $menu = [];
+        if ($userid) {
+            $menu[\context_user::instance($userid)->id] = get_string('presetsaveuser', $plugin);
+        }
+        $contexts = array_merge([$context], array_map(
+            fn($id) => context::instance_by_id($id),
+            $context->get_parent_context_ids()
+        ));
+        foreach ($contexts as $parent) {
+            if (!self::can_save_in($parent, $userid)) {
+                continue;
+            }
+            $name = $parent->get_context_name(false);
+            switch ($parent->contextlevel) {
+                case CONTEXT_COURSE:
+                    $menu[$parent->id] = get_string('presetsavecourse', $plugin, $name);
+                    break;
+                case CONTEXT_COURSECAT:
+                    $menu[$parent->id] = get_string('presetsavecategory', $plugin, $name);
+                    break;
+                case CONTEXT_SYSTEM:
+                    $menu[$parent->id] = get_string('presetsavesystem', $plugin);
+                    break;
+            }
+        }
+        return $menu;
+    }
+
+    /**
+     * Save the settings, target items and target phrases of a question that
+     * has just been saved from the question form, as a preset, if the
+     * teacher asked for that (see edit_speakup_form::add_save_preset()):
+     * a new preset, or one that replaces the preset with the same shortname
+     * in the same context. The teacher becomes its owner.
+     *
+     * @param stdClass $question the data from the question form, with the id of the saved question.
+     * @param int $userid the teacher.
+     * @return self|null the preset, or null if none was asked for.
+     * @throws \moodle_exception if the preset cannot be saved there.
+     */
+    public static function save_from_question(stdClass $question, int $userid): ?self {
+        global $DB;
+        if (empty($question->savepreset)) {
+            return null;
+        }
+        $context = context::instance_by_id((int) ($question->presetcontextid ?? 0), IGNORE_MISSING);
+        if (!$context || !self::can_save_in($context, $userid)) {
+            throw new \moodle_exception('nopermissions', 'error', '', get_string('presetsave', 'qtype_speakup'));
+        }
+        $shortname = (string) ($question->presetshortname ?? '');
+        if (!self::is_valid_shortname($shortname) || trim((string) ($question->presetname ?? '')) === '') {
+            throw new \moodle_exception('err_presetshortname', 'qtype_speakup');
+        }
+
+        $preset = self::get_in_context($shortname, $context->id);
+        if ($preset && empty($question->presetreplace)) {
+            throw new \moodle_exception('err_presetexists', 'qtype_speakup', '', format_string($preset->name));
+        }
+
+        $fromquestion = self::from_question((int) $question->id);
+        if (!$preset) {
+            $preset = new self();
+            $preset->contextid = $context->id;
+            $preset->shortname = $shortname;
+            $preset->sortorder = 1 + (int) $DB->get_field(self::TABLE, 'MAX(sortorder)', ['contextid' => $context->id]);
+        }
+        $preset->userid = $userid;
+        $preset->name = trim((string) $question->presetname);
+        $preset->description = trim((string) ($question->presetdescription ?? ''));
+        $preset->settings = $fromquestion->settings;
+        $preset->items = $fromquestion->items;
+        $preset->phrases = $fromquestion->phrases;
+        $preset->save();
+        return $preset;
     }
 
     /**

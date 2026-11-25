@@ -6,8 +6,8 @@ Feature: Start a new SpeakUp question from a preset
 
   Background:
     Given the following "users" exist:
-      | username |
-      | teacher  |
+      | username | firstname | lastname |
+      | teacher  | Terry     | Teacher  |
     And the following "courses" exist:
       | fullname | shortname | category |
       | Course 1 | C1        | 0        |
@@ -67,3 +67,45 @@ Feature: Start a new SpeakUp question from a preset
       | id_preset         | None (the usual settings) |
       | Response type     | Audio only                |
       | Use AI assessment | 0                         |
+
+  Scenario: Save the settings of a question as a preset, and start a new question from it
+    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    And I add a "SpeakUp - spoken response" question filling the form with:
+      | Question name                   | speakup-drill                 |
+      | Question text                   | Describe your daily routine.  |
+      | id_timelimitinseconds_number    | 45                            |
+      | Number of responses allowed     | 3                             |
+      | Save these settings as a preset | 1                             |
+      | Name of the preset              | Speaking drill                |
+      | Short name of the preset        | drill                         |
+      | Who can use it                  | Only me                       |
+    And I should see "speakup-drill"
+    And I press "Create a new question ..."
+    And I set the field "item_qtype_speakup" to "1"
+    And I press "submitbutton"
+    And I set the field "id_preset" to "Speaking drill (TT)"
+    And I press "Use this preset"
+    Then the following fields match these values:
+      | id_timelimitinseconds_number | 45 |
+      | Number of responses allowed  | 3  |
+    # The same short name again is refused, unless it replaces the preset.
+    And I set the following fields to these values:
+      | Question name                   | speakup-drill-2               |
+      | Question text                   | Describe your weekend.        |
+      | id_timelimitinseconds_number    | 50                            |
+      | Save these settings as a preset | 1                             |
+      | Name of the preset              | Longer speaking drill         |
+      | Short name of the preset        | drill                         |
+      | Who can use it                  | Only me                       |
+    And I press "id_submitbutton"
+    And I should see "There is already a preset with this short name there: \"Speaking drill\""
+    And I set the field "Replace the preset with the same short name" to "1"
+    And I press "id_submitbutton"
+    And I should see "speakup-drill-2"
+    And I press "Create a new question ..."
+    And I set the field "item_qtype_speakup" to "1"
+    And I press "submitbutton"
+    And the "id_preset" select box should contain "Longer speaking drill (TT)"
+    And the "id_preset" select box should not contain "Speaking drill (TT)"
+    And I set the field "Who can use it" to "Teachers in the course: Course 1"
+    And the "Who can use it" select box should not contain "Everyone on this site"

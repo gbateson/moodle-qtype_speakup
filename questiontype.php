@@ -134,7 +134,7 @@ class qtype_speakup extends question_type {
 
     #[\Override]
     public function save_question_options($question) {
-        global $DB;
+        global $DB, $USER;
 
         // A question imported from GIFT with ARCHETYPE=idnumber takes the
         // archetype's settings, for those it does not give itself.
@@ -249,6 +249,10 @@ class qtype_speakup extends question_type {
                 $DB->insert_record('qtype_speakup_items', $record);
             }
         }
+
+        // Save the settings as a preset too, if the teacher asked for that
+        // on the question form.
+        \qtype_speakup\preset::save_from_question($question, (int) $USER->id);
 
         return true;
     }
