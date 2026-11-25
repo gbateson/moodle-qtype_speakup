@@ -372,10 +372,15 @@ $string['pluginnameadding'] = 'Adding a SpeakUp spoken response question';
 $string['pluginnameediting'] = 'Editing a SpeakUp spoken response question';
 $string['pluginnamesummary'] = 'Students give a timed spoken response, graded automatically (target phrases and AI) or by a teacher.';
 
+$string['preset'] = 'Start from a preset';
+$string['preset_help'] = 'A preset is a set of saved settings, target items and target phrases for a new question, e.g. for a short spoken answer, or a talk on video. Choose one to fill in the form with its settings. You can then change any of them before saving the question.
+
+Choose a preset before filling in the rest of the form: anything already typed in the form is cleared.';
 $string['presethandwritingsample'] = 'Handwriting sample';
 $string['presethandwritingsample_desc'] = 'A photo or scan of a handwritten answer, transcribed and assessed by an AI provider that can read images.';
 $string['presetinstantresponse'] = 'Instant spoken response';
 $string['presetinstantresponse_desc'] = 'A short spoken answer, recorded as soon as the prompt has been played once, e.g. a quick reply in a conversation.';
+$string['presetnone'] = 'None (the usual settings)';
 $string['presetvideomonologue'] = 'Video monologue';
 $string['presetvideomonologue_desc'] = 'A longer talk on video, e.g. a self-introduction or a short presentation, assessed by AI from its sound.';
 $string['presetwithowner'] = '{$a->name} ({$a->owner})';
@@ -578,3 +583,4 @@ $string['uploadwrongtypeaudio'] = 'Please choose an audio file.';
 
 
 $string['uploadwrongtypeimage'] = 'Please choose an image or a PDF file.';
+$string['usepreset'] = 'Use this preset';

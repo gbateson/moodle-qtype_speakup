@@ -41,6 +41,24 @@ export const init = () => {
     initTextAreas(form);
     initTinyEditors(form);
     initImageResponses(form);
+    initPresetMenu(form);
+};
+
+/**
+ * For a new question, choosing a preset is enough: it presses the "Use this
+ * preset" button, which reloads the form with the preset's settings. So the
+ * button itself is hidden.
+ *
+ * @param {HTMLFormElement} form
+ */
+const initPresetMenu = (form) => {
+    const menu = form.elements.namedItem('preset');
+    const button = form.elements.namedItem('usepreset');
+    if (!menu || !button) {
+        return;
+    }
+    button.classList.add('d-none');
+    menu.addEventListener('change', () => button.click());
 };
 
 /**

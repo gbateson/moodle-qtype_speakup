@@ -37,6 +37,9 @@ class qtype_speakup_edit_form extends question_edit_form {
     /** Longest audio prompt a teacher can record on this form, in seconds. */
     const AUDIO_PROMPT_MAX_SECONDS = 300;
 
+    /** @var \qtype_speakup\preset|null the preset that a new question starts from, if any. */
+    protected $preset = null;
+
     #[\Override]
     protected function definition_inner($mform) {
         $plugin = 'qtype_speakup';
@@ -55,6 +58,9 @@ class qtype_speakup_edit_form extends question_edit_form {
         if ($mform->elementExists('idnumber')) {
             $mform->getElement('idnumber')->setLabel(get_string('questionidnumber', $plugin));
         }
+
+        // A new question can start from a preset.
+        $this->add_preset_menu($mform);
 
         $name = 'promptheader';
         $mform->addElement('header', $name, get_string($name, $plugin));
@@ -414,6 +420,100 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->hideIf($name, 'showstats', 'eq', 0);
         }
         $mform->setType('statstypes', PARAM_BOOL);
+    }
+
+    /**
+     * For a new question, add a menu of the presets it can start from, at
+     * the top of the form, with a button to use the chosen one. The button
+     * reloads the form with the preset's settings, target items and target
+     * phrases (see set_data()). With JavaScript, choosing a preset is enough.
+     *
+     * The preset is given by the "preset" parameter: the menu itself, or
+     * the URL after the button has been pressed.
+     *
+     * @param MoodleQuickForm $mform
+     */
+    protected function add_preset_menu($mform): void {
+        global $PAGE, $USER;
+        if (!empty($this->question->id)) {
+            return;
+        }
+        $presets = \qtype_speakup\preset::get_visible($this->context, (int) $USER->id);
+        if (!$presets) {
+            return;
+        }
+
+        $presetid = optional_param('preset', 0, PARAM_INT);
+        if ($presetid && !isset($presets[$presetid])) {
+            $presetid = 0;
+        }
+
+        // The button reloads the page with the chosen preset in the URL,
+        // so that the form starts again from its settings.
+        if (optional_param('usepreset', '', PARAM_RAW) !== '') {
+            $url = new moodle_url($PAGE->url);
+            if ($presetid) {
+                $url->param('preset', $presetid);
+            } else {
+                $url->remove_params('preset');
+            }
+            redirect($url);
+        }
+
+        if ($presetid) {
+            $this->preset = $presets[$presetid];
+            $this->question->options = $this->add_preset_options($this->question->options ?? new stdClass());
+        }
+
+        $plugin = 'qtype_speakup';
+        $menu = [0 => get_string('presetnone', $plugin)];
+        foreach ($presets as $id => $preset) {
+            $menu[$id] = $preset->get_display_name();
+        }
+        // Register the button before making it, so that it skips the
+        // form's validation in the browser, as "Cancel" does.
+        $mform->registerNoSubmitButton('usepreset');
+        $group = $mform->createElement('group', 'presetgroup', get_string('preset', $plugin), [
+            $mform->createElement('select', 'preset', '', $menu),
+            $mform->createElement('submit', 'usepreset', get_string('usepreset', $plugin)),
+        ], ' ', false);
+        $first = $mform->elementExists('category') ? 'category' : 'name';
+        $mform->insertElementBefore($group, $first);
+        $mform->addHelpButton('presetgroup', 'preset', $plugin);
+        $mform->setType('preset', PARAM_INT);
+        $mform->setDefault('preset', $presetid);
+    }
+
+    /**
+     * Add the settings, target items and target phrases of the preset to the
+     * options of a new question, as if they had been saved.
+     *
+     * @param stdClass $options the options of the question.
+     * @return stdClass the options, with those of the preset.
+     */
+    protected function add_preset_options(stdClass $options): stdClass {
+        foreach ($this->preset->get_settings($this->context) as $field => $value) {
+            $options->$field = $value;
+        }
+        $options->targetitems = [];
+        foreach ($this->preset->items as $item) {
+            $options->targetitems[] = (object) $item;
+        }
+        $options->phrases = [];
+        foreach ($this->preset->phrases as $phrase) {
+            $options->phrases[] = (object) $phrase;
+        }
+        return $options;
+    }
+
+    #[\Override]
+    public function set_data($question) {
+        // A new question starts from the preset, if one was chosen. The
+        // core form copies the options to the form's fields.
+        if ($this->preset && empty($question->id)) {
+            $question->options = $this->add_preset_options($question->options ?? new stdClass());
+        }
+        parent::set_data($question);
     }
 
     /**
