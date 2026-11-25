@@ -53,7 +53,7 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     // Renamed fields: old name => new name. Where a field was renamed more
     // than once, list its newer old names first.
-    xmldb_qtype_speakup_rename_fields($dbman, [
+    $renames = [
         'qtype_speakup_options' => [
             'allowpause' => 'responsepause',
             'allowpausing' => 'responsepause',
@@ -71,7 +71,8 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
             'answertext' => 'phrasetext',
             'answerlabel' => 'phraselabel',
         ],
-    ]);
+    ];
+    xmldb_qtype_speakup_rename_fields($dbman, $renames);
 
     // SpeakUp's own AI providers have moved to the AI bridge (tool_aibridge).
     // If the bridge is not installed yet, they are moved when it is installed
@@ -80,6 +81,11 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
 
     xmldb_qtype_speakup_check_structure($dbman, ['qtype_speakup_ai_providers']);
     xmldb_qtype_speakup_reorder_fields($dbman);
+
+    // Presets keep the settings of questions by field name, so rename those
+    // too. Then add the presets in db/presets.php that are not on the site yet.
+    \qtype_speakup\preset::rename_settings($renames['qtype_speakup_options']);
+    \qtype_speakup\preset::seed();
 
     // Files are now converted by the AI bridge, so its settings say where ffmpeg is.
     $path = get_config('qtype_speakup', 'pathtoffmpeg');

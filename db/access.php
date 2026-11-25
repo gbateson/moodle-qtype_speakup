@@ -51,6 +51,19 @@ $capabilities = [
         'archetypes' => [],
     ],
 
+    // Save presets (settings that new questions can start from) in a course,
+    // a category or the whole site, for others to use, and change or delete
+    // the presets there. Anyone can save presets for themselves.
+    'qtype/speakup:sharepresets' => [
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
     // Manage the site-wide AI provider list (URLs, API keys, etc). Deliberately
     // restricted - this page handles credentials, not just question content.
 ];

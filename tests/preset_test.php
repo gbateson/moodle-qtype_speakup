@@ -25,6 +25,13 @@ namespace qtype_speakup;
  * @covers    \qtype_speakup\preset
  */
 final class preset_test extends \advanced_testcase {
+    #[\Override]
+    public static function setUpBeforeClass(): void {
+        global $CFG;
+        parent::setUpBeforeClass();
+        require_once($CFG->dirroot . '/question/type/speakup/tests/helper.php');
+    }
+
     /** @var array the settings of a base. */
     const SETTINGS = [
         'mediatype' => 'video',
@@ -97,5 +104,234 @@ final class preset_test extends \advanced_testcase {
         $this->assertObjectNotHasProperty('itemtarget', $question);
         $this->assertSame(['Hello'], $question->phrasematch);
         $this->assertObjectNotHasProperty('phraselabel', $question);
+    }
+
+    public function test_seeded_on_install(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $syscontext = \context_system::instance();
+        $records = $DB->get_records(preset::TABLE, ['contextid' => $syscontext->id], 'sortorder ASC');
+        $this->assertSame(
+            ['instant-response', 'video-monologue', 'handwriting-sample'],
+            array_values(array_column($records, 'shortname'))
+        );
+
+        $preset = new preset(reset($records));
+        $this->assertSame((int) get_admin()->id, $preset->userid);
+        $this->assertSame('Instant spoken response', $preset->name);
+
+        // Every setting is given, with the question form's defaults for
+        // those that db/presets.php leaves out.
+        $fields = array_merge(array_diff(preset::get_setting_fields(), ['aiproviderid']), ['aiprovider']);
+        sort($fields);
+        $keys = array_keys($preset->settings);
+        sort($keys);
+        $this->assertSame($fields, $keys);
+        $this->assertSame(1, $preset->settings['autorecord']);
+        $this->assertSame(30, $preset->settings['timelimitinseconds']);
+        $this->assertSame('auto', $preset->settings['gradingmethod']);
+        $this->assertSame('en-US', $preset->settings['sttlanguage']);
+        $this->assertSame('', $preset->settings['aiprovider']);
+        $this->assertSame('words', $preset->items[0]['itemtype']);
+    }
+
+    public function test_seed_only_once(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $syscontext = \context_system::instance();
+
+        // A seed preset that was deleted is not added again, and one that
+        // was changed is not changed back.
+        preset::find('instant-response', $syscontext, 0)->delete();
+        $video = preset::find('video-monologue', $syscontext, 0);
+        $video->name = 'Talk to the camera';
+        $video->save();
+        preset::seed();
+        $this->assertNull(preset::find('instant-response', $syscontext, 0));
+        $this->assertSame('Talk to the camera', preset::find('video-monologue', $syscontext, 0)->name);
+        $this->assertSame(2, $DB->count_records(preset::TABLE));
+
+        // A seed preset that was not added before (e.g. one added to
+        // db/presets.php in a later version) is added.
+        set_config(preset::SEEDED_CONFIG, 'instant-response,video-monologue', 'qtype_speakup');
+        preset::seed();
+        $this->assertSame(2, $DB->count_records(preset::TABLE));
+        $DB->delete_records(preset::TABLE, ['shortname' => 'handwriting-sample']);
+        set_config(preset::SEEDED_CONFIG, 'instant-response,video-monologue', 'qtype_speakup');
+        preset::seed();
+        $this->assertNotNull(preset::find('handwriting-sample', $syscontext, 0));
+        $this->assertSame(
+            'instant-response,video-monologue,handwriting-sample',
+            get_config('qtype_speakup', preset::SEEDED_CONFIG)
+        );
+    }
+
+    /**
+     * Make and save a preset.
+     *
+     * @param \context $context
+     * @param string $shortname
+     * @param int $userid
+     * @param array $settings
+     * @return preset
+     */
+    protected function make_preset(\context $context, string $shortname, int $userid = 0, array $settings = []): preset {
+        $preset = new preset();
+        $preset->contextid = $context->id;
+        $preset->userid = $userid;
+        $preset->shortname = $shortname;
+        $preset->name = ucfirst($shortname);
+        $preset->settings = $settings;
+        $preset->save();
+        return $preset;
+    }
+
+    public function test_get_visible_and_find(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $user = $generator->create_user();
+        $other = $generator->create_user();
+        $category = $generator->create_category();
+        $course = $generator->create_course(['category' => $category->id]);
+        $coursecontext = \context_course::instance($course->id);
+        $catcontext = \context_coursecat::instance($category->id);
+        $syscontext = \context_system::instance();
+
+        $site = preset::find('instant-response', $syscontext, 0);
+        $mine = $this->make_preset(\context_user::instance($user->id), 'mine', $user->id);
+        $theirs = $this->make_preset(\context_user::instance($other->id), 'theirs', $other->id);
+        $incourse = $this->make_preset($coursecontext, 'instant-response', $other->id, ['timelimitinseconds' => 10]);
+        $incategory = $this->make_preset($catcontext, 'incategory', $other->id);
+        $othercourse = $this->make_preset(\context_course::instance($generator->create_course()->id), 'elsewhere');
+
+        // The user's own first, then the nearest context, then the site's in their sort order.
+        $visible = preset::get_visible($coursecontext, $user->id);
+        $this->assertSame(
+            [$mine->id, $incourse->id, $incategory->id, $site->id],
+            array_slice(array_keys($visible), 0, 4)
+        );
+        $this->assertCount(6, $visible);
+        $this->assertArrayNotHasKey($theirs->id, $visible);
+        $this->assertArrayNotHasKey($othercourse->id, $visible);
+
+        // The nearest preset with a shortname wins.
+        $this->assertSame($incourse->id, preset::find('instant-response', $coursecontext, $user->id)->id);
+        $this->assertSame($site->id, preset::find(' instant-response ', $catcontext, $user->id)->id);
+        $this->assertNull(preset::find('mine', $coursecontext, $other->id));
+        $this->assertNull(preset::find('nosuchpreset', $coursecontext, $user->id));
+    }
+
+    public function test_from_question_and_apply_to(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $provider = \qtype_speakup_test_helper::create_provider(['name' => 'Marker']);
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $category = $generator->create_question_category();
+        $question = $generator->create_question('speakup', 'prompt', [
+            'category' => $category->id,
+            'aiassessment' => 1,
+            'aiproviderid' => $provider->id,
+        ]);
+
+        // The preset keeps the settings, target items and target phrases,
+        // but not the transcript of the audio prompt; the provider by name.
+        $preset = preset::from_question($question->id);
+        $this->assertArrayNotHasKey('prompttranscript', $preset->settings);
+        $this->assertArrayNotHasKey('aiproviderid', $preset->settings);
+        $this->assertSame('Marker', $preset->settings['aiprovider']);
+        $this->assertCount(1, $preset->items);
+        $this->assertCount(3, $preset->phrases);
+        $this->assertSame('guitar', $preset->phrases[0]['phrasetext']);
+
+        // It is the same after saving and loading.
+        $preset->contextid = \context_system::instance()->id;
+        $preset->shortname = 'guitar';
+        $preset->name = 'Guitar';
+        $preset->save();
+        $loaded = preset::get($preset->id);
+        $this->assertEquals($preset->settings, $loaded->settings);
+        $this->assertEquals($preset->items, $loaded->items);
+        $this->assertEquals($preset->phrases, $loaded->phrases);
+
+        // A new question takes the settings, with the provider's id on this site.
+        $new = (object) ['name' => 'New'];
+        $loaded->apply_to($new, \context::instance_by_id($category->contextid));
+        $this->assertEquals($provider->id, $new->aiproviderid);
+        $this->assertEquals(1, $new->autorecord);
+        $this->assertEquals(2, $new->maxpromptplays);
+        $this->assertObjectNotHasProperty('prompttranscript', $new);
+        $this->assertSame(['words'], $new->itemtype);
+        $this->assertCount(3, $new->phrasematch);
+
+        // A provider that is not on this site leaves the choice to the AI bridge.
+        $loaded->settings['aiprovider'] = 'Gone';
+        $new = (object) [];
+        $loaded->apply_to($new);
+        $this->assertNull($new->aiproviderid);
+    }
+
+    public function test_can_save_in_and_can_edit(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $teacher = $generator->create_user();
+        $student = $generator->create_user();
+        $course = $generator->create_course();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $coursecontext = \context_course::instance($course->id);
+        $syscontext = \context_system::instance();
+        $adminid = (int) get_admin()->id;
+
+        $this->assertTrue(preset::can_save_in(\context_user::instance($teacher->id), $teacher->id));
+        $this->assertFalse(preset::can_save_in(\context_user::instance($teacher->id), $student->id));
+        $this->assertTrue(preset::can_save_in($coursecontext, $teacher->id));
+        $this->assertFalse(preset::can_save_in($coursecontext, $student->id));
+        $this->assertFalse(preset::can_save_in($syscontext, $teacher->id));
+        $this->assertTrue(preset::can_save_in($syscontext, $adminid));
+        $this->assertFalse(preset::can_save_in($coursecontext, 0));
+
+        // Only those who could save a preset where it is can change it.
+        $shared = $this->make_preset($coursecontext, 'shared', $student->id);
+        $this->assertTrue($shared->can_edit($teacher->id));
+        $this->assertFalse($shared->can_edit($student->id));
+        $site = preset::find('video-monologue', $syscontext, 0);
+        $this->assertFalse($site->can_edit($teacher->id));
+        $this->assertTrue($site->can_edit($adminid));
+    }
+
+    public function test_display_name(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user(['firstname' => 'émile', 'lastname' => 'Zola']);
+        $preset = $this->make_preset(\context_user::instance($user->id), 'novel', $user->id);
+        $this->assertSame('ÉZ', $preset->get_owner_initials());
+        $this->assertSame('Novel (ÉZ)', $preset->get_display_name());
+
+        $preset->userid = 0;
+        $this->assertSame('', $preset->get_owner_initials());
+        $this->assertSame('Novel', $preset->get_display_name());
+    }
+
+    public function test_rename_settings(): void {
+        $this->resetAfterTest();
+        $syscontext = \context_system::instance();
+        $old = $this->make_preset($syscontext, 'old', 0, ['allowpausing' => 1, 'autorecord' => 0]);
+        $both = $this->make_preset($syscontext, 'both', 0, ['allowpausing' => 1, 'responsepause' => 0]);
+
+        preset::rename_settings(['allowpause' => 'responsepause', 'allowpausing' => 'responsepause']);
+        $this->assertSame(['autorecord' => 0, 'responsepause' => 1], preset::get($old->id)->settings);
+        // A setting that already has its new name keeps its value.
+        $this->assertSame(['responsepause' => 0], preset::get($both->id)->settings);
+    }
+
+    public function test_delete_user(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $course = $this->getDataGenerator()->create_course();
+        $private = $this->make_preset(\context_user::instance($user->id), 'private', $user->id);
+        $shared = $this->make_preset(\context_course::instance($course->id), 'shared', $user->id);
+
+        preset::delete_user($user->id);
+        $this->assertNull(preset::get($private->id));
+        $this->assertSame(0, preset::get($shared->id)->userid);
     }
 }

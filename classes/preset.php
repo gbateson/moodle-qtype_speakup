@@ -16,17 +16,462 @@
 
 namespace qtype_speakup;
 
+use context;
 use stdClass;
 
 /**
- * Settings that a new SpeakUp question can start from, e.g. a preset, or
- * an archetype question named in a GIFT file.
+ * A preset: saved settings, target items and target phrases that a new
+ * SpeakUp question can start from.
+ *
+ * Where a preset is kept says who can use it: in a user context, only its
+ * owner; in a course or category context, everyone who makes questions
+ * there; in the system context, everyone on the site. Saving a preset
+ * anywhere but in your own user context needs qtype/speakup:sharepresets.
+ *
+ * This class also gives questions the settings of other bases, e.g. an
+ * archetype question named in a GIFT file (see apply_base()).
  *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class preset {
+    /** The table of presets. */
+    const TABLE = 'qtype_speakup_presets';
+
+    /** The config setting that lists the shortnames of the presets in db/presets.php already added. */
+    const SEEDED_CONFIG = 'seededpresets';
+
+    /** @var int the id of the preset, or 0 if it has not been saved. */
+    public $id = 0;
+
+    /** @var int the id of the context it is kept in. */
+    public $contextid = 0;
+
+    /** @var int the id of its owner, or 0 if the owner has been deleted. */
+    public $userid = 0;
+
+    /** @var string names the preset in imports, e.g. instant-response. */
+    public $shortname = '';
+
+    /** @var string */
+    public $name = '';
+
+    /** @var string */
+    public $description = '';
+
+    /** @var array field name => value: the fields of qtype_speakup_options (see get_setting_fields()). */
+    public $settings = [];
+
+    /** @var array[] the target items, each with the fields of qtype_speakup_items. */
+    public $items = [];
+
+    /** @var array[] the target phrases, each with the fields of qtype_speakup_phrases. */
+    public $phrases = [];
+
+    /** @var int */
+    public $sortorder = 0;
+
+    /** @var int */
+    public $timecreated = 0;
+
+    /** @var int */
+    public $timemodified = 0;
+
+    /** The fields of a target item that a preset keeps. */
+    const ITEM_FIELDS = ['itemtype', 'itemtarget', 'percent', 'multiplier'];
+
+    /** The fields of a target phrase that a preset keeps. */
+    const PHRASE_FIELDS = ['phrasetext', 'phraselabel', 'percent', 'divisor', 'fullmatch', 'casesensitive'];
+
+    /**
+     * Make a preset from a record of the presets table, or an empty preset.
+     *
+     * @param stdClass|null $record
+     */
+    public function __construct(?stdClass $record = null) {
+        if ($record === null) {
+            return;
+        }
+        foreach (['id', 'contextid', 'userid', 'sortorder', 'timecreated', 'timemodified'] as $field) {
+            $this->$field = (int) ($record->$field ?? 0);
+        }
+        foreach (['shortname', 'name', 'description'] as $field) {
+            $this->$field = (string) ($record->$field ?? '');
+        }
+        foreach (['settings', 'items', 'phrases'] as $field) {
+            $value = $record->$field ?? null;
+            $this->$field = is_string($value) ? (array) json_decode($value, true) : (array) $value;
+        }
+    }
+
+    /**
+     * Get a preset.
+     *
+     * @param int $id
+     * @return self|null null if there is no such preset.
+     */
+    public static function get(int $id): ?self {
+        global $DB;
+        $record = $DB->get_record(self::TABLE, ['id' => $id]);
+        return $record ? new self($record) : null;
+    }
+
+    /**
+     * Get the presets that a user can start a question from: their own, and
+     * those shared in the context of the question bank or a context above it.
+     *
+     * @param context $context the context of the question bank.
+     * @param int $userid
+     * @return self[] id => preset: the user's own first, then the nearest
+     *     context first, then by sort order and name.
+     */
+    public static function get_visible(context $context, int $userid): array {
+        global $DB;
+
+        // The rank of each context: the lower, the nearer.
+        $contextids = [];
+        if ($userid) {
+            $contextids[] = \context_user::instance($userid)->id;
+        }
+        $contextids = array_merge($contextids, [$context->id], $context->get_parent_context_ids());
+        $ranks = array_flip(array_values(array_unique($contextids)));
+
+        [$select, $params] = $DB->get_in_or_equal(array_keys($ranks));
+        $presets = [];
+        foreach ($DB->get_records_select(self::TABLE, "contextid $select", $params) as $record) {
+            $presets[$record->id] = new self($record);
+        }
+        uasort($presets, function (self $a, self $b) use ($ranks) {
+            return [$ranks[$a->contextid], $a->sortorder, \core_text::strtolower($a->name), $a->id]
+                <=> [$ranks[$b->contextid], $b->sortorder, \core_text::strtolower($b->name), $b->id];
+        });
+        return $presets;
+    }
+
+    /**
+     * Find the preset with a shortname that a user can use: their own, or
+     * else the one in the nearest context.
+     *
+     * @param string $shortname
+     * @param context $context the context of the question bank.
+     * @param int $userid
+     * @return self|null null if there is no such preset.
+     */
+    public static function find(string $shortname, context $context, int $userid): ?self {
+        $shortname = trim($shortname);
+        foreach (self::get_visible($context, $userid) as $preset) {
+            if ($preset->shortname === $shortname) {
+                return $preset;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Make a preset from the settings, target items and target phrases of a
+     * saved question. The preset is not saved.
+     *
+     * @param int $questionid
+     * @return self
+     */
+    public static function from_question(int $questionid): self {
+        global $DB;
+        $preset = new self();
+        $options = $DB->get_record('qtype_speakup_options', ['questionid' => $questionid], '*', MUST_EXIST);
+        $preset->set_settings($options);
+        foreach ($DB->get_records('qtype_speakup_items', ['questionid' => $questionid], 'id ASC') as $item) {
+            $preset->items[] = self::pick($item, self::ITEM_FIELDS);
+        }
+        foreach ($DB->get_records('qtype_speakup_phrases', ['questionid' => $questionid], 'id ASC') as $phrase) {
+            $preset->phrases[] = self::pick($phrase, self::PHRASE_FIELDS);
+        }
+        return $preset;
+    }
+
+    /**
+     * Set the settings of the preset from the settings of a question, e.g. a
+     * record of qtype_speakup_options. The AI provider is kept by its name,
+     * so that the preset still finds it on another site, or after a backup
+     * is restored.
+     *
+     * @param array|stdClass $options field name => value.
+     */
+    public function set_settings($options): void {
+        $options = (array) $options;
+        $this->settings = [];
+        foreach (self::get_setting_fields() as $field) {
+            if ($field === 'aiproviderid') {
+                $id = (int) ($options[$field] ?? 0);
+                $this->settings['aiprovider'] = $id ? ai_provider::get_name($id) : '';
+            } else if (array_key_exists($field, $options)) {
+                $this->settings[$field] = $options[$field];
+            }
+        }
+    }
+
+    /**
+     * Get the settings of the preset, as for a question: with the id of its
+     * AI provider, if the provider can be used in the given context. If not,
+     * the AI bridge chooses one ("Automatic").
+     *
+     * @param context|null $context the context of the question bank.
+     * @return array field name => value.
+     */
+    public function get_settings(?context $context = null): array {
+        $settings = $this->settings;
+        if (array_key_exists('aiprovider', $settings)) {
+            $name = (string) $settings['aiprovider'];
+            $settings['aiproviderid'] = ($name === '') ? null : (ai_provider::find_by_name($name, $context) ?: null);
+            unset($settings['aiprovider']);
+        }
+        return array_intersect_key($settings, array_flip(self::get_setting_fields()));
+    }
+
+    /**
+     * Give a question the settings, target items and target phrases of this
+     * preset (see apply_base()).
+     *
+     * @param stdClass $question the question being saved, as from the edit form.
+     * @param context|null $context the context of the question bank.
+     * @param string[] $given the settings that the question gives itself.
+     */
+    public function apply_to(stdClass $question, ?context $context = null, array $given = []): void {
+        self::apply_base($question, $this->get_settings($context), $this->items, $this->phrases, $given);
+    }
+
+    /**
+     * Save the preset: add it, or update it if it has an id.
+     */
+    public function save(): void {
+        global $DB;
+        $now = time();
+        $this->timemodified = $now;
+        $record = (object) [
+            'contextid' => $this->contextid,
+            'userid' => $this->userid,
+            'shortname' => trim($this->shortname),
+            'name' => trim($this->name),
+            'description' => $this->description,
+            'settings' => json_encode((object) $this->settings),
+            'items' => json_encode(array_values($this->items)),
+            'phrases' => json_encode(array_values($this->phrases)),
+            'sortorder' => $this->sortorder,
+            'timemodified' => $now,
+        ];
+        if ($this->id) {
+            $record->id = $this->id;
+            $DB->update_record(self::TABLE, $record);
+        } else {
+            $this->timecreated = $now;
+            $record->timecreated = $now;
+            $this->id = (int) $DB->insert_record(self::TABLE, $record);
+        }
+    }
+
+    /**
+     * Delete the preset.
+     */
+    public function delete(): void {
+        global $DB;
+        if ($this->id) {
+            $DB->delete_records(self::TABLE, ['id' => $this->id]);
+            $this->id = 0;
+        }
+    }
+
+    /**
+     * Get the initials of the owner, e.g. "GB", to tell apart presets with
+     * the same name.
+     *
+     * @return string '' if the owner has been deleted.
+     */
+    public function get_owner_initials(): string {
+        $user = $this->userid ? \core_user::get_user($this->userid) : null;
+        if (!$user || !empty($user->deleted)) {
+            return '';
+        }
+        $initials = '';
+        foreach ([$user->firstname, $user->lastname] as $name) {
+            $initials .= \core_text::strtoupper(\core_text::substr(trim((string) $name), 0, 1));
+        }
+        return $initials;
+    }
+
+    /**
+     * Get the name of the preset to show, with its owner's initials, e.g.
+     * "Video monologue (GB)".
+     *
+     * @return string
+     */
+    public function get_display_name(): string {
+        $name = format_string($this->name, true, ['context' => context::instance_by_id($this->contextid, IGNORE_MISSING)
+            ?: \context_system::instance()]);
+        $initials = $this->get_owner_initials();
+        return ($initials === '') ? $name : get_string('presetwithowner', 'qtype_speakup', (object) [
+            'name' => $name,
+            'owner' => $initials,
+        ]);
+    }
+
+    /**
+     * Can a user save a preset in a context? Anyone can save presets for
+     * themselves, in their own user context. Sharing a preset in a course, a
+     * category or the whole site needs qtype/speakup:sharepresets there.
+     *
+     * @param context $context
+     * @param int $userid
+     * @return bool
+     */
+    public static function can_save_in(context $context, int $userid): bool {
+        switch ($context->contextlevel) {
+            case CONTEXT_USER:
+                return $userid && (int) $context->instanceid === $userid;
+            case CONTEXT_COURSE:
+            case CONTEXT_COURSECAT:
+            case CONTEXT_SYSTEM:
+                return $userid && has_capability('qtype/speakup:sharepresets', $context, $userid);
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Can a user change or delete this preset? Only if they could save it
+     * where it is kept.
+     *
+     * @param int $userid
+     * @return bool
+     */
+    public function can_edit(int $userid): bool {
+        $context = context::instance_by_id($this->contextid, IGNORE_MISSING);
+        return $context && self::can_save_in($context, $userid);
+    }
+
+    /**
+     * Get the settings of a new question on the question form, for the
+     * settings that a preset does not give.
+     *
+     * @return array field name => value.
+     */
+    public static function get_default_settings(): array {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/question/type/speakup/questiontype.php');
+        $columns = $DB->get_columns('qtype_speakup_options');
+        $settings = [];
+        foreach (self::get_setting_fields() as $field) {
+            if ($field === 'aiproviderid') {
+                // The AI bridge chooses the provider ("Automatic").
+                $settings['aiprovider'] = '';
+                continue;
+            }
+            $column = $columns[$field] ?? null;
+            if (!$column || !$column->has_default) {
+                $settings[$field] = null;
+            } else if ($column->meta_type === 'I') {
+                $settings[$field] = (int) $column->default_value;
+            } else if ($column->meta_type === 'N') {
+                $settings[$field] = (float) $column->default_value;
+            } else {
+                $settings[$field] = $column->default_value;
+            }
+        }
+
+        // The question form's defaults, where they differ from the database's.
+        $settings['gradingmethod'] = SPEAKUP_GRADING_AUTO;
+        $settings['statstypes'] = implode(',', text_stats::get_default_stat_types((string) $settings['sttlanguage']));
+        return $settings;
+    }
+
+    /**
+     * Add the presets in db/presets.php to the site, in the system context,
+     * owned by the main admin. Each one is only added once: if an admin
+     * deletes it, it is not added again.
+     */
+    public static function seed(): void {
+        global $CFG, $DB;
+        $presets = [];
+        require($CFG->dirroot . '/question/type/speakup/db/presets.php');
+
+        $seeded = array_filter(explode(',', (string) get_config('qtype_speakup', self::SEEDED_CONFIG)));
+        $contextid = \context_system::instance()->id;
+        $admin = get_admin();
+        $defaults = null;
+        $sortorder = (int) $DB->get_field(self::TABLE, 'MAX(sortorder)', ['contextid' => $contextid]);
+
+        foreach ($presets as $data) {
+            if (in_array($data['shortname'], $seeded)) {
+                continue;
+            }
+            $seeded[] = $data['shortname'];
+            if ($DB->record_exists(self::TABLE, ['contextid' => $contextid, 'shortname' => $data['shortname']])) {
+                continue;
+            }
+            if ($defaults === null) {
+                $defaults = self::get_default_settings();
+            }
+            $preset = new self();
+            $preset->contextid = $contextid;
+            $preset->userid = $admin ? (int) $admin->id : 0;
+            $preset->shortname = $data['shortname'];
+            $preset->name = get_string($data['name'], 'qtype_speakup');
+            $preset->description = get_string($data['description'], 'qtype_speakup');
+            $preset->settings = array_merge($defaults, $data['settings'] ?? []);
+            $preset->items = $data['items'] ?? [];
+            $preset->phrases = $data['phrases'] ?? [];
+            $preset->sortorder = ++$sortorder;
+            $preset->save();
+        }
+        set_config(self::SEEDED_CONFIG, implode(',', $seeded), 'qtype_speakup');
+    }
+
+    /**
+     * Rename settings in all presets, after fields of qtype_speakup_options
+     * have been renamed.
+     *
+     * @param array $renames old field name => new field name.
+     */
+    public static function rename_settings(array $renames): void {
+        global $DB;
+        $dbman = $DB->get_manager();
+        if (!$renames || !$dbman->table_exists(self::TABLE)) {
+            return;
+        }
+        $records = $DB->get_recordset(self::TABLE, null, '', 'id, settings');
+        foreach ($records as $record) {
+            $settings = (array) json_decode((string) $record->settings, true);
+            $changed = false;
+            foreach ($renames as $oldname => $newname) {
+                if (array_key_exists($oldname, $settings)) {
+                    if (!array_key_exists($newname, $settings)) {
+                        $settings[$newname] = $settings[$oldname];
+                    }
+                    unset($settings[$oldname]);
+                    $changed = true;
+                }
+            }
+            if ($changed) {
+                $DB->set_field(self::TABLE, 'settings', json_encode((object) $settings), ['id' => $record->id]);
+            }
+        }
+        $records->close();
+    }
+
+    /**
+     * Delete or keep the presets of a user who is being deleted: their own
+     * presets are deleted; those they shared are kept, without an owner.
+     *
+     * @param int $userid
+     */
+    public static function delete_user(int $userid): void {
+        global $DB;
+        $context = \context_user::instance($userid, IGNORE_MISSING);
+        if ($context) {
+            $DB->delete_records(self::TABLE, ['contextid' => $context->id]);
+        }
+        $DB->set_field(self::TABLE, 'userid', 0, ['userid' => $userid]);
+    }
+
     /**
      * The fields of qtype_speakup_options that a base can give a question.
      *
@@ -92,5 +537,20 @@ class preset {
                 $question->phrasecasesensitive[] = $phrase->casesensitive;
             }
         }
+    }
+
+    /**
+     * Pick some fields of a record.
+     *
+     * @param stdClass $record
+     * @param string[] $fields
+     * @return array field name => value.
+     */
+    protected static function pick(stdClass $record, array $fields): array {
+        $values = [];
+        foreach ($fields as $field) {
+            $values[$field] = $record->$field ?? null;
+        }
+        return $values;
     }
 }
