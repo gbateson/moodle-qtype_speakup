@@ -472,4 +472,54 @@ final class preset_test extends \advanced_testcase {
             $this->assertSame('nopermissions', $e->errorcode);
         }
     }
+
+    public function test_move(): void {
+        $this->resetAfterTest();
+        $syscontext = \context_system::instance();
+        $names = fn() => array_values(array_map(
+            fn($preset) => $preset->shortname,
+            array_filter(preset::get_visible($syscontext, 0), fn($preset) => $preset->contextid == $syscontext->id)
+        ));
+        $this->assertSame(['instant-response', 'video-monologue', 'handwriting-sample'], $names());
+
+        $handwriting = preset::find('handwriting-sample', $syscontext, 0);
+        $this->assertTrue($handwriting->move(-1));
+        $this->assertSame(['instant-response', 'handwriting-sample', 'video-monologue'], $names());
+        $this->assertTrue($handwriting->move(-1));
+        $this->assertSame(['handwriting-sample', 'instant-response', 'video-monologue'], $names());
+        $this->assertFalse($handwriting->move(-1));
+        $this->assertTrue($handwriting->move(1));
+        $this->assertSame(['instant-response', 'handwriting-sample', 'video-monologue'], $names());
+        $this->assertFalse(preset::find('video-monologue', $syscontext, 0)->move(1));
+    }
+
+    public function test_get_users_label(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $user = $generator->create_user();
+        $category = $generator->create_category(['name' => 'Languages']);
+        $course = $generator->create_course(['fullname' => 'French 1', 'category' => $category->id]);
+        $speakup = $generator->get_plugin_generator('qtype_speakup');
+        $labels = [];
+        foreach (
+            [
+            \context_user::instance($user->id),
+            \context_course::instance($course->id),
+            \context_coursecat::instance($category->id),
+            \context_system::instance(),
+            ] as $i => $context
+        ) {
+            $labels[] = $speakup->create_preset([
+                'name' => 'Preset ' . $i,
+                'shortname' => 'preset' . $i,
+                'contextid' => $context->id,
+            ])->get_users_label();
+        }
+        $this->assertSame([
+            'Only me',
+            'Teachers in the course: French 1',
+            'Teachers in the category: Languages',
+            'Everyone on this site',
+        ], $labels);
+    }
 }

@@ -329,23 +329,62 @@ class preset {
             $context->get_parent_context_ids()
         ));
         foreach ($contexts as $parent) {
-            if (!self::can_save_in($parent, $userid)) {
-                continue;
-            }
-            $name = $parent->get_context_name(false);
-            switch ($parent->contextlevel) {
-                case CONTEXT_COURSE:
-                    $menu[$parent->id] = get_string('presetsavecourse', $plugin, $name);
-                    break;
-                case CONTEXT_COURSECAT:
-                    $menu[$parent->id] = get_string('presetsavecategory', $plugin, $name);
-                    break;
-                case CONTEXT_SYSTEM:
-                    $menu[$parent->id] = get_string('presetsavesystem', $plugin);
-                    break;
+            if (self::can_save_in($parent, $userid)) {
+                $preset = new self();
+                $preset->contextid = $parent->id;
+                $menu[$parent->id] = $preset->get_users_label();
             }
         }
         return $menu;
+    }
+
+    /**
+     * Say who can use the preset, e.g. "Teachers in the course: French 1".
+     *
+     * @return string
+     */
+    public function get_users_label(): string {
+        $plugin = 'qtype_speakup';
+        $context = context::instance_by_id($this->contextid, IGNORE_MISSING);
+        if (!$context) {
+            return '?';
+        }
+        switch ($context->contextlevel) {
+            case CONTEXT_USER:
+                return get_string('presetsaveuser', $plugin);
+            case CONTEXT_COURSE:
+                return get_string('presetsavecourse', $plugin, $context->get_context_name(false));
+            case CONTEXT_COURSECAT:
+                return get_string('presetsavecategory', $plugin, $context->get_context_name(false));
+            case CONTEXT_SYSTEM:
+                return get_string('presetsavesystem', $plugin);
+            default:
+                return $context->get_context_name();
+        }
+    }
+
+    /**
+     * Move the preset up or down in the menu, among the presets in the same
+     * context. The sort orders there are renumbered 1, 2, 3, ...
+     *
+     * @param int $direction -1 to move it up, 1 to move it down.
+     * @return bool false if it cannot move that way, e.g. it is already first.
+     */
+    public function move(int $direction): bool {
+        global $DB;
+        $records = $DB->get_records(self::TABLE, ['contextid' => $this->contextid], 'sortorder ASC, name ASC, id ASC', 'id');
+        $ids = array_map('intval', array_keys($records));
+        $index = array_search($this->id, $ids);
+        $other = $index + ($direction < 0 ? -1 : 1);
+        if ($index === false || $other < 0 || $other >= count($ids)) {
+            return false;
+        }
+        [$ids[$index], $ids[$other]] = [$ids[$other], $ids[$index]];
+        foreach ($ids as $i => $id) {
+            $DB->set_field(self::TABLE, 'sortorder', $i + 1, ['id' => $id]);
+        }
+        $this->sortorder = $other + 1;
+        return true;
     }
 
     /**

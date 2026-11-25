@@ -26,6 +26,10 @@
  *       | question    |
  *       | speakup-001 |
  *
+ *     And the following "qtype_speakup > presets" exist:
+ *       | name  | shortname | contextlevel | reference | user    | timelimitinseconds |
+ *       | Drill | drill     | Course       | C1        | teacher | 45                 |
+ *
  * @package   qtype_speakup
  * @copyright 2026 Gordon Bateson and contributors
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -45,7 +49,29 @@ class behat_qtype_speakup_generator extends behat_generator_base {
                 'required' => ['question'],
                 'switchids' => ['question' => 'questionid'],
             ],
+            'presets' => [
+                'singular' => 'preset',
+                'datagenerator' => 'preset',
+                'required' => ['name', 'shortname'],
+                'switchids' => ['user' => 'userid'],
+            ],
         ];
+    }
+
+    /**
+     * Find the context of a preset, from "contextlevel" (e.g. System, Course,
+     * Category or User) and "reference" (e.g. a course's short name).
+     *
+     * @param array $data
+     * @return array
+     */
+    protected function preprocess_preset(array $data): array {
+        if (isset($data['contextlevel'])) {
+            $context = $this->get_context($data['contextlevel'], $data['reference'] ?? '');
+            $data['contextid'] = $context->id;
+        }
+        unset($data['contextlevel'], $data['reference']);
+        return $data;
     }
 
     /**

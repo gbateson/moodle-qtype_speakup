@@ -79,4 +79,32 @@ class qtype_speakup_generator extends component_generator_base {
             'filename' => basename($filepath),
         ], $CFG->dirroot . '/' . $filepath);
     }
+
+    /**
+     * Create a preset. Fields that are settings of a question, e.g.
+     * "timelimitinseconds", go in its settings.
+     *
+     * @param array $data with "name" and "shortname", and optionally
+     *      "contextid" (default: the system context), "userid" (default:
+     *      the main admin), "description", "sortorder", and settings.
+     * @return \qtype_speakup\preset
+     */
+    public function create_preset(array $data): \qtype_speakup\preset {
+        $preset = new \qtype_speakup\preset();
+        $preset->contextid = (int) ($data['contextid'] ?? SYSCONTEXTID);
+        $preset->userid = (int) ($data['userid'] ?? get_admin()->id);
+        $preset->name = $data['name'];
+        $preset->shortname = $data['shortname'];
+        $preset->description = $data['description'] ?? '';
+        $preset->sortorder = (int) ($data['sortorder'] ?? 0);
+        foreach (\qtype_speakup\preset::get_setting_fields() as $field) {
+            if (array_key_exists($field, $data)) {
+                $preset->settings[$field] = $data[$field];
+            }
+        }
+        $preset->items = $data['items'] ?? [];
+        $preset->phrases = $data['phrases'] ?? [];
+        $preset->save();
+        return $preset;
+    }
 }

@@ -534,6 +534,15 @@ class qtype_speakup_edit_form extends question_edit_form {
         foreach (['presetname', 'presetshortname', 'presetdescription', 'presetcontextid', 'presetreplace'] as $name) {
             $mform->hideIf($name, 'savepreset', 'notchecked');
         }
+
+        // A link to the page that manages presets, in a new tab, so that
+        // what is typed on this form is kept.
+        $link = html_writer::link(
+            \qtype_speakup\local\presets_page::get_url($this->context),
+            get_string('managepresets', $plugin),
+            ['target' => '_blank']
+        );
+        $mform->addElement('static', 'managepresets', '', $link);
     }
 
     /**

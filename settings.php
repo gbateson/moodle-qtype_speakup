@@ -24,7 +24,27 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// The site's presets: settings that new questions can start from.
+$ADMIN->add($parentnodename, new admin_externalpage(
+    \qtype_speakup\local\presets_page::ADMIN_PAGE,
+    get_string('presets', 'qtype_speakup'),
+    new moodle_url('/question/type/speakup/presets.php'),
+    'qtype/speakup:sharepresets'
+));
+
 if ($hassiteconfig) {
+    // Presets are managed on their own page.
+    $settings->add(new admin_setting_heading(
+        'qtype_speakup/presetsheading',
+        get_string('presets', 'qtype_speakup'),
+        get_string('presetsheading_desc', 'qtype_speakup') . '<br /><br />' .
+            html_writer::link(
+                new moodle_url('/question/type/speakup/presets.php'),
+                get_string('managepresets', 'qtype_speakup'),
+                ['class' => 'btn btn-secondary']
+            )
+    ));
+
     // AI providers are set up in the AI bridge (tool_aibridge).
     $manageurl = new moodle_url('/admin/tool/aibridge/index.php');
     $settings->add(new admin_setting_heading(

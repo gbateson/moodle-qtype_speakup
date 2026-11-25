@@ -22,7 +22,8 @@ use Behat\Mink\Exception\ExpectationException;
 
 /**
  * Steps for SpeakUp questions: playing the audio prompt, and checking the
- * recorder.
+ * recorder. Also the page of presets for a course, e.g.
+ * I am on the "C1" "qtype_speakup > presets" page.
  *
  * Recording needs a microphone. For Firefox, the Behat profile in
  * config.php can give it a fake one (see Readme.md).
@@ -37,6 +38,29 @@ class behat_qtype_speakup extends behat_base {
 
     /** @var string CSS selector for the response recorder. */
     const RECORDER = '.que.speakup .qtype_speakup-audio-widget, .que.speakup .qtype_speakup-video-widget';
+
+    /**
+     * Get the URL of a page for a course, e.g. the presets that can be used
+     * in its question bank. The identifier is the course's short name, or
+     * "System" for the site's presets.
+     *
+     * @param string $type e.g. "presets"
+     * @param string $identifier
+     * @return moodle_url
+     */
+    protected function resolve_page_instance_url(string $type, string $identifier): moodle_url {
+        switch (strtolower($type)) {
+            case 'presets':
+                if (strtolower($identifier) === 'system') {
+                    $context = context_system::instance();
+                } else {
+                    $context = context_course::instance($this->get_course_id($identifier));
+                }
+                return \qtype_speakup\local\presets_page::get_url($context);
+            default:
+                throw new Exception('Unknown page type "' . $type . '" for qtype_speakup.');
+        }
+    }
 
     /**
      * Play the audio prompt, and wait until it finishes, or is stopped
