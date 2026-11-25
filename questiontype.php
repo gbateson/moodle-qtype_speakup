@@ -1087,33 +1087,13 @@ class qtype_speakup extends question_type {
             return;
         }
 
-        $fields = $this->extra_question_fields();
-        array_shift($fields); // Omit the table name.
-        $given = $question->giftsettings ?? [];
-        foreach ($fields as $field) {
-            if ($field !== 'prompttranscript' && !in_array($field, $given) && property_exists($options, $field)) {
-                $question->$field = $options->$field;
-            }
-        }
-
-        if (empty($question->itemtype)) {
-            foreach ($DB->get_records('qtype_speakup_items', ['questionid' => $archetype->id], 'id ASC') as $item) {
-                $question->itemtype[] = $item->itemtype;
-                $question->itemtarget[] = $item->itemtarget;
-                $question->itempercent[] = $item->percent;
-                $question->itemmultiplier[] = $item->multiplier;
-            }
-        }
-        if (empty($question->phrasematch)) {
-            foreach ($DB->get_records('qtype_speakup_phrases', ['questionid' => $archetype->id], 'id ASC') as $phrase) {
-                $question->phrasematch[] = $phrase->phrasetext;
-                $question->phraselabel[] = (string) $phrase->phraselabel;
-                $question->phrasepercent[] = $phrase->percent;
-                $question->phrasedivisor[] = $phrase->divisor;
-                $question->phrasefullmatch[] = $phrase->fullmatch;
-                $question->phrasecasesensitive[] = $phrase->casesensitive;
-            }
-        }
+        \qtype_speakup\preset::apply_base(
+            $question,
+            $options,
+            $DB->get_records('qtype_speakup_items', ['questionid' => $archetype->id], 'id ASC'),
+            $DB->get_records('qtype_speakup_phrases', ['questionid' => $archetype->id], 'id ASC'),
+            $question->giftsettings ?? []
+        );
     }
 
     /**
