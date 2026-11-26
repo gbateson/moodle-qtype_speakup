@@ -144,9 +144,9 @@ final class walkthrough_test extends \qbehaviour_walkthrough_test_base {
         $this->setAdminUser();
         $question = test_question_maker::make_question('speakup', 'basic');
         $question->targetitems = [
-            (object) ['id' => 1, 'itemtype' => 'words', 'itemtarget' => 3, 'percent' => 10, 'multiplier' => 1],
-            (object) ['id' => 2, 'itemtype' => 'words', 'itemtarget' => 10, 'percent' => 14, 'multiplier' => 1],
-            (object) ['id' => 3, 'itemtype' => 'lexicaldensity', 'itemtarget' => 50, 'percent' => 5, 'multiplier' => 1],
+            (object) ['id' => 1, 'itemtype' => 'words', 'itemtarget' => 3, 'percent' => 10, 'divisor' => 1],
+            (object) ['id' => 2, 'itemtype' => 'words', 'itemtarget' => 10, 'percent' => 14, 'divisor' => 1],
+            (object) ['id' => 3, 'itemtype' => 'lexicaldensity', 'itemtarget' => 50, 'percent' => 5, 'divisor' => 1],
         ];
         $this->start_attempt_at_question($question, 'deferredfeedback', 1);
         $this->process_submission(['recording' => $this->make_recording(),

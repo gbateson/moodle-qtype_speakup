@@ -236,8 +236,8 @@ class qtype_speakup extends question_type {
         }
 
         // Save one row per target item: "Target for [itemtype] is
-        // [itemtarget]. Award up to [itempercent] [multiplied by
-        // itemmultiplier] of the question grade". Rows with no percent or
+        // [itemtarget]. Award up to [itempercent] [divided by
+        // itemdivisor] of the question grade". Rows with no percent or
         // no target are skipped.
         $DB->delete_records('qtype_speakup_items', ['questionid' => $question->id]);
 
@@ -253,7 +253,7 @@ class qtype_speakup extends question_type {
                 $record->itemtype = $itemtype;
                 $record->itemtarget = $itemtarget;
                 $record->percent = $percent;
-                $record->multiplier = min(10, max(1, (int) ($question->itemmultiplier[$key] ?? 1)));
+                $record->divisor = min(20, max(1, (int) ($question->itemdivisor[$key] ?? 1)));
                 $DB->insert_record('qtype_speakup_items', $record);
             }
         }
@@ -355,7 +355,7 @@ class qtype_speakup extends question_type {
 
         foreach ($question->options->targetitems ?? [] as $item) {
             $output .= "    <targetitem>\n";
-            foreach (['itemtype', 'itemtarget', 'percent', 'multiplier'] as $field) {
+            foreach (['itemtype', 'itemtarget', 'percent', 'divisor'] as $field) {
                 $output .= "      <{$field}>" . $format->xml_escape((string) $item->$field) . "</{$field}>\n";
             }
             $output .= "    </targetitem>\n";
@@ -446,12 +446,19 @@ class qtype_speakup extends question_type {
         $qo->itemtype = [];
         $qo->itemtarget = [];
         $qo->itempercent = [];
-        $qo->itemmultiplier = [];
+        $qo->itemdivisor = [];
         foreach ($format->getpath($data, ['#', 'targetitem'], []) as $item) {
             $qo->itemtype[] = $format->getpath($item, ['#', 'itemtype', 0, '#'], '');
             $qo->itemtarget[] = $format->getpath($item, ['#', 'itemtarget', 0, '#'], 0);
-            $qo->itempercent[] = $format->getpath($item, ['#', 'percent', 0, '#'], 0);
-            $qo->itemmultiplier[] = $format->getpath($item, ['#', 'multiplier', 0, '#'], 1);
+            $percent = $format->getpath($item, ['#', 'percent', 0, '#'], 0);
+            $divisor = $format->getpath($item, ['#', 'divisor', 0, '#'], 1);
+            if ($multiplier = $format->getpath($item, ['#', 'multiplier', 0, '#'], '')) {
+                // A file from before items had a divisor.
+                $converted = \qtype_speakup\preset::convert_item_multiplier(['percent' => $percent, 'multiplier' => $multiplier]);
+                [$percent, $divisor] = [$converted->percent, $converted->divisor];
+            }
+            $qo->itempercent[] = $percent;
+            $qo->itemdivisor[] = $divisor;
         }
 
         $qo->phrasematch = [];
@@ -708,7 +715,7 @@ class qtype_speakup extends question_type {
 
         foreach ($o->targetitems ?? [] as $item) {
             $lines[] = 'TARGETITEM=(' . self::gift_escape($item->itemtype) . ', ' . (float) $item->itemtarget . ', ' .
-                    (int) $item->percent . '%, x' . (int) $item->multiplier . ')';
+                    (int) $item->percent . '%, /' . (int) $item->divisor . ')';
         }
         foreach ($o->phrases ?? [] as $phrase) {
             $text = str_replace(['\\', '"'], ['\\\\', '\\"'], $phrase->phrasetext);
@@ -801,7 +808,7 @@ class qtype_speakup extends question_type {
         $question->itemtype = [];
         $question->itemtarget = [];
         $question->itempercent = [];
-        $question->itemmultiplier = [];
+        $question->itemdivisor = [];
         $question->phrasematch = [];
         $question->phraselabel = [];
         $question->phrasepercent = [];
@@ -1032,8 +1039,9 @@ class qtype_speakup extends question_type {
                 return $unknown ? get_string('giftbadparts', $plugin, implode(', ', $unknown)) : null;
 
             case 'targetitem':
-                // One or more "(itemtype, target, percent%, xmultiplier)".
-                $pattern = '/\(\s*([a-z]+)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+)\s*%?)?\s*(?:,\s*[x*]?\s*(\d+))?\s*\)/i';
+                // One or more "(itemtype, target, percent%, /divisor)". Files
+                // from before items had a divisor have "xmultiplier" instead.
+                $pattern = '/\(\s*([a-z]+)\s*,\s*(\d+(?:\.\d+)?)\s*(?:,\s*(\d+)\s*%?)?\s*(?:,\s*([x*\/]?)\s*(\d+))?\s*\)/i';
                 if (!preg_match_all($pattern, $value, $matches, PREG_SET_ORDER)) {
                     return get_string('giftexpecttargetitem', $plugin);
                 }
@@ -1046,8 +1054,14 @@ class qtype_speakup extends question_type {
                     }
                     $question->itemtype[] = $itemtype;
                     $question->itemtarget[] = $match[2];
-                    $question->itempercent[] = ($match[3] ?? '') === '' ? 100 : (int) $match[3];
-                    $question->itemmultiplier[] = ($match[4] ?? '') === '' ? 1 : (int) $match[4];
+                    $percent = ($match[3] ?? '') === '' ? 100 : (int) $match[3];
+                    $divisor = ($match[5] ?? '') === '' ? 1 : (int) $match[5];
+                    if (in_array(strtolower($match[4] ?? ''), ['x', '*'])) {
+                        $item = \qtype_speakup\preset::convert_item_multiplier(['percent' => $percent, 'multiplier' => $divisor]);
+                        [$percent, $divisor] = [$item->percent, $item->divisor];
+                    }
+                    $question->itempercent[] = $percent;
+                    $question->itemdivisor[] = $divisor;
                 }
                 return $errors ? get_string('giftbadparts', $plugin, implode(', ', $errors)) : null;
 

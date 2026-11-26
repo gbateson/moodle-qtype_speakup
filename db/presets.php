@@ -55,7 +55,7 @@ $presets = [
             'maxresponses' => 1,
         ],
         'items' => [
-            ['itemtype' => 'words', 'itemtarget' => 20, 'percent' => 100, 'multiplier' => 1],
+            ['itemtype' => 'words', 'itemtarget' => 20, 'percent' => 100, 'divisor' => 1],
         ],
     ],
     [
@@ -76,7 +76,7 @@ $presets = [
             'showstats' => 1,
         ],
         'items' => [
-            ['itemtype' => 'words', 'itemtarget' => 250, 'percent' => 30, 'multiplier' => 1],
+            ['itemtype' => 'words', 'itemtarget' => 250, 'percent' => 30, 'divisor' => 1],
         ],
     ],
     [
@@ -95,7 +95,7 @@ $presets = [
             'showstats' => 1,
         ],
         'items' => [
-            ['itemtype' => 'words', 'itemtarget' => 100, 'percent' => 20, 'multiplier' => 1],
+            ['itemtype' => 'words', 'itemtarget' => 100, 'percent' => 20, 'divisor' => 1],
         ],
     ],
 ];

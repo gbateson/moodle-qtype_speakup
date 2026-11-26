@@ -147,6 +147,8 @@ $string['detailsresponse'] = 'Your response';
 $string['detailsresult'] = 'Result';
 $string['detailsstatistic'] = 'Statistic';
 $string['detailsvalue'] = 'Value';
+$string['divisor1'] = 'exactly';
+$string['divisorn'] = 'divided by {$a}';
 $string['downloadrecording'] = 'Download {$a}';
 $string['durationtoolong'] = 'This recording is {$a->duration} seconds long. The time limit is {$a->limit} seconds.';
 $string['err_compatibility'] = 'While iOS/iPadOS devices can record video files in open formats, they cannot currently play them back. Until Apple fix this, you will have to use another device to view this video.';
@@ -183,7 +185,7 @@ $string['giftexpectlanguage'] = 'expected a language code, e.g. en-US';
 $string['giftexpectnumber'] = 'expected a whole number from {$a->min} to {$a->max}';
 $string['giftexpectoneof'] = 'expected one of: {$a}';
 $string['giftexpectpreset'] = 'expected the short name of a preset, e.g. instant-response';
-$string['giftexpecttargetitem'] = 'expected (itemtype, target, percent%, xmultiplier), e.g. (words, 50, 40%, x1)';
+$string['giftexpecttargetitem'] = 'expected (itemtype, target, percent%, /divisor), e.g. (words, 50, 40%, /1)';
 $string['giftexpecttargetphrase'] = 'expected ("phrase", percent%, /divisor, full|partial, case|nocase, "label"), e.g. ("I have played", 10%, /1, partial, nocase) or ("Then OR Next", 5%), where the label is optional';
 $string['giftexpectyesno'] = 'expected yes or no';
 $string['giftnearestvalue'] = 'not allowed, so {$a} was used';
@@ -232,7 +234,7 @@ $string['itemchars'] = 'Characters';
 $string['itemcharspersentence'] = 'Characters per sentence';
 $string['itemfogindex'] = 'Fog index';
 $string['itemgroup'] = 'Target item [{no}]';
-$string['itemgroup_help'] = 'The award for this item is the percent multiplied by the multiplier. It is given in full when the response reaches the target. Below the target, the award is in proportion to the value. For example, "Target for Words is 100. Award up to 20% exactly" awards 10% for 50 words, 15% for 75 words, and 20% for 100 words or more. "Multiplied by 2" would double each of these.
+$string['itemgroup_help'] = 'The award for this item is the percent divided by the divisor. It is given in full when the response reaches the target. Below the target, the award is in proportion to the value. For example, "Target for Words is 100. Award up to 20% exactly" awards 10% for 50 words, 15% for 75 words, and 20% for 100 words or more. "Divided by 2" would halve each of these. "Divided by" makes awards that are not whole numbers, e.g. 100% divided by 3 is 33.33%.
 
 Several targets for the same item work as grade bands, as in the Essay (auto-grade) question type. Each band runs from the previous target (or 0) to its own target, and awards its percent in proportion to how much of that range the response covers. For example, with "Target for Words is 100. Award up to 15%" and "Target for Words is 130. Award up to 5%":
 
@@ -244,8 +246,6 @@ The awards of all the target items add up, together with the target phrases and 
 $string['itemlexicaldensity'] = 'Lexical density (%)';
 $string['itemlongwords'] = 'Long words';
 $string['itemlongwordspersentence'] = 'Long words per sentence';
-$string['itemmultiplier1'] = 'exactly';
-$string['itemmultipliern'] = 'multiplied by {$a}';
 $string['itemparagraphs'] = 'Paragraphs';
 $string['itemscore'] = '{$a->item}: {$a->value} ({$a->percent}% of the question grade).';
 $string['itemsentences'] = 'Sentences';
@@ -317,8 +317,6 @@ $string['pagex'] = 'Page {$a}';
 $string['pause'] = 'Pause';
 $string['phrasecasesensitive0'] = 'Match is case-insensitive.';
 $string['phrasecasesensitive1'] = 'Match is case-sensitive.';
-$string['phrasedivisor1'] = 'exactly';
-$string['phrasedivisorn'] = 'divided by {$a}';
 $string['phrasefullmatch0'] = 'Match full or partial words.';
 $string['phrasefullmatch1'] = 'Match full words only.';
 $string['phrasegroup'] = 'Target phrase [{no}]';

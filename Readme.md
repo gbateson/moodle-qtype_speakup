@@ -254,10 +254,13 @@ that are left out get their usual defaults.
   of handwriting) can have `MAXFILES=1` to `5`, and leave out the settings
   for recordings, such as `TIMELIMIT`. Video responses can have
   `AIAUDIOONLY=yes` (or `AUDIOONLY=yes`), to send only the sound to the AI.
-- `TARGETITEM` is `(itemtype, target, percent%, xmultiplier)`. Several
-  targets for the same item type are grade bands, as in Essay
-  (auto-grade): e.g. `(words, 100, 15%)(words, 130, 5%)` awards 15% for
-  the first 100 words, and 5% for the next 30, in proportion.
+- `TARGETITEM` is `(itemtype, target, percent%, /divisor)`, e.g.
+  `(words, 50, 100%, /3)` awards up to 33.33%. Several targets for the
+  same item type are grade bands, as in Essay (auto-grade): e.g.
+  `(words, 100, 15%)(words, 130, 5%)` awards 15% for the first 100
+  words, and 5% for the next 30, in proportion. Files from before items
+  had a divisor have a multiplier instead, e.g. `x2`: it is put into the
+  percent, up to 100%.
 - `TARGETPHRASE` is `("phrase", percent%, /divisor, full|partial,
   case|nocase, "label")`. The label is optional: students see it in place
   of the phrase, e.g. when the phrase is a regular expression. Repeat the

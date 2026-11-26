@@ -103,8 +103,8 @@ Feature: Test editing a SpeakUp question
     And I should see "Up to 140%" in the "#id_phrasesheader" "css_element"
     And I set the field "id_phrasematch_1" to ""
     And I should see "Up to 110%" in the "#id_phrasesheader" "css_element"
-    And I set the field "id_itemmultiplier_0" to "multiplied by 2"
-    And I should see "Up to 60%" in the "#id_itemsheader" "css_element"
+    And I set the field "id_itemdivisor_0" to "divided by 3"
+    And I should see "Up to 10%" in the "#id_itemsheader" "css_element"
 
   @javascript
   Scenario: Phrase and label boxes grow to fit their text, within the window

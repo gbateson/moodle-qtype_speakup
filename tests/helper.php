@@ -131,7 +131,7 @@ class qtype_speakup_test_helper extends question_test_helper {
      * The target items of each test question.
      *
      * @param string $which
-     * @return array of [itemtype, itemtarget, percent, multiplier]
+     * @return array of [itemtype, itemtarget, percent, divisor]
      */
     protected static function get_items(string $which): array {
         if ($which === 'manual') {
@@ -166,9 +166,9 @@ class qtype_speakup_test_helper extends question_test_helper {
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }
         $q->targetitems = [];
-        foreach (self::get_items($which) as $i => [$type, $count, $percent, $multiplier]) {
+        foreach (self::get_items($which) as $i => [$type, $count, $percent, $divisor]) {
             $q->targetitems[] = (object) ['id' => $i + 1, 'itemtype' => $type, 'itemtarget' => $count,
-                    'percent' => $percent, 'multiplier' => $multiplier];
+                    'percent' => $percent, 'divisor' => $divisor];
         }
         return $q;
     }
@@ -234,11 +234,11 @@ class qtype_speakup_test_helper extends question_test_helper {
             $form->phrasefullmatch[] = $full;
             $form->phrasecasesensitive[] = $case;
         }
-        foreach (self::get_items($which) as [$type, $count, $percent, $multiplier]) {
+        foreach (self::get_items($which) as [$type, $count, $percent, $divisor]) {
             $form->itemtype[] = $type;
             $form->itemtarget[] = $count;
             $form->itempercent[] = $percent;
-            $form->itemmultiplier[] = $multiplier;
+            $form->itemdivisor[] = $divisor;
         }
         return $form;
     }
@@ -300,9 +300,9 @@ class qtype_speakup_test_helper extends question_test_helper {
                     'divisor' => $divisor, 'fullmatch' => $full, 'casesensitive' => $case];
         }
         $qdata->options->targetitems = [];
-        foreach (self::get_items($which) as $i => [$type, $count, $percent, $multiplier]) {
+        foreach (self::get_items($which) as $i => [$type, $count, $percent, $divisor]) {
             $qdata->options->targetitems[] = (object) ['id' => $i + 1, 'itemtype' => $type,
-                    'itemtarget' => $count, 'percent' => $percent, 'multiplier' => $multiplier];
+                    'itemtarget' => $count, 'percent' => $percent, 'divisor' => $divisor];
         }
         return $qdata;
     }

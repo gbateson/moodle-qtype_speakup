@@ -79,7 +79,7 @@ class preset {
     public $timemodified = 0;
 
     /** The fields of a target item that a preset keeps. */
-    const ITEM_FIELDS = ['itemtype', 'itemtarget', 'percent', 'multiplier'];
+    const ITEM_FIELDS = ['itemtype', 'itemtarget', 'percent', 'divisor'];
 
     /** The fields of a target phrase that a preset keeps. */
     const PHRASE_FIELDS = ['phrasetext', 'phraselabel', 'percent', 'divisor', 'fullmatch', 'casesensitive'];
@@ -624,6 +624,65 @@ class preset {
     }
 
     /**
+     * Convert a target item from before items had a divisor, when they had a
+     * multiplier instead ("Award up to [percent] [multiplied by n]"). The
+     * multiplier goes into the percent, up to 100%, and the divisor is 1.
+     * Items that have no multiplier are returned as they are.
+     *
+     * @param array|stdClass $item a target item, e.g. from a backup, an XML
+     *     file or a preset.
+     * @return stdClass
+     */
+    public static function convert_item_multiplier($item): stdClass {
+        $item = (object) $item;
+        if (property_exists($item, 'multiplier')) {
+            $multiplier = max(1, (int) $item->multiplier);
+            $item->percent = min(100, max(0, (int) $item->percent) * $multiplier);
+            $item->divisor = 1;
+            unset($item->multiplier);
+        }
+        return $item;
+    }
+
+    /**
+     * Convert the target items of questions and presets that still have a
+     * multiplier (see convert_item_multiplier()).
+     *
+     * For questions, this must be done before the "multiplier" field of
+     * qtype_speakup_items is renamed to "divisor". It does nothing once
+     * that field has gone.
+     */
+    public static function convert_multipliers(): void {
+        global $DB;
+        $dbman = $DB->get_manager();
+
+        $table = new \xmldb_table('qtype_speakup_items');
+        $field = new \xmldb_field('multiplier');
+        if ($dbman->table_exists($table) && $dbman->field_exists($table, $field)) {
+            $records = $DB->get_recordset_select('qtype_speakup_items', 'multiplier > 1', null, '', 'id, percent, multiplier');
+            foreach ($records as $record) {
+                $item = self::convert_item_multiplier($record);
+                $record = (object) ['id' => $item->id, 'percent' => $item->percent, 'multiplier' => 1];
+                $DB->update_record('qtype_speakup_items', $record);
+            }
+            $records->close();
+        }
+
+        if ($dbman->table_exists(self::TABLE)) {
+            $records = $DB->get_recordset(self::TABLE, null, '', 'id, items');
+            foreach ($records as $record) {
+                $items = (array) json_decode((string) $record->items, true);
+                if (!array_filter($items, fn($item) => array_key_exists('multiplier', (array) $item))) {
+                    continue;
+                }
+                $items = array_map(fn($item) => self::pick(self::convert_item_multiplier($item), self::ITEM_FIELDS), $items);
+                $DB->set_field(self::TABLE, 'items', json_encode(array_values($items)), ['id' => $record->id]);
+            }
+            $records->close();
+        }
+    }
+
+    /**
      * Delete or keep the presets of a user who is being deleted: their own
      * presets (in their user context) are deleted; those they shared are
      * kept, without an owner.
@@ -714,7 +773,7 @@ class preset {
      * @param stdClass $question the question being saved, as from the edit form.
      * @param array|stdClass $settings the base's settings: field name => value.
      * @param array $items the base's target items, each with the fields of
-     *     qtype_speakup_items (itemtype, itemtarget, percent, multiplier).
+     *     qtype_speakup_items (itemtype, itemtarget, percent, divisor).
      * @param array $phrases the base's target phrases, each with the fields of
      *     qtype_speakup_phrases (phrasetext, phraselabel, percent, divisor,
      *     fullmatch, casesensitive).
@@ -739,8 +798,9 @@ class preset {
                 $item = (object) $item;
                 $question->itemtype[] = $item->itemtype;
                 $question->itemtarget[] = $item->itemtarget;
+                $item = self::convert_item_multiplier($item);
                 $question->itempercent[] = $item->percent;
-                $question->itemmultiplier[] = $item->multiplier;
+                $question->itemdivisor[] = $item->divisor ?? 1;
             }
         }
         if (empty($question->phrasematch)) {

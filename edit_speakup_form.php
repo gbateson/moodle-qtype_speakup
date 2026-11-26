@@ -198,7 +198,7 @@ class qtype_speakup_edit_form extends question_edit_form {
         $percentmenu = $this->get_percent_menu();
 
         // Target items, shown only for automated grading: "Target for
-        // [item] is [count]. Award up to [percent] [multiplied by n] of the
+        // [item] is [count]. Award up to [percent] [divided by n] of the
         // question grade", e.g. for words, unique words or speech rate.
         $name = 'itemsheader';
         $mform->addElement('header', $name, get_string($name, $plugin));
@@ -209,12 +209,9 @@ class qtype_speakup_edit_form extends question_edit_form {
         foreach (\qtype_speakup\text_stats::get_item_types() as $type) {
             $itemmenu[$type] = get_string('item' . $type, $plugin);
         }
-        $multipliermenu = [];
-        for ($i = 1; $i <= 10; $i++) {
-            $multipliermenu[$i] = ($i == 1) ? get_string('itemmultiplier1', $plugin) : get_string('itemmultipliern', $plugin, $i);
-        }
+        $divisormenu = $this->get_divisor_menu();
         // Two rows per item, as for target phrases: "Target for [item] is
-        // [count]." and "Award up to [percent] [multiplied by n] of the
+        // [count]." and "Award up to [percent] [divided by n] of the
         // question grade." The second row's label is hidden on medium and
         // larger screens (see styles.css).
         $elements = [
@@ -228,7 +225,7 @@ class qtype_speakup_edit_form extends question_edit_form {
             $mform->createElement('group', 'itemaward', get_string('itemaward', $plugin), [
                 $mform->createElement('static', '', '', get_string('itemtext4', $plugin)),
                 $mform->createElement('select', 'itempercent', '', $percentmenu),
-                $mform->createElement('select', 'itemmultiplier', '', $multipliermenu),
+                $mform->createElement('select', 'itemdivisor', '', $divisormenu),
                 $mform->createElement('static', '', '', get_string('itemtext5', $plugin)),
             ], ' ', false),
         ];
@@ -240,13 +237,13 @@ class qtype_speakup_edit_form extends question_edit_form {
             'itemtype' => ['type' => PARAM_ALPHA],
             'itemtarget' => ['type' => PARAM_RAW_TRIMMED],
             'itempercent' => ['type' => PARAM_INT],
-            'itemmultiplier' => ['type' => PARAM_INT],
+            'itemdivisor' => ['type' => PARAM_INT],
         ];
         $saved = count($this->question->options->targetitems ?? []);
         $defaults = [
             'itemtype' => \qtype_speakup\text_stats::get_default_item_type($lang),
             'itempercent' => 0,
-            'itemmultiplier' => 1,
+            'itemdivisor' => 1,
         ];
         $repeatno = $this->add_repeat_rows($mform, 'item', $elements, $options, $saved, $defaults);
         for ($i = 0; $i < $repeatno; $i++) {
@@ -267,10 +264,6 @@ class qtype_speakup_edit_form extends question_edit_form {
         // hideIf() or by adding a CSS class. Instead, a separate CSS rule is
         // added to styles.css for each header that must be hidden when empty.
 
-        $divisormenu = [];
-        for ($i = 1; $i <= 20; $i++) {
-            $divisormenu[$i] = ($i == 1) ? get_string('phrasedivisor1', $plugin) : get_string('phrasedivisorn', $plugin, $i);
-        }
         $fullmatchmenu = [
             0 => get_string('phrasefullmatch0', $plugin),
             1 => get_string('phrasefullmatch1', $plugin),
@@ -766,6 +759,20 @@ class qtype_speakup_edit_form extends question_edit_form {
     }
 
     /**
+     * Get a menu of divisors for target items and phrases: "exactly",
+     * "divided by 2" ... "divided by 20".
+     *
+     * @return array divisor => label
+     */
+    protected function get_divisor_menu(): array {
+        $menu = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $menu[$i] = ($i == 1) ? get_string('divisor1', 'qtype_speakup') : get_string('divisorn', 'qtype_speakup', $i);
+        }
+        return $menu;
+    }
+
+    /**
      * Add repeated rows (e.g. target phrases), with an "Add [n more]"
      * button and menu, as in qtype_essayautograde.
      *
@@ -901,12 +908,12 @@ class qtype_speakup_edit_form extends question_edit_form {
         $question->itemtype = [];
         $question->itemtarget = [];
         $question->itempercent = [];
-        $question->itemmultiplier = [];
+        $question->itemdivisor = [];
         foreach ($question->options->targetitems ?? [] as $row) {
             $question->itemtype[] = $row->itemtype;
             $question->itemtarget[] = format_float((float) $row->itemtarget, 2, false, true);
             $question->itempercent[] = (int) $row->percent;
-            $question->itemmultiplier[] = (int) $row->multiplier;
+            $question->itemdivisor[] = (int) $row->divisor;
         }
 
         return $question;

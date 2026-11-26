@@ -108,7 +108,8 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
     public function process_speakup_item($data) {
         global $DB;
         if ($this->is_question_created()) {
-            $data = (object) $data;
+            // Backups from before target items had a divisor have a multiplier.
+            $data = \qtype_speakup\preset::convert_item_multiplier($data);
             $data->questionid = $this->get_new_parentid('question');
             unset($data->id);
             $DB->insert_record('qtype_speakup_items', $data);
@@ -151,7 +152,8 @@ class restore_qtype_speakup_plugin extends restore_qtype_plugin {
             $plugindata['phrases']['phrase'] ?? []
         );
         $questiondata->options->targetitems = array_map(
-            fn($item) => (object) $item,
+            // As strings, as the database returns them.
+            fn($item) => (object) array_map('strval', (array) \qtype_speakup\preset::convert_item_multiplier($item)),
             $plugindata['items']['item'] ?? []
         );
         return $questiondata;

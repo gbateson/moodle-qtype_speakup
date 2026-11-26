@@ -43,7 +43,7 @@ final class preset_test extends \advanced_testcase {
 
     /** @var array the target items of a base. */
     const ITEMS = [
-        ['itemtype' => 'words', 'itemtarget' => 100, 'percent' => 50, 'multiplier' => 1],
+        ['itemtype' => 'words', 'itemtarget' => 100, 'percent' => 50, 'divisor' => 1],
     ];
 
     /** @var array the target phrases of a base. */
@@ -76,7 +76,7 @@ final class preset_test extends \advanced_testcase {
         $this->assertSame(['words'], $question->itemtype);
         $this->assertSame([100], $question->itemtarget);
         $this->assertSame([50], $question->itempercent);
-        $this->assertSame([1], $question->itemmultiplier);
+        $this->assertSame([1], $question->itemdivisor);
 
         $this->assertSame(['First AND Then'], $question->phrasematch);
         $this->assertSame([''], $question->phraselabel);
@@ -321,6 +321,30 @@ final class preset_test extends \advanced_testcase {
         $this->assertSame(['autorecord' => 0, 'responsepause' => 1], preset::get($old->id)->settings);
         // A setting that already has its new name keeps its value.
         $this->assertSame(['responsepause' => 0], preset::get($both->id)->settings);
+    }
+
+    public function test_convert_item_multiplier(): void {
+        // The multiplier goes into the percent, up to 100%.
+        $item = preset::convert_item_multiplier(['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 30, 'multiplier' => 2]);
+        $this->assertEquals((object) ['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 60, 'divisor' => 1], $item);
+        $this->assertSame(100, preset::convert_item_multiplier(['percent' => 40, 'multiplier' => 3])->percent);
+        // An item with a divisor is not changed.
+        $item = (object) ['percent' => 30, 'divisor' => 2];
+        $this->assertEquals($item, preset::convert_item_multiplier(clone $item));
+    }
+
+    public function test_convert_multipliers(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $preset = $this->make_preset(\context_system::instance(), 'old');
+        $items = [['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 25, 'multiplier' => 3]];
+        $DB->set_field(preset::TABLE, 'items', json_encode($items), ['id' => $preset->id]);
+
+        preset::convert_multipliers();
+        $this->assertEquals(
+            [['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 75, 'divisor' => 1]],
+            preset::get($preset->id)->items
+        );
     }
 
     public function test_delete_user(): void {

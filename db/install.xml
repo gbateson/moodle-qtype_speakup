@@ -100,9 +100,9 @@
         <FIELD NAME="itemtarget" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
             COMMENT="The target value. At or above it, the full award is given; below it, award x value / itemtarget."/>
         <FIELD NAME="percent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
-            COMMENT="Percent (0-100) of the question grade awarded at the target, before multiplying by multiplier."/>
-        <FIELD NAME="multiplier" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
-            COMMENT="The percent is multiplied by this (1-10), e.g. 20% multiplied by 2 = 40%."/>
+            COMMENT="Percent (0-100) of the question grade awarded at the target, before dividing by divisor."/>
+        <FIELD NAME="divisor" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false"
+            COMMENT="The percent is divided by this (1-20), e.g. 100% divided by 3 = 33.33%."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -149,7 +149,7 @@
         <FIELD NAME="settings" TYPE="text" NOTNULL="true" SEQUENCE="false"
             COMMENT="JSON: the fields of qtype_speakup_options, except prompttranscript. The AI provider is stored by name (aiprovider), not id."/>
         <FIELD NAME="items" TYPE="text" NOTNULL="false" SEQUENCE="false"
-            COMMENT="JSON: a list of target items (itemtype, itemtarget, percent, multiplier)."/>
+            COMMENT="JSON: a list of target items (itemtype, itemtarget, percent, divisor)."/>
         <FIELD NAME="phrases" TYPE="text" NOTNULL="false" SEQUENCE="false"
             COMMENT="JSON: a list of target phrases (phrasetext, phraselabel, percent, divisor, fullmatch, casesensitive)."/>
         <FIELD NAME="sortorder" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

@@ -149,7 +149,7 @@ class qtype_speakup_question extends question_graded_automatically {
 
     /**
      * @var stdClass[] target items, each with ->itemtype, ->itemtarget,
-     *      ->percent and ->multiplier.
+     *      ->percent and ->divisor.
      */
     public $targetitems = [];
 
@@ -361,7 +361,7 @@ class qtype_speakup_question extends question_graded_automatically {
      * Score a transcript against the target items.
      *
      * Each item reads "Target for [itemtype] is [itemtarget]. Award up to
-     * [percent] [multiplied by multiplier] of the question grade". The
+     * [percent] [divided by divisor] of the question grade". The
      * targets for the same item type are grade bands: see item_results().
      * The items' scores add up, capped at 100%.
      *
@@ -396,13 +396,13 @@ class qtype_speakup_question extends question_graded_automatically {
 
     /**
      * Get the share of the question grade (0..100) that a target item
-     * awards in full: its percent multiplied by its multiplier.
+     * awards in full: its percent divided by its divisor.
      *
      * @param stdClass $item a target item.
      * @return float
      */
     public static function item_award(stdClass $item): float {
-        return (float) ((int) $item->percent * max(1, (int) ($item->multiplier ?? 1)));
+        return (int) $item->percent / max(1, (int) ($item->divisor ?? 1));
     }
 
     /**
@@ -429,8 +429,8 @@ class qtype_speakup_question extends question_graded_automatically {
      *
      * The targets for the same item type are grade bands, as in
      * qtype_essayautograde. Each band runs from the previous target (or 0)
-     * to its own target, and awards its percent (multiplied by its
-     * multiplier) in proportion to how much of the band the response
+     * to its own target, and awards its percent (divided by its
+     * divisor) in proportion to how much of the band the response
      * covers. For example, with "Words: 100, 15%" and "Words: 130, 5%",
      * 83 words earn 15% x 83/100 = 12.45%, and 106 words earn 15% + 5% x
      * 6/30 = 16%.

@@ -131,7 +131,7 @@ final class questiontype_test extends \advanced_testcase {
             'itemtype' => ['words', 'chars', 'nosuchtype'],
             'itemtarget' => [10, 0, 5],
             'itempercent' => [20, 20, 20],
-            'itemmultiplier' => [1, 1, 1],
+            'itemdivisor' => [1, 1, 1],
         ]);
         $this->assertSame(['kept'], array_column($qdata->options->phrases, 'phrasetext'));
         $this->assertSame(['words'], array_column($qdata->options->targetitems, 'itemtype'));
@@ -223,7 +223,7 @@ final class questiontype_test extends \advanced_testcase {
         $gift = "::Weekend::Listen and answer.{AUDIO: What did you do last weekend?}\n\n" .
                 "::Hobby::Listen.{\nAUDIO(voice=Kore): Tell me about your hobby.\nIt can be anything.\n" .
                 "TIMELIMIT=2m\nLANG=en_GB\nPAUSE=yes\nPLAYS=2\nTRANSCRIPT=expanded\nAI=Gemini, 50%\n" .
-                "RUBRIC=One.\\nTwo\\: three \\{x\\}.\nITEMS=(words, 40, 30%, x2)(longwords, 5)\n" .
+                "RUBRIC=One.\\nTwo\\: three \\{x\\}.\nITEMS=(words, 40, 30%, x2)(longwords, 5, 50%, /2)\n" .
                 "PHRASE=(\"I like\", 20%, /2, full, case, \"Liking\")\nPHRASE=(\"because\")\n" .
                 "SHOW=calculation:teachers, comment:students\nSTATS=yes; words, uniquewords\n#### Well done!\n}\n\n" .
                 "::NoPrompt::Say something.{\nSPEAKUP\nGRADING=manual\n}\n\n" .
@@ -251,8 +251,9 @@ final class questiontype_test extends \advanced_testcase {
         $this->assertSame("One.\nTwo: three {x}.", $hobby->airubric);
         $this->assertSame(['words', 'longwords'], $hobby->itemtype);
         $this->assertEquals([40, 5], $hobby->itemtarget);
-        $this->assertEquals([30, 100], $hobby->itempercent);
-        $this->assertEquals([2, 1], $hobby->itemmultiplier);
+        // An item from before items had a divisor: 30% multiplied by 2 is 60%.
+        $this->assertEquals([60, 50], $hobby->itempercent);
+        $this->assertEquals([1, 2], $hobby->itemdivisor);
         $this->assertSame(['I like', 'because'], $hobby->phrasematch);
         $this->assertSame(['Liking', ''], $hobby->phraselabel);
         $this->assertEquals([20, 100], $hobby->phrasepercent);
@@ -472,7 +473,7 @@ MAXPROMPTPLAYS=1
 GRADING=auto
 AI=Gemini, 70%
 RUBRIC=Answer in \\{\\{timelimit\\}\\}.
-TARGETITEM=(words, 30, 30%, x1)
+TARGETITEM=(words, 30, 30%, /1)
 TARGETPHRASE=("because", 10%, /1, partial, nocase)
 }
 
@@ -485,7 +486,7 @@ ARCHETYPE=quickfire-archetype
 AUDIO: What did you do last weekend?
 ARCHETYPE=quickfire-archetype
 TIMELIMIT=45
-TARGETITEM=(words, 40, 20%, x1)
+TARGETITEM=(words, 40, 20%, /1)
 }
 
 ::Lost::Listen, then answer.{
@@ -552,7 +553,7 @@ ARCHETYPE=quickfire-archetype
             'contextid' => $coursecontext->id,
             'timelimitinseconds' => 25,
             'maxresponses' => 2,
-            'items' => [['itemtype' => 'words', 'itemtarget' => 15, 'percent' => 60, 'multiplier' => 1]],
+            'items' => [['itemtype' => 'words', 'itemtarget' => 15, 'percent' => 60, 'divisor' => 1]],
         ]);
         $this->setUser($teacher);
 

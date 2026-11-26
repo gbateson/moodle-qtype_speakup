@@ -108,7 +108,7 @@ const getRepeats = (form, name) => getNumber(form, name);
 
 /**
  * The most the target items can award, in percent: each item's percent
- * multiplied by its multiplier, for items with a target.
+ * divided by its divisor, for items with a target.
  *
  * @param {HTMLFormElement} form
  * @returns {number}
@@ -117,7 +117,7 @@ const getItemsTotal = (form) => {
     let total = 0;
     for (let i = 0; i < getRepeats(form, 'itemrepeats'); i++) {
         if (getNumber(form, 'itemtarget[' + i + ']') > 0) {
-            total += getNumber(form, 'itempercent[' + i + ']') * Math.max(1, getNumber(form, 'itemmultiplier[' + i + ']'));
+            total += getNumber(form, 'itempercent[' + i + ']') / Math.max(1, getNumber(form, 'itemdivisor[' + i + ']'));
         }
     }
     return total;

@@ -66,12 +66,18 @@ function xmldb_qtype_speakup_upgrade($oldversion) {
         'qtype_speakup_items' => [
             'itemcount' => 'itemtarget',
             'maxcount' => 'itemtarget',
+            'multiplier' => 'divisor',
         ],
         'qtype_speakup_phrases' => [
             'answertext' => 'phrasetext',
             'answerlabel' => 'phraselabel',
         ],
     ];
+
+    // Target items had a multiplier, which is now a divisor, as for target
+    // phrases. So, before the field is renamed, put the multipliers into
+    // the percents, of questions and presets.
+    \qtype_speakup\preset::convert_multipliers();
     xmldb_qtype_speakup_rename_fields($dbman, $renames);
 
     // SpeakUp's own AI providers have moved to the AI bridge (tool_aibridge).

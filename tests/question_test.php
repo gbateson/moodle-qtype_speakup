@@ -97,15 +97,16 @@ final class question_test extends \advanced_testcase {
     public function test_item_results(): void {
         // The basic question's item is: 20 words, up to 30%.
         $question = $this->make();
-        $question->targetitems[0]->multiplier = 2;
+        $question->targetitems[0]->divisor = 2;
         [$result] = $question->item_results('one two three four five', null);
         $this->assertSame('words', $result->itemtype);
         $this->assertEquals(5, $result->value);
         $this->assertEquals(20, $result->target);
         $this->assertEquals(0, $result->lower);
         $this->assertEquals(5, $result->progress);
-        $this->assertEqualsWithDelta(15, $result->percent, 0.0001);
-        $this->assertEqualsWithDelta(60, $result->maxpercent, 0.0001);
+        // 30% divided by 2 is 15%, and 5 words of 20 earn a quarter of it.
+        $this->assertEqualsWithDelta(3.75, $result->percent, 0.0001);
+        $this->assertEqualsWithDelta(15, $result->maxpercent, 0.0001);
     }
 
     /**
@@ -169,10 +170,13 @@ final class question_test extends \advanced_testcase {
      * Test the share of the grade that one item awards in full.
      */
     public function test_item_award(): void {
-        $item = (object) ['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 20, 'multiplier' => 2];
-        $this->assertEquals(40.0, \qtype_speakup_question::item_award($item));
-        $item->multiplier = 0;
-        $this->assertEquals(20.0, \qtype_speakup_question::item_award($item));
+        $item = (object) ['itemtype' => 'words', 'itemtarget' => 50, 'percent' => 20, 'divisor' => 2];
+        $this->assertEquals(10.0, \qtype_speakup_question::item_award($item));
+        $item->percent = 100;
+        $item->divisor = 3;
+        $this->assertEqualsWithDelta(33.33, \qtype_speakup_question::item_award($item), 0.01);
+        $item->divisor = 0;
+        $this->assertEquals(100.0, \qtype_speakup_question::item_award($item));
     }
 
     /**
@@ -202,9 +206,9 @@ final class question_test extends \advanced_testcase {
         $question = $this->make();
         // In any order: the bands are sorted by their targets.
         $question->targetitems = [
-            (object) ['itemtype' => 'words', 'itemtarget' => '130.00', 'percent' => 5, 'multiplier' => 1],
-            (object) ['itemtype' => 'speechrate', 'itemtarget' => '100.00', 'percent' => 10, 'multiplier' => 1],
-            (object) ['itemtype' => 'words', 'itemtarget' => '100.00', 'percent' => 15, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '130.00', 'percent' => 5, 'divisor' => 1],
+            (object) ['itemtype' => 'speechrate', 'itemtarget' => '100.00', 'percent' => 10, 'divisor' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '100.00', 'percent' => 15, 'divisor' => 1],
         ];
         $results = $question->item_results(trim(str_repeat('word ', $words)), 60.0);
         $this->assertSame(['words', 'words', 'speechrate'], array_column($results, 'itemtype'));
@@ -418,9 +422,9 @@ final class question_test extends \advanced_testcase {
         $question->maxresponses = 0;
         $question->sttlanguage = 'en-US';
         $question->targetitems = [
-            (object) ['itemtype' => 'words', 'itemtarget' => '30.00', 'percent' => 25, 'multiplier' => 1],
-            (object) ['itemtype' => 'words', 'itemtarget' => '45.00', 'percent' => 5, 'multiplier' => 1],
-            (object) ['itemtype' => 'lexicaldensity', 'itemtarget' => '42.5', 'percent' => 10, 'multiplier' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '30.00', 'percent' => 25, 'divisor' => 1],
+            (object) ['itemtype' => 'words', 'itemtarget' => '45.00', 'percent' => 5, 'divisor' => 1],
+            (object) ['itemtype' => 'lexicaldensity', 'itemtarget' => '42.5', 'percent' => 10, 'divisor' => 1],
         ];
         $values = $question->get_rubric_values();
         $this->assertSame('Favorite season', $values['questionname']);
