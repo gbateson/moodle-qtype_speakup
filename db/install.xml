@@ -126,6 +126,8 @@
             COMMENT="pending, done, failed, notapplicable"/>
         <FIELD NAME="aierror" TYPE="text" NOTNULL="false" SEQUENCE="false"
             COMMENT="Why the last try to assess the response failed, if it did. Shown to teachers."/>
+        <FIELD NAME="timenotified" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="When the student was told that the response had been assessed, or null if not yet."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>

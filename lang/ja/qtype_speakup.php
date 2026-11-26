@@ -90,7 +90,9 @@ $string['aisettings_help'] = '自動評定の一部として、AIで解答を評
 $string['aiweighting'] = 'AIの重み';
 $string['aiweighting_help'] = 'AI評価によって与えられる、問題評点の割合です。例えば、重みが50%の場合、AIのスコアが80であれば、評点に40%が加算されます。重みが0%の場合、AIのフィードバックは表示されますが、評点には影響しません。';
 $string['assessmentdonemessage'] = '小テスト「{$a->quiz}」の問題「{$a->question}」に対するあなたの解答が評価されました。受験を見直して、評点とフィードバックを確認してください: {$a->url}';
+$string['assessmentdonemessages'] = '小テスト「{$a->quiz}」の{$a->count}問に対するあなたの解答が評価されました。受験を見直して、評点とフィードバックを確認してください: {$a->url}';
 $string['assessmentdonesubject'] = 'あなたの解答が評価されました';
+$string['assessmentdonesubjects'] = 'あなたの解答が評価されました';
 $string['assessmentfailedmessage'] = '小テスト「{$a->quiz}」の問題「{$a->question}」に対する{$a->student}さんの解答は評価できなかったため、手動で評定する必要があります。
 
 理由: {$a->reason}

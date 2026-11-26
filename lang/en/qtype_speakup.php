@@ -90,7 +90,9 @@ $string['aisettings_help'] = 'Settings for assessing the response by AI, as part
 $string['aiweighting'] = 'AI weighting';
 $string['aiweighting_help'] = 'The percentage of the question grade given by the AI assessment. For example, with a weighting of 50%, an AI score of 80 adds 40% to the grade. With a weighting of 0%, the AI\'s feedback is shown, but it does not affect the grade.';
 $string['assessmentdonemessage'] = 'Your response to the question "{$a->question}" in the quiz "{$a->quiz}" has been assessed. Review your attempt to see your grade and feedback: {$a->url}';
+$string['assessmentdonemessages'] = 'Your responses to {$a->count} questions in the quiz "{$a->quiz}" have been assessed. Review your attempt to see your grades and feedback: {$a->url}';
 $string['assessmentdonesubject'] = 'Your response has been assessed';
+$string['assessmentdonesubjects'] = 'Your responses have been assessed';
 $string['assessmentfailedmessage'] = 'The response of {$a->student} to the question "{$a->question}" in the quiz "{$a->quiz}" could not be assessed, so it needs to be graded manually.
 
 Reason: {$a->reason}

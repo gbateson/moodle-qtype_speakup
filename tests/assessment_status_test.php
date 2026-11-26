@@ -65,6 +65,8 @@ final class assessment_status_test extends \advanced_testcase {
         $category = $questiongenerator->create_question_category(['contextid' => \context_course::instance($course->id)->id]);
         $question = $questiongenerator->create_question('speakup', 'basic', ['category' => $category->id, 'name' => 'Guitar']);
         \qtype_speakup_test_helper::add_to_quiz($question->id, $this->quiz);
+        $question = $questiongenerator->create_question('speakup', 'basic', ['category' => $category->id, 'name' => 'Piano']);
+        \qtype_speakup_test_helper::add_to_quiz($question->id, $this->quiz);
 
         $this->setUser($this->student);
         [$this->attempt, $this->quba] = \qtype_speakup_test_helper::start_quiz_attempt($this->quiz, $this->student);
@@ -89,10 +91,11 @@ final class assessment_status_test extends \advanced_testcase {
      * Save the result of the background assessment.
      *
      * @param string $status
+     * @param int $slot
      */
-    protected function set_status(string $status): void {
+    protected function set_status(string $status, int $slot = 1): void {
         global $DB;
-        $qaid = (int) $this->quba->get_question_attempt(1)->get_database_id();
+        $qaid = (int) $this->quba->get_question_attempt($slot)->get_database_id();
         $record = $DB->get_record('qtype_speakup_response', ['questionattemptid' => $qaid]);
         if ($record) {
             $DB->set_field('qtype_speakup_response', 'aistatus', $status, ['id' => $record->id]);
@@ -130,28 +133,74 @@ final class assessment_status_test extends \advanced_testcase {
     }
 
     /**
-     * The student is told that their response has been assessed, unless the
-     * quiz does not let them see the mark or the comment yet.
+     * The student is told once that their responses have been assessed,
+     * unless the quiz does not let them see the marks or the comments yet.
      */
     public function test_notify_done(): void {
         global $DB;
         $sink = $this->redirectMessages();
-        $qa = $this->quba->get_question_attempt(1);
+        $usageid = $this->quba->get_id();
 
-        $this->assertSame(1, assessment_notifier::notify_done($qa, $this->quba->get_id()));
+        $this->set_status('done');
+        $this->assertSame(1, assessment_notifier::notify_done($usageid));
         $messages = $sink->get_messages();
         $this->assertCount(1, $messages);
         $this->assertEquals($this->student->id, $messages[0]->useridto);
         $this->assertSame('assessmentdone', $messages[0]->eventtype);
+        $this->assertSame('Your response has been assessed', $messages[0]->subject);
         $this->assertStringContainsString('Guitar', $messages[0]->fullmessage);
         $this->assertStringContainsString('Speaking quiz', $messages[0]->fullmessage);
         $this->assertStringContainsString('/mod/quiz/review.php?attempt=' . $this->attempt->id, $messages[0]->contexturl);
 
-        // Marks and comments are not shown until the quiz closes.
+        // Not again for the same response.
         $sink->clear();
+        $this->assertSame(0, assessment_notifier::notify_done($usageid));
+        $this->assertCount(0, $sink->get_messages());
+
+        // Marks and comments are not shown until the quiz closes.
+        $DB->set_field('qtype_speakup_response', 'timenotified', null);
         $DB->update_record('quiz', (object) ['id' => $this->quiz->id, 'reviewmarks' => 0, 'reviewmaxmarks' => 0,
                 'reviewspecificfeedback' => 0]);
-        $this->assertSame(0, assessment_notifier::notify_done($qa, $this->quba->get_id()));
+        $this->assertSame(0, assessment_notifier::notify_done($usageid));
         $this->assertCount(0, $sink->get_messages());
+        // The response is not told about later, either.
+        $this->assertSame(0, $DB->count_records('qtype_speakup_response', ['timenotified' => null]));
+    }
+
+    /**
+     * The student is told once for the attempt, when the last of its
+     * responses has been assessed.
+     */
+    public function test_notify_done_attempt(): void {
+        global $DB;
+        $sink = $this->redirectMessages();
+        $usageid = $this->quba->get_id();
+        $contextid = \context_module::instance($this->quiz->cmid)->id;
+        \qtype_speakup\ai_queue::queue($usageid, 1, (int) $this->student->id, $contextid);
+        \qtype_speakup\ai_queue::queue($usageid, 2, (int) $this->student->id, $contextid);
+
+        // The second response is still waiting.
+        $this->set_status('done', 1);
+        $this->assertSame(0, assessment_notifier::notify_done($usageid));
+        $this->set_status('pending', 2);
+        $this->assertSame(0, assessment_notifier::notify_done($usageid));
+        $this->assertCount(0, $sink->get_messages());
+
+        // Both assessed: one message about both.
+        $this->set_status('done', 2);
+        $this->assertSame(1, assessment_notifier::notify_done($usageid));
+        $messages = $sink->get_messages();
+        $this->assertCount(1, $messages);
+        $this->assertSame('Your responses have been assessed', $messages[0]->subject);
+        $this->assertStringContainsString('2 questions', $messages[0]->fullmessage);
+
+        // A response that could not be assessed is not waiting, and is not told about.
+        $sink->clear();
+        $DB->set_field('qtype_speakup_response', 'timenotified', null);
+        $this->set_status('failed', 2);
+        $this->assertSame(1, assessment_notifier::notify_done($usageid));
+        $messages = $sink->get_messages();
+        $this->assertSame('Your response has been assessed', $messages[0]->subject);
+        $this->assertStringContainsString('Guitar', $messages[0]->fullmessage);
     }
 }

@@ -224,6 +224,7 @@ class assess_response extends \core\task\adhoc_task {
             $record->aiscore = $aifraction; // Stored as a 0..1 fraction, not a 0..100 percentage.
             $record->aistatus = 'done';
             $record->aierror = null;
+            $record->timenotified = null; // The student is told, with the attempt's other responses.
         } catch (\Throwable $e) {
             $reason = task_failure::describe($e);
             $record->aierror = $reason;
@@ -249,6 +250,11 @@ class assess_response extends \core\task\adhoc_task {
                     ' could not be assessed, so it needs to be graded manually: ' . $reason);
             $count = task_failure::notify_assessment_failed($qa, $usageid, $slot, (int) $data->userid, $reason);
             mtrace('qtype_speakup: ' . $count . ' teacher(s) were sent a message about this.');
+
+            // If this was the last response in the attempt to be assessed,
+            // tell the student about the others.
+            $count = \qtype_speakup\assessment_notifier::notify_done($usageid);
+            mtrace('qtype_speakup: ' . ($count ? 'the student was' : 'nobody was') . ' told about the other responses.');
             return;
         } finally {
             file_reducer::delete_ai_files((int) $data->contextid, (int) $qa->get_database_id());
@@ -293,9 +299,10 @@ class assess_response extends \core\task\adhoc_task {
                 $gradecalculator->recompute_all_attempt_sumgrades();
                 $gradecalculator->recompute_final_grade((int) $attemptrecord->userid);
 
-                // Tell the student that their grade and feedback are ready.
-                $count = \qtype_speakup\assessment_notifier::notify_done($qa, $usageid);
-                mtrace('qtype_speakup: ' . ($count ? 'the student was' : 'nobody was') . ' told that it was assessed.');
+                // Tell the student that their grades and feedback are ready,
+                // if this was the last response in the attempt to be assessed.
+                $count = \qtype_speakup\assessment_notifier::notify_done($usageid);
+                mtrace('qtype_speakup: ' . ($count ? 'the student was' : 'nobody was') . ' told that the attempt was assessed.');
             } else {
                 // Not actually a quiz attempt (shouldn't happen given this
                 // task is only ever queued from the quiz observer, but
