@@ -575,7 +575,7 @@ final class preset_test extends \advanced_testcase {
         $this->assertNull(preset::get($incourse->id));
         $this->assertNotNull(preset::get($incategory->id));
 
-        \core_course_category::get($category->id)->delete_full(false);
+        \core_course_category::get($category->id, MUST_EXIST, true)->delete_full(false);
         $this->assertNull(preset::get($incategory->id));
     }
 }
